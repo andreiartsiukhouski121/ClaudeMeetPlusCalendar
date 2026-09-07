@@ -1,0 +1,65 @@
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.label {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.input {
+  padding: 10px 12px;
+  border: 1px solid rgb(23 23 23 / 25%);
+  border-radius: 8px;
+  color: inherit;
+  font: inherit;
+  background: var(--background);
+}
+
+.input:focus-visible {
+  outline: 2px solid #5b21b6;
+  outline-offset: 1px;
+}
+
+/* Ошибка входа: контейнер несёт role="alert", поэтому её видит и скринридер, и getByRole. */
+.error {
+  padding: 10px 12px;
+  border: 1px solid rgb(185 28 28 / 40%);
+  border-radius: 8px;
+  color: #b91c1c;
+  font-size: 14px;
+  background: rgb(185 28 28 / 8%);
+}
+
+.submit {
+  padding: 10px 16px;
+  border: 0;
+  border-radius: 8px;
+  color: #fff;
+  font: inherit;
+  font-weight: 600;
+  background: #5b21b6;
+  cursor: pointer;
+}
+
+.submit:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+.hint {
+  font-size: 14px;
+}
+
+.hint a {
+  color: #5b21b6;
+  text-decoration: underline;
+}

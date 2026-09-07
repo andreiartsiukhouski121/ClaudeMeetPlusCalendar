@@ -1,6 +1,6 @@
 import path from 'node:path';
-import { test as base, type Browser, type Page, type WorkerInfo } from '@playwright/test';
-import { type SeedUserKey } from './seed.js';
+import { expect, test as base, type Browser, type Page, type WorkerInfo } from '@playwright/test';
+import { SEED_USERS, type SeedUserKey } from './seed.js';
 
 /**
  * Сессия для функциональных кейсов (проект `web`).
@@ -45,25 +45,48 @@ function storageStatePath(workerInfo: WorkerInfo, user: SeedUserKey): string {
 }
 
 /**
- * ЗАГЛУШКА. Страницы `/auth/login` ещё нет — она появляется в T1.8, форма дашборда и кейсы,
- * которым нужна сессия, — в T2.x. Полноценно реализовать логин сейчас невозможно, а тихо
- * вернуть пустое состояние — хуже всего: `authedPage` отдала бы неавторизованную страницу,
- * кейс упал бы на непонятном ассерте, и причину искали бы в фиче, а не здесь.
+ * UI-логин: реальный путь «форма → Server Action → POST /auth/login → cookie». Подделывать
+ * cookie руками нельзя — тест дублировал бы прод-логику сессии и краснел/зеленел невпопад при
+ * её изменении (тест-план §5.5). Возвращает путь к файлу `storageState`, который потом
+ * переиспользует `authedPage`.
  *
- * Поэтому функция честно бросает исключение с указанием задачи. Файл при этом компилируется
- * и проходит `pnpm typecheck`, а фикстура `authedPage` до T1.8 просто не берётся ни одним кейсом.
+ * `baseURL` берётся из настроек проекта: `browser.newContext()` его НЕ наследует, и без
+ * явной передачи `page.goto('/auth/login')` упал бы на относительном URL.
+ *
+ * Локаторы — те же, что в функциональных кейсах (роль и метка): если разметка формы
+ * разъедется с ними, сломается и логин фикстуры, и AL-FN-01 — в одном месте, а не по-разному.
  */
-function uiLogin(_browser: Browser, user: SeedUserKey, workerInfo: WorkerInfo): Promise<string> {
-  return Promise.reject(
-    new Error(
-      `UI-логин появится в T1.8 (страница /auth/login). Сейчас получить сессию пользователя ` +
-        `"${user}" невозможно, поэтому фикстуру authedPage брать нельзя — используй обычную ` +
-        `page в чистом контексте.\n` +
-        `Что здесь будет: открыть /auth/login, заполнить поля данными SEED_USERS["${user}"], ` +
-        `нажать «Войти», дождаться URL "/", затем ` +
-        `context.storageState({ path: '${storageStatePath(workerInfo, user)}' }) и вернуть этот путь.`,
-    ),
-  );
+async function uiLogin(
+  browser: Browser,
+  user: SeedUserKey,
+  workerInfo: WorkerInfo,
+): Promise<string> {
+  const statePath = storageStatePath(workerInfo, user);
+  const { email, password } = SEED_USERS[user];
+  const context = await browser.newContext({ baseURL: workerInfo.project.use.baseURL });
+  const page = await context.newPage();
+
+  try {
+    await page.goto('/auth/login');
+    await page.getByLabel('Email').fill(email);
+    await page.getByLabel('Пароль').fill(password);
+    await page.getByRole('button', { name: 'Войти' }).click();
+
+    // Ждём именно смену URL, а не `waitForNavigation`: переход делает redirect Server Action-а.
+    // Если он не случился, падать должна фикстура с внятным сообщением, а не кейс где-то ниже
+    // на пустой странице.
+    await expect(
+      page,
+      `UI-логин пользователя ${user} (${email}) не привёл на "/". Причина не в проверяемом ` +
+        'кейсе: смотри /auth/login, loginAction и сид пользователей.',
+    ).toHaveURL('/');
+
+    await context.storageState({ path: statePath });
+  } finally {
+    await context.close();
+  }
+
+  return statePath;
 }
 
 export const test = base.extend<
