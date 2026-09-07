@@ -12,7 +12,8 @@
 | `pnpm dev:api`                | Nest.js на `http://127.0.0.1:3001`                              |
 | `pnpm lint` / `pnpm lint:fix` | ESLint по корню и всем пакетам                                  |
 | `pnpm typecheck`              | `tsc` по корню (e2e) + по каждому пакету                        |
-| `pnpm test`                   | юнит-тесты (Vitest, сейчас только в `apps/api`)                 |
+| `pnpm test`                   | юнит-тесты (Vitest в `apps/api` и `apps/web`)                   |
+| `pnpm test:<фича>`            | юниты одной фичи: `test:auth-login`, `test:home-dashboard`      |
 | `pnpm e2e`                    | E2E через Playwright на портах 3100/3101, серверы поднимает сам |
 | `pnpm e2e:report`             | HTML-отчёт последнего прогона Playwright                        |
 

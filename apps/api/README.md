@@ -1,114 +1,73 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# @purpleschool/api
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
-
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
-
-## Description
-
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
-
-## Project setup
+Nest.js 12, чистый ESM (`"type": "module"`, импорты с расширением `.js`). Порт — `PORT`, по
+умолчанию 3001. Playwright поднимает свой экземпляр на 3101.
 
 ```bash
-$ pnpm install
+pnpm dev:api          # из корня, watch-режим
+pnpm --filter @purpleschool/api test      # юниты
+pnpm --filter @purpleschool/api test:e2e  # supertest: AppModule поднимается в тестовом модуле
 ```
 
-## Compile and run the project
+## Эндпоинты
 
-```bash
-# development
-$ pnpm run start
+| Метод  | Путь               | Авторизация | Ответ                                                                  |
+| ------ | ------------------ | ----------- | ---------------------------------------------------------------------- |
+| `GET`  | `/`                | нет         | `200 text/plain: Hello World!` — признак «сервер жив»                  |
+| `POST` | `/auth/login`      | нет         | `200 {accessToken, user}`; `401` при неверных данных; `400` на payload |
+| `GET`  | `/auth/me`         | `Bearer`    | `200 {id, email, name}`; `401` без токена или с битым                  |
+| `GET`  | `/meetings?limit=` | `Bearer`    | `200 {items, total}`; `400` при `limit` вне `1..100`                   |
+| `POST` | `/meetings`        | `Bearer`    | `201 MeetingDto`; `400` на payload                                     |
 
-# watch mode
-$ pnpm run start:dev
+Три вещи, которые легко сломать незаметно:
 
-# production mode
-$ pnpm run start:prod
-```
+- **`POST /auth/login` отвечает `200`, а не `201`.** Nest по умолчанию ставит POST код 201, поэтому
+  на методе стоит `@HttpCode(HttpStatus.OK)`. Снимете декоратор — контракт нарушится молча.
+- **`total` — полное число встреч владельца, а не длина `items`.** `items` отсечён лимитом.
+- **`ownerId` берётся из токена, никогда из тела запроса.** Поля владельца в `CreateMeetingDto` нет,
+  а `forbidNonWhitelisted` отвергает попытку его прислать.
 
-## Run tests
+Ошибки — стандартной формы Nest: при `400` от `ValidationPipe` поле `message` это **массив** строк,
+при `401` — строка. `ValidationPipe` зарегистрирован провайдером `APP_PIPE` в `AppModule`, а не
+через `useGlobalPipes`: иначе тестовые модули поднимали бы приложение без валидации и проверки 400
+разошлись бы с реальным сервером.
 
-```bash
-# unit tests
-$ pnpm run test
+## Хранилище и сид
 
-# e2e tests
-$ pnpm run test:e2e
+Базы нет — репозитории in-memory, сид применяется при инициализации сервисов. Отсюда следствие:
+`nest start --watch` перезапускается на каждой правке и обнуляет всё, что создали тесты. Поэтому
+ни один тест не должен зависеть от данных, созданных другим.
 
-# test coverage
-$ pnpm run test:cov
-```
+Пароли пользователей лежат в `users.seed.ts` открытым текстом и хешируются `scrypt` при старте —
+осознанный компромисс демо без БД: в самом хранилище плейнтекста нет. В реальном проекте файл сида
+заменялся бы миграцией с уже посчитанными хешами.
 
-## Deployment
+| Пользователь                  | Пароль      | Встреч | Роль в тестах                                   |
+| ----------------------------- | ----------- | ------ | ----------------------------------------------- |
+| `teacher@purpleschool.test`   | `Passw0rd!` | 5      | read-only, точные числа и порядок «последних 3» |
+| `student@purpleschool.test`   | `Passw0rd!` | 0      | read-only, граничный случай «встреч нет»        |
+| `planner@purpleschool.test`   | `Passw0rd!` | 1      | песочница мутаций для API-тестов                |
+| `organizer@purpleschool.test` | `Passw0rd!` | 1      | песочница мутаций для функциональных тестов     |
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
+`teacher` и `student` **мутировать нельзя**: на них завязаны абсолютные ассерты. Отдельные владельцы
+для API- и UI-тестов нужны потому, что Playwright гоняет проекты параллельно в общий store.
 
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+Зеркало сида для тестов — `e2e/fixtures/seed.ts`; расхождение ловит `e2e/smoke/seed.api.spec.ts`.
 
-```bash
-$ pnpm install -g @nestjs/mau
-$ mau deploy
-```
+## Конфигурация
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+`.env` **не читается** — dotenv и `@nestjs/config` не подключены. Переменные задаются окружением
+процесса; `.env.example` документирует контракт.
 
-## Observability
+| Переменная       | По умолчанию              | Примечание                                            |
+| ---------------- | ------------------------- | ----------------------------------------------------- |
+| `PORT`           | `3001`                    | Playwright передаёт `3101`                            |
+| `JWT_SECRET`     | `purpleschool-dev-secret` | при отсутствии пишется `Logger.warn`                  |
+| `JWT_EXPIRES_IN` | `1h`                      | обязан совпадать с временем жизни cookie в `apps/web` |
 
-In production applications, observability is essential for understanding how your system behaves, detecting issues early, and maintaining reliable performance.
+Секрет — стабильная константа, а не случайная строка при старте: с `--watch` случайный секрет
+обнулял бы выданные токены при каждой правке.
 
-[NestJS Observe](https://observe.nestjs.com) automatically instruments your NestJS application, giving you deep visibility into your system with minimal setup:
-
-- **Distributed tracing:** Follow requests across services and understand how they flow through your system.
-- **Waterfall analysis:** Visualize request execution and identify slow operations, bottlenecks, and unexpected delays.
-- **Performance analysis:** Analyze application performance in real time and quickly pinpoint areas that need optimization.
-- **Metrics:** Track key application and infrastructure metrics to understand system health and performance trends.
-- **Logging:** Centralize and correlate logs with traces and other telemetry to make debugging easier.
-- **Error tracking:** Detect errors quickly and investigate their root causes with the surrounding context.
-- **SLA monitoring:** Track service-level objectives and identify when your application is approaching or exceeding defined thresholds.
-- **Alarms and alerts:** Set up alerts for critical errors, performance degradation, SLA violations, and other anomalies so your team can react quickly.
-
-## Resources
-
-Check out a few resources that may come in handy when working with NestJS:
-
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Auto-instrument your application with [NestJS Observer](https://observer.nestjs.com). Distributed tracing, metrics, and logging made easy. Error tracking and performance monitoring for your NestJS applications.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
-
-## Support
-
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
-
-## Stay in touch
-
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
-
-## License
-
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+CORS не включён и глобального префикса нет — намеренно: единственные клиенты Nest это серверный
+`fetch` из Next.js и фикстура `request` Playwright, браузер сюда не ходит. `enableCors()` без
+аргументов открыл бы API любому сайту за ноль пользы.
