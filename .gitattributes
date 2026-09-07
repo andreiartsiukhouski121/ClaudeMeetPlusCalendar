@@ -1,0 +1,20 @@
+# Единственный источник истины по переводам строк.
+#
+# Без этого файла на Windows работает core.autocrlf=true: git подставляет CRLF при каждом
+# checkout, а .prettierrc требует endOfLine=lf — и `pnpm format:check` краснеет на десятках
+# файлов сразу после клонирования, хотя никто ничего не менял. Чинить это перенастройкой
+# git у каждого разработчика нельзя: настройка машинная, а требование — репозиторное.
+#
+# `text=auto eol=lf`: в индексе всегда LF, в рабочем дереве тоже LF независимо от autocrlf.
+* text=auto eol=lf
+
+# Бинарные — не трогать никогда: нормализация их повредит.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.pdf binary
