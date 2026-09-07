@@ -1,0 +1,27 @@
+/*
+ * CSS-модули: в проекте нет Tailwind (план имплементации §1.2 — новых зависимостей не ставим).
+ * Классы хешируются сборкой, поэтому тесты адресуют элементы только по роли и метке —
+ * селектор по классу умер бы на следующем билде (тест-план §5.1).
+ */
+
+.screen {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 16px;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  /* Глобальный ресет сбрасывает margin у всех элементов, поэтому вертикальные отступы
+     задаются gap-ом контейнера, а не полями заголовков. */
+  gap: 16px;
+  width: 100%;
+  max-width: 400px;
+  padding: 32px;
+  border: 1px solid rgb(128 90 213 / 25%);
+  border-radius: 12px;
+  background: rgb(128 90 213 / 4%);
+}

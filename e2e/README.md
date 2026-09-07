@@ -34,28 +34,28 @@
 
 | Фича                | Slug             | Кейсы (md)                                                                       | Спеки                                                                                                                                                                                               | Проект | Запуск                                          |
 | ------------------- | ---------------- | -------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ | ----------------------------------------------- |
-| Логин `/auth/login` | `auth-login`     | `regression/auth-login/auth-login.api.cases.md` (появится в T1.5)                | `regression/auth-login/auth-login.api.spec.ts` (появится в T1.5)                                                                                                                                    | api    | `pnpm e2e --project=api --grep @auth-login`     |
-| Логин `/auth/login` | `auth-login`     | `regression/auth-login/auth-login.functional.cases.md` (появится в T1.9)         | `regression/auth-login/auth-login.functional.spec.ts` (появится в T1.9)                                                                                                                             | web    | `pnpm e2e --project=web --grep @auth-login`     |
-| Логин `/auth/login` | `auth-login`     | `regression/auth-login/auth-login.unit.cases.md` (появится в T1.5)               | `apps/api/src/auth/*.spec.ts`, `apps/api/src/common/crypto/password.spec.ts`, `apps/api/src/users/users.service.spec.ts`, `apps/web/src/lib/session.spec.ts`, `apps/web/src/lib/api-client.spec.ts` | vitest | `pnpm test:auth-login`                          |
+| Логин `/auth/login` | `auth-login`     | `regression/auth-login/auth-login.api.cases.md`                                  | `regression/auth-login/auth-login.api.spec.ts`                                                                                                                                                      | api    | `pnpm e2e --project=api --grep @auth-login`     |
+| Логин `/auth/login` | `auth-login`     | `regression/auth-login/auth-login.functional.cases.md`                           | `regression/auth-login/auth-login.functional.spec.ts`                                                                                                                                               | web    | `pnpm e2e --project=web --grep @auth-login`     |
+| Логин `/auth/login` | `auth-login`     | `regression/auth-login/auth-login.unit.cases.md`                                 | `apps/api/src/auth/*.spec.ts`, `apps/api/src/common/crypto/password.spec.ts`, `apps/api/src/users/users.service.spec.ts`, `apps/web/src/lib/session.spec.ts`, `apps/web/src/lib/api-client.spec.ts` | vitest | `pnpm test:auth-login`                          |
 | Главная `/`         | `home-dashboard` | `regression/home-dashboard/home-dashboard.api.cases.md` (появится в T2.4)        | `regression/home-dashboard/home-dashboard.api.spec.ts` (появится в T2.4)                                                                                                                            | api    | `pnpm e2e --project=api --grep @home-dashboard` |
 | Главная `/`         | `home-dashboard` | `regression/home-dashboard/home-dashboard.functional.cases.md` (появится в T2.9) | `regression/home-dashboard/home-dashboard.functional.spec.ts` (появится в T2.9)                                                                                                                     | web    | `pnpm e2e --project=web --grep @home-dashboard` |
 | Главная `/`         | `home-dashboard` | `regression/home-dashboard/home-dashboard.unit.cases.md` (появится в T2.4)       | `apps/api/src/meetings/*.spec.ts`, `apps/web/src/lib/format-date.spec.ts`                                                                                                                           | vitest | `pnpm test:home-dashboard`                      |
-| Инфраструктура      | `smoke`          | `smoke/health.api.cases.md`, `smoke/seed.api.cases.md` (появится в T1.5)         | `smoke/health.api.spec.ts`, `smoke/seed.api.spec.ts` (появится в T1.5)                                                                                                                              | api    | `pnpm e2e e2e/smoke`                            |
+| Инфраструктура      | `smoke`          | `smoke/health.api.cases.md`, `smoke/seed.api.cases.md`                           | `smoke/health.api.spec.ts`, `smoke/seed.api.spec.ts`                                                                                                                                                | api    | `pnpm e2e e2e/smoke`                            |
 | Конвенция сьюта     | —                | нет (в `SELF_EXEMPT`)                                                            | `suite-integrity.api.spec.ts`                                                                                                                                                                       | api    | `pnpm e2e e2e/suite-integrity.api.spec.ts`      |
 
-`smoke/seed.api.spec.ts` создаётся только в T1.5, а не заранее: `SM-API-02` (логины сид-пользователей)
-невозможен до появления `/auth/login`, а заведомо красный тест в коммите — блокер. `SM-API-03`
-(сид-встречи) добавляется тем же файлом в T2.4.
+`smoke/seed.api.spec.ts` создан в T1.5, вместе с `POST /auth/login`: `SM-API-02` (логины
+сид-пользователей) до этого был бы заведомо красным, а красный тест в коммите — блокер. Проверка
+сид-встреч добавляется в тот же файл в T2.4, вместе с контроллером `/meetings`.
 
 ## Фикстуры
 
-| Файл                       | Что даёт                                                                                                                    |
-| -------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| `fixtures/seed.ts`         | `SEED_USERS`, `TEACHER_MEETINGS`, даты создаваемых встреч. **Единственный** источник логинов, паролей и названий встреч.    |
-| `fixtures/auth.api.ts`     | `loginApi(request, user)` → `accessToken`, `authHeaders(token)`. Для проекта `api`, кэш на воркер.                          |
-| `fixtures/api.ts`          | `API_BASE_URL` и фикстура `apiRequest` — контекст запросов к Nest для кейсов проекта `web`, которым нужны эталонные данные. |
-| `fixtures/auth.fixture.ts` | Опция `authUser` (тест), `authStateFor` (воркер), `authedPage` (тест) — сессия для UI-кейсов. UI-логин появится в **T1.8**. |
-| `fixtures/console.ts`      | `collectConsoleProblems(page)` + фильтр HMR-шума `next dev`. Без фильтра кейсы на консоль флакают.                          |
+| Файл                       | Что даёт                                                                                                                               |
+| -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `fixtures/seed.ts`         | `SEED_USERS`, `TEACHER_MEETINGS`, даты создаваемых встреч. **Единственный** источник логинов, паролей и названий встреч.               |
+| `fixtures/auth.api.ts`     | `loginApi(request, user)` → `accessToken`, `authHeaders(token)`. Для проекта `api`, кэш на воркер.                                     |
+| `fixtures/api.ts`          | `API_BASE_URL` и фикстура `apiRequest` — контекст запросов к Nest для кейсов проекта `web`, которым нужны эталонные данные.            |
+| `fixtures/auth.fixture.ts` | Опция `authUser` (тест), `authStateFor` (воркер), `authedPage` (тест) — сессия для UI-кейсов через реальный UI-логин на `/auth/login`. |
+| `fixtures/console.ts`      | `collectConsoleProblems(page)` + фильтр HMR-шума `next dev`. Без фильтра кейсы на консоль флакают.                                     |
 
 ## Теги и запуск
 
