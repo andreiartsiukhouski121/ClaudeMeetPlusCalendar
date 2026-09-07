@@ -1,0 +1,53 @@
+{
+  "name": "purpleschool",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Монорепозиторий: Next.js (web) + Nest.js (api)",
+  "packageManager": "pnpm@10.32.1",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "pnpm --parallel --filter \"./apps/*\" dev",
+    "dev:web": "pnpm --filter @purpleschool/web dev",
+    "dev:api": "pnpm --filter @purpleschool/api dev",
+    "build": "pnpm -r build",
+    "build:web": "pnpm --filter @purpleschool/web build",
+    "build:api": "pnpm --filter @purpleschool/api build",
+    "start": "pnpm --parallel --filter \"./apps/*\" start",
+    "lint": "eslint . && pnpm -r lint",
+    "lint:fix": "eslint . --fix && pnpm -r lint:fix",
+    "typecheck": "tsc --noEmit -p tsconfig.json && pnpm -r typecheck",
+    "test": "pnpm -r test",
+    "e2e": "playwright test",
+    "e2e:ui": "playwright test --ui",
+    "e2e:report": "playwright show-report",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "@eslint/js": "catalog:",
+    "@playwright/test": "^1.62.1",
+    "@purpleschool/eslint-config": "workspace:*",
+    "@types/node": "catalog:",
+    "eslint": "catalog:",
+    "eslint-config-prettier": "catalog:",
+    "eslint-plugin-playwright": "^2.11.0",
+    "globals": "catalog:",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.4.1",
+    "prettier": "catalog:",
+    "typescript": "catalog:",
+    "typescript-eslint": "catalog:"
+  },
+  "lint-staged": {
+    "*.{ts,tsx,mts,cts,js,jsx,mjs,cjs}": [
+      "eslint --fix --no-warn-ignored",
+      "prettier --write"
+    ],
+    "*.{json,md,yml,yaml,css}": [
+      "prettier --write"
+    ]
+  }
+}
