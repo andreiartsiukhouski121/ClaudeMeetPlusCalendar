@@ -35,8 +35,20 @@ export default defineConfig({
   },
   // baseURL задаётся только на уровне проекта, иначе api унаследует адрес web.
   projects: [
-    { name: 'api', testDir: './e2e/api', use: { baseURL: API_URL } },
-    { name: 'web', testDir: './e2e/web', use: { ...devices['Desktop Chrome'], baseURL: WEB_URL } },
+    // Файлы разложены по фичам (e2e/regression/<feature>/), поэтому проект выбирается
+    // не каталогом, а суффиксом имени файла:
+    //   *.api.spec.ts        -> проект api  (фикстура request, baseURL :3101, браузер не нужен)
+    //   *.functional.spec.ts -> проект web  (Desktop Chrome, baseURL :3100)
+    // Дефолтный testMatch ловит любой *.spec.ts, поэтому его надо переопределить в обоих
+    // проектах: иначе браузерный спек уедет в api и получит page.goto на :3101.
+    // Файл без одного из двух суффиксов не попадёт НИ в один проект и молча не запустится —
+    // от этого страхует e2e/suite-integrity.api.spec.ts.
+    { name: 'api', testMatch: /.*\.api\.spec\.ts$/, use: { baseURL: API_URL } },
+    {
+      name: 'web',
+      testMatch: /.*\.functional\.spec\.ts$/,
+      use: { ...devices['Desktop Chrome'], baseURL: WEB_URL },
+    },
   ],
   // cwd + `pnpm dev` вместо корневого `pnpm dev:web`: меньше слоёв процессов, которые
   // Windows-овский taskkill /T /F может осиротить и оставить порт занятым.
@@ -44,6 +56,11 @@ export default defineConfig({
     {
       command: `pnpm dev --port ${WEB_PORT}`,
       cwd: 'apps/web',
+      // Next по дефолту ходит в :3001 (apps/web/src/lib/api-client.ts). Без этой переменной
+      // web-проект тестировал бы связку с `pnpm dev:api`, а не с поднятым здесь Nest на :3101:
+      // другой сид в памяти, другой JWT_SECRET — и прогон даёт ложный результат в любую сторону.
+      // webServer.env мержится поверх process.env (playwright/types/test.d.ts).
+      env: { API_URL },
       url: WEB_URL,
       reuseExistingServer: !isCI,
       timeout: 180_000,
@@ -54,7 +71,11 @@ export default defineConfig({
       // Nest читает порт из process.env.PORT (см. apps/api/src/main.ts).
       command: 'pnpm dev',
       cwd: 'apps/api',
-      env: { PORT: API_PORT },
+      // JWT_SECRET фиксируем константой: в коде есть dev-дефолт, но полагаться на него нельзя —
+      // прогон должен быть воспроизводим и не зависеть от того, что стоит в окружении оболочки.
+      // Случайный секрет здесь тоже нельзя: `nest start --watch` перезапускается на каждой правке,
+      // и все выданные посреди прогона токены разом умрут.
+      env: { PORT: API_PORT, JWT_SECRET: 'e2e-secret' },
       url: API_URL,
       reuseExistingServer: !isCI,
       timeout: 120_000,
