@@ -1,0 +1,20 @@
+/* Выход — форма с Server Action, поэтому работает и без клиентского JS. */
+
+.form {
+  display: flex;
+}
+
+.button {
+  padding: 8px 14px;
+  border: 1px solid rgb(128 90 213 / 45%);
+  border-radius: 8px;
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+  background: transparent;
+  cursor: pointer;
+}
+
+.button:hover {
+  background: rgb(128 90 213 / 10%);
+}

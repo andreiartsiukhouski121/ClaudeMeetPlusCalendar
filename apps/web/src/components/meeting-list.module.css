@@ -1,0 +1,47 @@
+/* Список встреч. Роли (list/listitem) дают ul/li — на них завязаны локаторы тестов. */
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.heading {
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  /* Маркеры убираем стилями, но элемент остаётся ul: роль list тестам нужна. */
+  list-style: none;
+}
+
+.item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 14px;
+  border: 1px solid rgb(128 90 213 / 25%);
+  border-radius: 10px;
+  background: rgb(128 90 213 / 4%);
+}
+
+.title {
+  font-weight: 600;
+}
+
+.meta {
+  font-size: 14px;
+  opacity: 0.75;
+}
+
+/* Явное пустое состояние, а не пустой ul: пустой список неотличим от «не загрузилось». */
+.empty {
+  padding: 12px 14px;
+  border: 1px dashed rgb(128 90 213 / 35%);
+  border-radius: 10px;
+  font-size: 14px;
+}

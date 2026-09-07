@@ -4,9 +4,10 @@ import { APP_PIPE } from '@nestjs/core';
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
 import { AuthModule } from './auth/auth.module.js';
+import { MeetingsModule } from './meetings/meetings.module.js';
 
 @Module({
-  imports: [AuthModule],
+  imports: [AuthModule, MeetingsModule],
   controllers: [AppController],
   providers: [
     AppService,
