@@ -41,7 +41,7 @@ const UNIT_SPEC_EXEMPT = ['apps/api/src/app.controller.spec.ts'];
  * этой страховки третья фича (скажем, `PR-API-01`) просто не распознавалась бы как ID, и
  * правила 5–7 стали бы **вакуумно зелёными** — то есть перестали бы проверять что-либо.
  */
-const KNOWN_CASE_PREFIXES = ['AL', 'HD', 'SM', 'SEC'];
+const KNOWN_CASE_PREFIXES = ['AL', 'HD', 'SM', 'SEC', 'LG'];
 
 /** ID кейса: `<ФИЧА>-<ТИП>-<NN>` (тест-план §2). Номер — два или три знака. */
 const CASE_ID_SOURCE = `(?:${KNOWN_CASE_PREFIXES.join('|')})-(?:API|FN|UT)-\\d{2,3}`;
