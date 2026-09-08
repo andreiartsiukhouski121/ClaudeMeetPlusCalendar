@@ -132,6 +132,24 @@ function referenceFiles(root: string): string[] {
   return files.filter((file) => fs.existsSync(path.join(root, file)));
 }
 
+/**
+ * Есть ли у файла незакоммиченные правки. Признак «изменение ещё в работе»: пока он истинен,
+ * литерал `pending` в реестре законен.
+ */
+function hasUncommittedChanges(root: string, relFile: string): boolean {
+  try {
+    const status = execFileSync('git', ['status', '--porcelain', '--', relFile], {
+      cwd: root,
+      encoding: 'utf8',
+    });
+
+    return status.trim() !== '';
+  } catch {
+    // Нет git (архив, распакованный tarball) — считаем изменение завершённым: строгий вариант.
+    return false;
+  }
+}
+
 /** Хеши, которые git не может разрешить. Вынесено из теста: условия в `test` запрещены линтом. */
 function unresolvedCommits(root: string, hashes: string[]): string[] {
   const missing: string[] = [];
@@ -182,6 +200,21 @@ function danglingReferences(root: string, declared: Set<string>): string[] {
   return [...new Set(dangling)];
 }
 
+/**
+ * Записи `pending`, оставшиеся в **завершённом** изменении. Ветвление вынесено из теста:
+ * условия внутри `test` запрещены правилом `playwright/no-conditional-in-test`, поднятым до
+ * `error` осознанно — условие в тесте прячет непройденную ветку.
+ */
+function stalePendingEntries(root: string): string[] {
+  if (hasUncommittedChanges(root, CHANGELOG)) {
+    return [];
+  }
+
+  return commitCells(read(root, CHANGELOG))
+    .filter((entry) => entry.cell.includes(PENDING))
+    .map((entry) => entry.id);
+}
+
 test.describe('Реестр изменений и бэклог', { tag: '@ledger' }, () => {
   test('LG-API-01 — оба файла реестра существуют и не пусты', () => {
     const root = repoRoot();
@@ -213,16 +246,34 @@ test.describe('Реестр изменений и бэклог', { tag: '@ledger
   });
 
   test('LG-API-03 — у каждой записи реестра изменений заполнен коммит', () => {
-    const cells = commitCells(read(repoRoot(), CHANGELOG));
-    const empty = cells.filter((entry) => entry.cell === '').map((entry) => entry.id);
-    const pending = cells.filter((entry) => entry.cell.includes(PENDING)).map((entry) => entry.id);
+    const root = repoRoot();
+    const empty = commitCells(read(root, CHANGELOG))
+      .filter((entry) => entry.cell === '')
+      .map((entry) => entry.id);
 
     expect(empty, `${CHANGELOG}: у записей нет ссылки на коммит`).toEqual([]);
+
+    /*
+     * `pending` законен, пока изменение в работе: хеш неизвестен до коммита, а одно изменение
+     * вполне вносит несколько записей — фичу и найденный по ходу дефект.
+     *
+     * Две предыдущие редакции этого правила были неверны, и обе поймал прогон:
+     *   1. «не больше одной записи pending» — сломалось на первом же коммите, вносившем
+     *      изменение процесса и дефект одновременно;
+     *   2. «на HEAD~1 записей pending нет» — off-by-one: HEAD~1 это и есть коммит, где pending
+     *      законен, а заполняется он следующим.
+     *
+     * Точная формулировка: если файл реестра **не имеет незакоммиченных правок**, значит
+     * изменение завершено — и `pending` в нём остаться не должен. Пока файл правится, `pending`
+     * разрешён.
+     */
+    const stale = stalePendingEntries(root);
+
     expect(
-      pending.length,
-      `${CHANGELOG}: записей «${PENDING}» больше одной (${pending.join(', ')}) — ` +
-        'реестр наполняется обещаниями вместо изменений',
-    ).toBeLessThanOrEqual(1);
+      stale,
+      `${CHANGELOG}: записи ${stale.join(', ')} остались «${PENDING}» в закоммиченном файле. ` +
+        'Хеш подставляется следующим коммитом — иначе реестр наполняется обещаниями',
+    ).toEqual([]);
   });
 
   test('LG-API-04 — ссылки на коммиты разрешаются в git', () => {
