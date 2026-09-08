@@ -39,11 +39,40 @@
 | Главная `/`         | `home-dashboard` | `regression/home-dashboard/home-dashboard.unit.cases.md`       | `apps/api/src/meetings/*.spec.ts`, `apps/web/src/lib/format-date.spec.ts`                                                                                                                           | vitest | `pnpm test:home-dashboard`                      |
 | Инфраструктура      | `smoke`          | `smoke/health.api.cases.md`, `smoke/seed.api.cases.md`         | `smoke/health.api.spec.ts`, `smoke/seed.api.spec.ts`                                                                                                                                                | api    | `pnpm e2e e2e/smoke`                            |
 | Конвенция сьюта     | —                | нет (в `SELF_EXEMPT`)                                          | `suite-integrity.api.spec.ts`                                                                                                                                                                       | api    | `pnpm e2e e2e/suite-integrity.api.spec.ts`      |
+| Безопасность        | `security`       | `security/security.api.cases.md`                               | `security/security.api.spec.ts`                                                                                                                                                                     | api    | `pnpm e2e:security`                             |
+| Безопасность        | `security`       | `security/security.functional.cases.md`                        | `security/security.functional.spec.ts`                                                                                                                                                              | web    | `pnpm e2e:security`                             |
 
 `smoke/seed.api.spec.ts` наполнялся по этапам: `SM-API-02` (логины сид-пользователей) — в T1.5,
 вместе с `POST /auth/login`, `SM-API-03` (сид-встречи) — в T2.4, вместе с контроллером
 `/meetings`. Раньше своего этапа каждый кейс был бы заведомо красным, а красный тест в коммите —
 блокер.
+
+## Безопасность — межфичевой сьют
+
+`e2e/security/` стоит рядом с `regression/`, а не внутри фичи, потому что проверяет **инварианты,
+которые обязаны держаться при любом новом эндпоинте и любой новой странице**. Оба спека обходят
+маршруты и страницы списком (`PROTECTED_ROUTES`, `POST_ROUTES`, `PROTECTED_PAGES`): добавил
+защищённый маршрут — допиши строку, и проверка подхватит его сама, без нового кейса.
+
+Часть кейсов сознательно дублирует проверки внутри фич. `AL-API-14` фиксирует, что `GET /auth/me`
+без токена даёт 401 — это контракт логина; `SEC-API-01` фиксирует, что **ни один** защищённый
+маршрут не отвечает без токена. Первое сломается при правке логина, второе — при добавлении
+эндпоинта без guard'а. Это разные отказы.
+
+Что уже нашёл этот сьют на живом коде:
+
+- **`SEC-FN-05`** — `ERR_TOO_MANY_REDIRECTS` при cookie с невалидным токеном. `proxy.ts` по
+  устройству видит только наличие cookie и пускал запрос на `/`; страница получала 401 и уводила
+  на `/auth/login`; proxy снова видел cookie и возвращал на `/`. Пользователь был заперт и не мог
+  дойти до формы, чтобы войти заново. Починено Route Handler'ом `/auth/session-expired`, который
+  сначала стирает cookie.
+- **`SEC-API-05`** — неизвестный email отвечал за 52 мс, неверный пароль за 86–114 мс: одинакового
+  текста сообщения недостаточно, аккаунты перечислялись по времени ответа. Починено сверкой пароля
+  по хешу-пустышке, когда пользователя нет.
+- **`SEC-API-08`** — `X-Powered-By: Express` в каждом ответе.
+
+Порог в `SEC-API-05` мягкий (отношение медиан меньше 2,5) намеренно: цель — поймать возврат
+раннего выхода без сверки пароля, а не измерить микросекунды под нагрузкой прогона.
 
 ## Фикстуры
 

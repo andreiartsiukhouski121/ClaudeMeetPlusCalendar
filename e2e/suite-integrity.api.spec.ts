@@ -33,7 +33,7 @@ const SELF_EXEMPT = ['suite-integrity.api.spec.ts'];
 const UNIT_SPEC_EXEMPT = ['apps/api/src/app.controller.spec.ts'];
 
 /** ID кейса: `<ФИЧА>-<ТИП>-<NN>` (тест-план §2). */
-const CASE_ID_SOURCE = '(?:AL|HD|SM)-(?:API|FN|UT)-\\d{2}';
+const CASE_ID_SOURCE = '(?:AL|HD|SM|SEC)-(?:API|FN|UT)-\\d{2}';
 const CASE_ID_ANYWHERE = new RegExp(CASE_ID_SOURCE, 'g');
 const CASE_ID_HEADING = new RegExp(`^#{2,6}\\s+(${CASE_ID_SOURCE})\\b`);
 const CASE_ID_TABLE_ROW = new RegExp(`^\\|\\s*(${CASE_ID_SOURCE})\\s*\\|`);
@@ -292,7 +292,22 @@ function violationsRule5(root: string): string[] {
     const specText = read(root, spec);
     const exempt = new Set(notAutomatedIds(content));
 
-    for (const id of unique(content.match(CASE_ID_ANYWHERE) ?? [])) {
+    /*
+     * Считаются только ID, ОБЪЯВЛЕННЫЕ в этом файле как кейсы: заголовком раздела или строкой
+     * сводной таблицы. Любое упоминание брать нельзя — тогда ссылка в прозе на соседний кейс
+     * («дублирует HD-API-06 намеренно») трактуется как объявление и роняет правило.
+     *
+     * Так и случилось при добавлении `e2e/security/`: правило требовало автоматизировать
+     * `HD-API-06` внутри security-спека. Обходной приём «писать номер без префикса» в
+     * `auth-login.api.cases.md` появился ровно из-за этого ограничения — с сужением он больше
+     * не нужен, а перекрёстные ссылки читаются нормально.
+     */
+    const declared = unique([
+      ...matchLines(content, CASE_ID_HEADING),
+      ...matchLines(content, CASE_ID_TABLE_ROW),
+    ]);
+
+    for (const id of declared) {
       if (exempt.has(id) || specText.includes(id)) {
         continue;
       }

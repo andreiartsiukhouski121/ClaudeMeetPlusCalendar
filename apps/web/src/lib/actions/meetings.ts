@@ -37,7 +37,7 @@ export async function createMeetingAction(
   const token = await readSessionToken();
 
   if (token === undefined) {
-    redirect('/auth/login');
+    redirect('/auth/session-expired');
   }
 
   const title = String(formData.get('title') ?? '').trim();
@@ -70,7 +70,7 @@ export async function createMeetingAction(
   }
 
   if (failure?.status === 401) {
-    redirect('/auth/login');
+    redirect('/auth/session-expired');
   }
   if (failure !== undefined) {
     return {

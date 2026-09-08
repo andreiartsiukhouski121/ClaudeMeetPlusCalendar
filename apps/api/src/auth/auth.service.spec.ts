@@ -43,7 +43,13 @@ describe('AuthService', () => {
       }
       return user ?? undefined;
     });
-    const verify = vi.fn(() => passwordValid);
+    // Аргументы записываются, а не читаются из `verify.mock.calls`: мок без типизированных
+    // параметров даёт пустой кортеж аргументов, и `calls[0][1]` не проходит tsc (как у `sign`).
+    const verifiedHashes: string[] = [];
+    const verify = vi.fn((_plain: string, stored: string) => {
+      verifiedHashes.push(stored);
+      return passwordValid;
+    });
     // Payload запоминается, а не читается из `sign.mock.calls`: мок без параметров типизирован
     // пустым кортежем аргументов, и `calls[0][0]` не проходит tsc.
     const signedPayloads: JwtPayload[] = [];
@@ -58,7 +64,7 @@ describe('AuthService', () => {
       { sign } as unknown as TokenService,
     );
 
-    return { service, findByEmail, verify, sign, signedPayloads };
+    return { service, findByEmail, verify, sign, signedPayloads, verifiedHashes };
   }
 
   it('AL-UT-01 — login с верным email и паролем возвращает accessToken и user без passwordHash', async () => {
@@ -146,5 +152,21 @@ describe('AuthService', () => {
     // от обычной опечатки пользователя.
     await expect(failure).rejects.toBe(storageFailure);
     await expect(failure).rejects.not.toBeInstanceOf(UnauthorizedException);
+  });
+  it('AL-UT-31 — при неизвестном email пароль всё равно сверяется: время ответа выровнено', async () => {
+    const { service, verify, verifiedHashes } = createHarness({ user: null });
+
+    const failure = service.login({ email: 'nobody@purpleschool.test', password: PLAIN_PASSWORD });
+    await expect(failure).rejects.toBeInstanceOf(UnauthorizedException);
+
+    // Без этого вызова неизвестный email отвечает быстрее, чем неверный пароль, и одинакового
+    // текста сообщения уже недостаточно: аккаунты перечисляются по времени ответа.
+    // Замер до правки: 52 мс против 86–114 мс (SEC-API-05).
+    expect(verify).toHaveBeenCalledTimes(1);
+    expect(verifiedHashes).toHaveLength(1);
+    // Сверка идёт по хешу-пустышке настоящего формата, а не по пустой строке: иначе `verify`
+    // отвергнет вход по формату мгновенно и выравнивание не сработает.
+    expect(verifiedHashes[0]).toMatch(/^scrypt\$[0-9a-f]{32}\$[0-9a-f]{128}$/);
+    expect(verifiedHashes[0]).not.toBe(TEACHER.passwordHash);
   });
 });

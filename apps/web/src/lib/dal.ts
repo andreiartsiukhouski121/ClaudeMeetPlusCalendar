@@ -18,6 +18,15 @@ import type { MeetingsPage, PublicUser } from './types';
  * Nest на `GET /auth/me`, и решение «пустить или увести на логин» принимается здесь.
  */
 
+/**
+ * Куда уводить негодную сессию.
+ *
+ * НЕ `/auth/login`: cookie с невалидным токеном остаётся на месте, `proxy.ts` видит её наличие
+ * и возвращает на `/`, страница снова получает 401 — `ERR_TOO_MANY_REDIRECTS`, и пользователь
+ * запёрт без возможности войти заново (кейс SEC-FN-05). Route Handler сначала стирает cookie.
+ */
+const SESSION_RESET_PATH = '/auth/session-expired';
+
 /** Сколько встреч показывает дашборд. Совпадает с дефолтом `MeetingsService` (§2.2 п.4). */
 export const DEFAULT_MEETINGS_LIMIT = 3;
 
@@ -49,7 +58,7 @@ export const getCurrentUser = cache(async (): Promise<PublicUser> => {
   }
 
   if (user === undefined) {
-    redirect('/auth/login');
+    redirect(SESSION_RESET_PATH);
   }
 
   return user;
@@ -77,7 +86,7 @@ export async function getMeetings(limit: number = DEFAULT_MEETINGS_LIMIT): Promi
   }
 
   if (page === undefined) {
-    redirect('/auth/login');
+    redirect(SESSION_RESET_PATH);
   }
 
   return page;

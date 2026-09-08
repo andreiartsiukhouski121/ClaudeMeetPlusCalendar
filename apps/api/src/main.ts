@@ -1,4 +1,5 @@
 import { NestFactory } from '@nestjs/core';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 
 import { AppModule } from './app.module.js';
 
@@ -17,7 +18,12 @@ import { AppModule } from './app.module.js';
  * иначе тестовые модули поднимали бы приложение без неё (§2.2 п.6).
  */
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+
+  // Express по умолчанию отдаёт `X-Powered-By: Express` — бесплатная подсказка атакующему,
+  // какой стек и какие CVE пробовать. Проверяется кейсом SEC-API-08.
+  app.disable('x-powered-by');
+
   await app.listen(process.env.PORT ?? 3001);
 }
 
