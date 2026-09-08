@@ -58,6 +58,24 @@ const updated = lines.map((line) => {
     return line;
   }
 
+  /*
+   * Заполняется только та ГРАФА, которая целиком равна `pending`, а не первое вхождение строки.
+   *
+   * Слепая замена первого вхождения испортила описание записи FX-019: там слово `pending` стоит
+   * в тексте («Инвариант `pending` делал…»), и оно превратилось в хеш. Это третий случай одной и
+   * той же ошибки — дважды я допустил её руками, потом в этом же скрипте (FX-021). Поэтому
+   * адресуем графу, а не подстроку.
+   *
+   * Поиск графы идёт ПЕРВЫМ: строка, где `pending` встречается только в описании, уже заполнена,
+   * и сообщать про неё нечего.
+   */
+  const cells = line.split('|');
+  const targetIndex = cells.findIndex((cell) => cell.trim() === '`pending`');
+
+  if (targetIndex === -1) {
+    return line;
+  }
+
   const id = ENTRY_ROW.exec(line)[0].replace(/[|\s]/g, '');
   const hash = introducingHash(root, id);
 
@@ -66,9 +84,11 @@ const updated = lines.map((line) => {
 
     return line;
   }
+
+  cells[targetIndex] = cells[targetIndex].replace('`pending`', `\`${hash}\``);
   filled.push(`${id} → ${hash}`);
 
-  return line.replace('`pending`', `\`${hash}\``);
+  return cells.join('|');
 });
 
 if (unresolved.length > 0) {
