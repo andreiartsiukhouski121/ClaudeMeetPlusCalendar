@@ -21,6 +21,7 @@
     "test": "pnpm -r test",
     "test:auth-login": "pnpm -r test -t \"AL-UT-\"",
     "test:home-dashboard": "pnpm -r test -t \"HD-UT-\"",
+    "verify": "pnpm lint && pnpm typecheck && pnpm test && pnpm e2e",
     "e2e": "playwright test",
     "e2e:smoke": "playwright test e2e/smoke",
     "e2e:regression": "playwright test e2e/regression",

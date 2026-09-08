@@ -31,20 +31,21 @@ cp apps/api/.env.example apps/api/.env
 
 ## Скрипты (из корня)
 
-| Команда                             | Описание                        |
-| ----------------------------------- | ------------------------------- |
-| `pnpm dev`                          | запускает web и api параллельно |
-| `pnpm dev:web` / `pnpm dev:api`     | запуск одного приложения        |
-| `pnpm build`                        | сборка всех пакетов             |
-| `pnpm start`                        | запуск собранных приложений     |
-| `pnpm lint` / `pnpm lint:fix`       | ESLint по всем пакетам          |
-| `pnpm typecheck`                    | проверка типов (`tsc --noEmit`) |
-| `pnpm test`                         | юнит-тесты (Vitest в api и web) |
-| `pnpm test:auth-login`              | юниты одной фичи                |
-| `pnpm e2e`                          | весь регрессионный сьют         |
-| `pnpm e2e:auth-login`               | e2e одной фичи                  |
-| `pnpm e2e:report`                   | HTML-отчёт последнего прогона   |
-| `pnpm format` / `pnpm format:check` | Prettier                        |
+| Команда                             | Описание                             |
+| ----------------------------------- | ------------------------------------ |
+| `pnpm dev`                          | запускает web и api параллельно      |
+| `pnpm dev:web` / `pnpm dev:api`     | запуск одного приложения             |
+| `pnpm build`                        | сборка всех пакетов                  |
+| `pnpm start`                        | запуск собранных приложений          |
+| `pnpm lint` / `pnpm lint:fix`       | ESLint по всем пакетам               |
+| `pnpm typecheck`                    | проверка типов (`tsc --noEmit`)      |
+| `pnpm verify`                       | вся проверка одним подъёмом серверов |
+| `pnpm test`                         | юнит-тесты (Vitest в api и web)      |
+| `pnpm test:auth-login`              | юниты одной фичи                     |
+| `pnpm e2e`                          | весь регрессионный сьют              |
+| `pnpm e2e:auth-login`               | e2e одной фичи                       |
+| `pnpm e2e:report`                   | HTML-отчёт последнего прогона        |
+| `pnpm format` / `pnpm format:check` | Prettier                             |
 
 Команды внутри одного приложения: `pnpm --filter @purpleschool/web <script>`.
 
@@ -86,7 +87,13 @@ e2e/
 Порты e2e — **3100 и 3101**, а не обычные 3000/3001: на 3000 может висеть `next start` с прежней
 сборкой, и прогон дал бы ложное «зелено» на сломанном коде.
 
-Приёмка фичи — по скилу `regression-verify` (`.claude/skills/`): обязательный прогон юнитов, API- и
+Приёмка — **один `pnpm verify`** (1 м 31 с: lint + typecheck + 41 юнит-тест + 62 e2e). Разбивка по
+`--grep` нужна для локализации падения, а не для приёмки: семь отдельных вызовов `pnpm e2e` вместо
+одного стоят 99 с против 28 с. Двум агентам
+одновременно — свои порты: `E2E_WEB_PORT=3200 E2E_API_PORT=3201 pnpm e2e`.
+
+Порядок работ для новой фичи — скил `feature-pipeline` (спайк допущений, компактный план по
+`docs/plans/TEMPLATE.md`, одно ревью, параллельная реализация). Приёмка фичи — по скилу `regression-verify` (`.claude/skills/`): обязательный прогон юнитов, API- и
 функциональных тестов в фиксированном порядке. Быстрая проверка одного изменения — `playwright-verify`.
 
 ## Качество кода
