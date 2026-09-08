@@ -29,24 +29,54 @@ function repoRoot() {
   }
 }
 
-const root = repoRoot();
-const hash = execFileSync('git', ['rev-parse', '--short', 'HEAD'], {
-  cwd: root,
-  encoding: 'utf8',
-}).trim();
+/**
+ * Коммит, добавивший упоминание ID в реестр. Тот же приём, что в кейсе `LG-API-03`: `-S` находит
+ * изменение числа вхождений строки, то есть именно вводящий коммит, а не тот, что заменил
+ * `pending` на хеш.
+ *
+ * Почему не хеш `HEAD` для всех записей: запись могла быть введена **предыдущим** коммитом, а её
+ * `pending` заполняется этим. Первая редакция скрипта ставила всем `HEAD` и приписала бы `CH-008`
+ * чужой коммит — поймано первым прогоном CI, где `LG-API-03` назвал точную запись.
+ */
+function introducingHash(root, id) {
+  const found = execFileSync('git', ['log', '-1', '--format=%h', `-S${id}`, '--', CHANGELOG], {
+    cwd: root,
+    encoding: 'utf8',
+  }).trim();
 
+  return found === '' ? null : found;
+}
+
+const root = repoRoot();
 const path = join(root, CHANGELOG);
 const lines = readFileSync(path, 'utf8').split('\n');
 const filled = [];
+const unresolved = [];
 
 const updated = lines.map((line) => {
   if (!ENTRY_ROW.test(line) || !line.includes('`pending`')) {
     return line;
   }
-  filled.push(ENTRY_ROW.exec(line)[0].replace(/[|\s]/g, ''));
+
+  const id = ENTRY_ROW.exec(line)[0].replace(/[|\s]/g, '');
+  const hash = introducingHash(root, id);
+
+  if (hash === null) {
+    unresolved.push(id);
+
+    return line;
+  }
+  filled.push(`${id} → ${hash}`);
 
   return line.replace('`pending`', `\`${hash}\``);
 });
+
+if (unresolved.length > 0) {
+  console.error(
+    `Вводящий коммит не определён для: ${unresolved.join(', ')}. Запись ещё не закоммичена — ` +
+      'заполни её хеш следующим коммитом.',
+  );
+}
 
 if (filled.length === 0) {
   console.log(`В ${CHANGELOG} нет записей «pending» — подставлять нечего.`);
@@ -54,5 +84,5 @@ if (filled.length === 0) {
 }
 
 writeFileSync(path, updated.join('\n'), { encoding: 'utf8' });
-console.log(`Подставлен ${hash} в записи: ${filled.join(', ')}`);
+console.log(`Подставлено: ${filled.join(', ')}`);
 console.log('Закоммить эту правку следующим коммитом — она сама записи в реестре не требует.');
