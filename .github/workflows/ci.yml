@@ -1,0 +1,141 @@
+# Тот же пайплайн проверок, что локальный `pnpm verify`, но на стороне GitHub.
+#
+# Шаги разбиты по одному на проверку, а не одной командой `pnpm verify`, — и это не противоречит
+# правилу «делай один pnpm verify» из скила regression-verify. То правило экономит **подъёмы
+# dev-серверов**, а их делает только шаг `pnpm e2e`; lint, typecheck, юниты и audit серверов не
+# поднимают, поэтому их разделение бесплатно. Взамен в интерфейсе GitHub сразу видно, какой этап
+# упал: переспросить интерактивно там нельзя.
+#
+# Секретов workflow не требует: JWT_SECRET и API_URL для прогона передаёт сам
+# playwright.config.ts через webServer.env.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+# Новый пуш в ту же ветку отменяет предыдущий прогон: держать в очереди устаревшие проверки
+# смысла нет. Для main отмену не делаем — там каждый коммит должен быть проверен.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+env:
+  # Хуки git на CI бесполезны, а скрипт prepare ставит их при каждом install.
+  HUSKY: 0
+
+jobs:
+  verify:
+    name: Проверки
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # pnpm ставится до setup-node: иначе кэш 'pnpm' в setup-node не найдёт менеджер.
+      # Версия не указана — берётся из поля packageManager в package.json.
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Установка зависимостей
+        run: pnpm install --frozen-lockfile
+
+      # Браузер кэшируется отдельно от node_modules: он весит сотни мегабайт и не меняется,
+      # пока не меняется версия @playwright/test. Ключ берём из lock-файла.
+      - name: Кэш браузера Playwright
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+
+      - name: Установка Chromium
+        # --with-deps нужен всегда, даже при попадании в кэш: системные библиотеки живут вне
+        # ~/.cache и на свежем раннере отсутствуют.
+        run: pnpm exec playwright install --with-deps chromium
+
+      # Дальше — локальный пайплайн по шагам, в том же порядке: от дешёвого к дорогому.
+      # Первым идёт ориентация: она секундная и говорит, что задачу вообще планировали.
+      - name: Ориентация в планах
+        run: pnpm check:orientation
+
+      - name: Линт
+        run: pnpm lint
+
+      - name: Типы
+        run: pnpm typecheck
+
+      - name: Юнит-тесты
+        run: pnpm test
+
+      - name: Supertest-набор Nest
+        run: pnpm --filter @purpleschool/api test:e2e
+
+      - name: Форматирование
+        run: pnpm format:check
+
+      # Единственный шаг, поднимающий dev-серверы. Один вызов на весь сьют: 84 теста, оба проекта.
+      - name: E2E, весь сьют
+        run: pnpm e2e
+
+      # Отчёт нужен именно при падении: локально его смотрят через pnpm e2e:report, на CI —
+      # скачивают артефакт. Без него причина падения в CI не восстанавливается.
+      - name: Отчёт Playwright при падении
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 14
+
+      # Последним: шаг зависит от состояния чужих зависимостей и может покраснеть на изменении,
+      # которого мы не делали. К этому моменту все остальные результаты уже видны.
+      - name: Уязвимости зависимостей
+        run: pnpm audit --audit-level high
+
+  build:
+    name: Production-сборка
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Установка зависимостей
+        run: pnpm install --frozen-lockfile
+
+      # Отдельный job, а не шаг в verify: production-сборка проверяет другое — что код собирается
+      # без dev-режима. Ошибки, которые видит только `next build` (например, невалидные
+      # метаданные или проблемы статической генерации), в dev-прогоне не проявляются.
+      - name: Сборка
+        run: pnpm build
+
+      # Развёртывания нет: площадка не выбрана и секретов для неё не существует. Артефакт — это
+      # доставка без развёртывания, и называется так честно. Настоящий деплой добавляется, когда
+      # заказчик скажет, куда и чем; придумывать деплой с несуществующими токенами нельзя — он
+      # выглядел бы работающим и не работал.
+      - name: Артефакт сборки
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-${{ github.sha }}
+          path: |
+            apps/web/.next/
+            apps/api/dist/
+          retention-days: 7
