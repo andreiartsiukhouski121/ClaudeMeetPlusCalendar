@@ -151,7 +151,26 @@ function hasUncommittedChanges(root: string, relFile: string): boolean {
 }
 
 /** Хеши, которые git не может разрешить. Вынесено из теста: условия в `test` запрещены линтом. */
+function isShallowRepository(root: string): boolean {
+  try {
+    const answer = execFileSync('git', ['rev-parse', '--is-shallow-repository'], {
+      cwd: root,
+      encoding: 'utf8',
+    }).trim();
+
+    return answer === 'true';
+  } catch {
+    return false;
+  }
+}
+
 function unresolvedCommits(root: string, hashes: string[]): string[] {
+  // В поверхностной копии старых коммитов физически нет, и «не существует» сказало бы неправду
+  // про реестр вместо правды про клон. Проверка не имеет предмета — см. FX-018.
+  if (isShallowRepository(root)) {
+    return [];
+  }
+
   const missing: string[] = [];
 
   for (const hash of hashes) {
@@ -201,17 +220,50 @@ function danglingReferences(root: string, declared: Set<string>): string[] {
 }
 
 /**
- * Записи `pending`, оставшиеся в **завершённом** изменении. Ветвление вынесено из теста:
- * условия внутри `test` запрещены правилом `playwright/no-conditional-in-test`, поднятым до
- * `error` осознанно — условие в тесте прячет непройденную ветку.
+ * Коммит, который **добавил** упоминание ID в реестр. `-S` находит изменение числа вхождений
+ * строки, поэтому это именно вводящий коммит: последующая замена `pending` на хеш количество
+ * вхождений ID не меняет и под `-S` не попадает.
+ */
+function introducingCommit(root: string, id: string): string {
+  try {
+    return execFileSync('git', ['log', '-1', '--format=%H', `-S${id}`, '--', CHANGELOG], {
+      cwd: root,
+      encoding: 'utf8',
+    }).trim();
+  } catch {
+    return '';
+  }
+}
+
+function headCommit(root: string): string {
+  try {
+    return execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim();
+  } catch {
+    return '';
+  }
+}
+
+/**
+ * Записи `pending`, которые пережили свой коммит.
+ *
+ * Третья редакция правила. Предыдущие две отвергнуты прогонами (см. `ledger.api.cases.md`), а
+ * вторая — «файл без незакоммиченных правок не должен содержать pending» — сломалась уже на CI:
+ * там дерево **всегда** чистое, поэтому коммит, который вводит запись, гарантированно краснел.
+ * То есть правило делало первый push любой новой записи красным по построению (`FX-019`).
+ *
+ * Точная формулировка: `pending` законен, пока идёт то самое изменение, которое запись ввело —
+ * либо файл ещё правится, либо запись введена текущим `HEAD`. Всё остальное — забытый хвост.
  */
 function stalePendingEntries(root: string): string[] {
   if (hasUncommittedChanges(root, CHANGELOG)) {
     return [];
   }
 
+  const head = headCommit(root);
+
   return commitCells(read(root, CHANGELOG))
     .filter((entry) => entry.cell.includes(PENDING))
+    .filter((entry) => introducingCommit(root, entry.id) !== head)
     .map((entry) => entry.id);
 }
 
