@@ -184,20 +184,20 @@ function unresolvedCommits(root: string, hashes: string[]): string[] {
   return missing;
 }
 
-/** Графа коммита у записей реестра изменений: последняя непустая графа строки. */
+/**
+ * Графа коммита — **последняя** графа строки, во всех таблицах реестра. Это инвариант формата,
+ * зафиксированный в правилах `docs/CHANGELOG.md`.
+ *
+ * Прежняя редакция искала графу «в которой есть хеш или pending» — то есть угадывала по
+ * содержимому. Угадывание сломалось на записи `FX-019`, в описании которой слово `pending` стоит
+ * в тексте: парсер принял описание за графу коммита и объявил запись незаполненной (`FX-022`).
+ * Поймано прогоном CI. Позиция вместо содержимого — поэтому графа `Коммит` и стала последней
+ * везде, включая таблицу фич, где раньше за ней шли «Проверки».
+ */
 function commitCells(content: string): { id: string; cell: string }[] {
   return entries(content)
     .filter((entry) => CHANGELOG_PREFIXES.includes(entry.id.slice(0, 2)))
-    .map((entry) => {
-      const cells = columns(entry.rest);
-      // Таблица дефектов несёт коммит третьей графой, таблицы фич и изменений — последней
-      // непустой. Берём ту, в которой есть хеш или `pending`, иначе — последнюю.
-      const withCommit = cells.find(
-        (cell) => COMMIT_HASH.test(cell.replace(/`/g, '')) || cell.includes(PENDING),
-      );
-
-      return { id: entry.id, cell: withCommit ?? cells.at(-1) ?? '' };
-    });
+    .map((entry) => ({ id: entry.id, cell: columns(entry.rest).at(-1) ?? '' }));
 }
 
 /**
