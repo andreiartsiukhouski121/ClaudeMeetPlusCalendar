@@ -32,8 +32,22 @@ const SELF_EXEMPT = ['suite-integrity.api.spec.ts'];
  */
 const UNIT_SPEC_EXEMPT = ['apps/api/src/app.controller.spec.ts'];
 
-/** ID кейса: `<ФИЧА>-<ТИП>-<NN>` (тест-план §2). */
-const CASE_ID_SOURCE = '(?:AL|HD|SM|SEC)-(?:API|FN|UT)-\\d{2}';
+/**
+ * Префиксы фич, известные конвенции. Список явный, а не «любые заглавные буквы»: так падение
+ * называет причину («допиши префикс»), а не молчит.
+ *
+ * **Добавляя фичу, добавь сюда её префикс.** Забыть нельзя: тест «префиксы ID покрыты» ниже
+ * находит в файлах кейсов любой ID вида `XX-API-01` с неизвестным префиксом и краснеет. Без
+ * этой страховки третья фича (скажем, `PR-API-01`) просто не распознавалась бы как ID, и
+ * правила 5–7 стали бы **вакуумно зелёными** — то есть перестали бы проверять что-либо.
+ */
+const KNOWN_CASE_PREFIXES = ['AL', 'HD', 'SM', 'SEC'];
+
+/** ID кейса: `<ФИЧА>-<ТИП>-<NN>` (тест-план §2). Номер — два или три знака. */
+const CASE_ID_SOURCE = `(?:${KNOWN_CASE_PREFIXES.join('|')})-(?:API|FN|UT)-\\d{2,3}`;
+
+/** Форма ID с ЛЮБЫМ префиксом — только чтобы поймать незарегистрированный. */
+const ANY_PREFIX_CASE_ID = /\b([A-Z]{2,5})-(?:API|FN|UT)-\d{2,3}\b/g;
 const CASE_ID_ANYWHERE = new RegExp(CASE_ID_SOURCE, 'g');
 const CASE_ID_HEADING = new RegExp(`^#{2,6}\\s+(${CASE_ID_SOURCE})\\b`);
 const CASE_ID_TABLE_ROW = new RegExp(`^\\|\\s*(${CASE_ID_SOURCE})\\s*\\|`);
@@ -193,6 +207,27 @@ function notAutomatedIds(content: string): string[] {
   }
 
   return unique(exempt.filter((id) => id !== ''));
+}
+
+/**
+ * ID в файлах кейсов, чей префикс не зарегистрирован в `KNOWN_CASE_PREFIXES`.
+ *
+ * Обход вынесен из теста: ветвление внутри `test` запрещено правилом
+ * `playwright/no-conditional-in-test` — оно поднято до `error` осознанно, потому что условие в
+ * тесте прячет непройденную ветку.
+ */
+function unregisteredPrefixes(root: string): string[] {
+  const found: string[] = [];
+
+  for (const doc of e2eCaseDocs(root)) {
+    for (const match of read(root, doc).matchAll(ANY_PREFIX_CASE_ID)) {
+      if (!KNOWN_CASE_PREFIXES.includes(match[1])) {
+        found.push(`${doc}: префикс ${match[1]} (в ID ${match[0]}) не зарегистрирован`);
+      }
+    }
+  }
+
+  return unique(found);
 }
 
 interface UnitCaseRef {
@@ -405,6 +440,25 @@ test.describe('Конвенция регрессионного сьюта', () =
       appsUnitSpecs(root),
       `Обход apps/ от корня ${root} не нашёл ни одного юнит-спека`,
     ).toContain(UNIT_SPEC_EXEMPT[0]);
+  });
+
+  test('префиксы ID зарегистрированы — иначе правила 5–7 вакуумно зелёные', () => {
+    const unregistered = unregisteredPrefixes(repoRoot());
+
+    /*
+     * Почему это отдельный тест, а не просто «любые заглавные буквы» в CASE_ID_SOURCE.
+     *
+     * Пока список префиксов захардкожен, ID новой фичи (`PR-API-01`) не распознаётся вообще —
+     * и правила 5, 6, 7 находят ноль ID, то есть проходят, ничего не проверив. Это худший вид
+     * отказа: сьют зеленеет, а покрытие исчезает молча. Здесь незнакомый префикс роняет прогон
+     * с инструкцией, куда его дописать.
+     */
+    expect(
+      unique(unregistered),
+      `Допиши префикс в KNOWN_CASE_PREFIXES (${KNOWN_CASE_PREFIXES.join(', ')}) ` +
+        'в e2e/suite-integrity.api.spec.ts — иначе ID новой фичи не распознаются и правила ' +
+        '5–7 перестанут проверять что-либо',
+    ).toEqual([]);
   });
 
   test('правило 1 — каждый спек в e2e/ имеет суффикс .api. или .functional.', () => {

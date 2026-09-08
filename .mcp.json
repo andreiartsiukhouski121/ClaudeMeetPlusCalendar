@@ -3,7 +3,8 @@
     "playwright": {
       "type": "stdio",
       "command": "npx",
-      "args": ["-y", "@playwright/mcp@latest", "--browser", "chromium"]
+      "args": ["-y", "@playwright/mcp@0.0.80", "--browser", "chromium"],
+      "_comment": "Версия прикреплена, а не @latest: @latest скачивает неизвестный код из сети при каждом старте — новый релиз попадает в окружение разработчика без ревью и без записи в lock-файле. Флаг --browser chromium обязателен: по умолчанию @playwright/mcp берёт канал Chrome, а в проекте стоит только bundled chromium, и без флага инструменты browser_* падают с «browser not found». Обновление версии — осознанное изменение через коммит."
     }
   }
 }
