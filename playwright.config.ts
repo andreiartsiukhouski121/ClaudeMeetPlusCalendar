@@ -1,5 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
+import type { ApiOptions } from './e2e/fixtures/api.js';
+
 /**
  * E2E-проверка монорепозитория: web (Next.js) и api (Nest.js).
  * Playwright сам поднимает оба сервера — см. webServer ниже.
@@ -16,7 +18,7 @@ const WEB_URL = `http://127.0.0.1:${WEB_PORT}`;
 const API_URL = `http://127.0.0.1:${API_PORT}`;
 const isCI = !!process.env.CI;
 
-export default defineConfig({
+export default defineConfig<ApiOptions>({
   testDir: './e2e',
   fullyParallel: true,
   forbidOnly: isCI,
@@ -27,6 +29,12 @@ export default defineConfig({
   expect: { timeout: 10_000 },
   reporter: [['list'], ['html', { open: 'never' }]],
   use: {
+    // Адрес Nest для кейсов, которым он нужен строкой (apiRequest, HD-FN-11, SEC-FN-03).
+    // Задаётся ЗДЕСЬ и только здесь: сама `baseURL` проекта `web` указывает на Next, а второго
+    // штатного адреса у Playwright нет. Собственная опция сьюта — это способ отдать значение из
+    // конфига, не заставляя тесты пересчитывать формулу порта (FX-023). Значение видно в
+    // HTML-отчёте вместе с остальным конфигом.
+    apiBaseURL: API_URL,
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',

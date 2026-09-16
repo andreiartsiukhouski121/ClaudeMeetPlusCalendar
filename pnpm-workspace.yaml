@@ -17,3 +17,10 @@ catalog:
 ignoredBuiltDependencies:
   - sharp
   - unrs-resolver
+
+# Транзитив @nestjs/platform-express@12.0.1 тянет multer@2.2.0, а в нём два high:
+# GHSA-qfvm-cv95-jqjf и GHSA-535w-7cp7-47q4 (DoS). Nest диапазон пока не поднял, поэтому
+# поднимаем здесь: без override `pnpm audit --audit-level high` красный, а это блокер приёмки
+# по `regression-verify` §3. Снять, когда Nest перейдёт на multer >=2.3.0 сам.
+overrides:
+  multer: '>=2.3.0'
