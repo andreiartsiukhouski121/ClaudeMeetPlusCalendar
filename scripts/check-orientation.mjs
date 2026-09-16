@@ -18,7 +18,13 @@ import { readdirSync, readFileSync, existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 
 const PLANS_DIR = 'docs/plans';
-const TEMPLATE = 'docs/plans/TEMPLATE.md';
+/**
+ * Шаблоны планов — по одному на поток работ (`feature-pipeline` и `bugfix-pipeline`). Список
+ * обязан быть полным: из него берётся эталон «поле не заполнено», и шаблон, забытый здесь, делает
+ * свои планы непроверяемыми — незаполненный раздел 0 проходит молча. Проверено контрольным опытом
+ * при заведении `TEMPLATE-BUGFIX.md`: до этой правки баг-план без единого ответа был «пройден».
+ */
+const TEMPLATES = ['docs/plans/TEMPLATE.md', 'docs/plans/TEMPLATE-BUGFIX.md'];
 const PLAN_SUFFIX = '.plan.md';
 const LEDGER_FILES = ['docs/CHANGELOG.md', 'docs/BACKLOG.md'];
 
@@ -148,19 +154,22 @@ function answerFor(content, label) {
  * который проверка обязана ловить в первую очередь.
  */
 function templateAnswers(root) {
-  const answers = new Map();
-  const path = join(root, TEMPLATE);
+  const answers = new Map(QUESTIONS.map(({ label }) => [label, new Set()]));
 
-  if (!existsSync(path)) {
-    return answers;
-  }
+  for (const template of TEMPLATES) {
+    const path = join(root, template);
 
-  const content = readFileSync(path, 'utf8');
+    if (!existsSync(path)) {
+      continue;
+    }
 
-  for (const { label } of QUESTIONS) {
-    const answer = answerFor(content, label);
-    if (answer !== null) {
-      answers.set(label, normalize(answer));
+    const content = readFileSync(path, 'utf8');
+
+    for (const { label } of QUESTIONS) {
+      const answer = answerFor(content, label);
+      if (answer !== null) {
+        answers.get(label).add(normalize(answer));
+      }
     }
   }
 
@@ -183,7 +192,8 @@ function violations(root) {
 
     if (!/^##\s*0\.\s*Ориентация/m.test(content)) {
       problems.push(
-        `${plan}: нет раздела «## 0. Ориентация». Скопируй его из docs/plans/TEMPLATE.md — ` +
+        `${plan}: нет раздела «## 0. Ориентация». Скопируй его из docs/plans/TEMPLATE.md ` +
+          `(или TEMPLATE-BUGFIX.md) — ` +
           'планирование начинается с чтения реестра и бэклога, а не с кода',
       );
       continue;
@@ -207,7 +217,7 @@ function violations(root) {
         );
         continue;
       }
-      if (fromTemplate.get(label) === normalize(answer)) {
+      if (fromTemplate.get(label).has(normalize(answer))) {
         problems.push(
           `${plan}: ответ на «${label}» — это текст-подсказка из шаблона, то есть поле не ` +
             'заполняли. Ориентация начинается с чтения docs/CHANGELOG.md и docs/BACKLOG.md, ' +

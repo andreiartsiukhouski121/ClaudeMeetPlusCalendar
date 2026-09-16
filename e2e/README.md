@@ -30,19 +30,20 @@
 
 ## Что где лежит
 
-| Фича                | Slug             | Кейсы (md)                                                     | Спеки                                                                                                                                                                                               | Проект | Запуск                                          |
-| ------------------- | ---------------- | -------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ | ----------------------------------------------- |
-| Логин `/auth/login` | `auth-login`     | `regression/auth-login/auth-login.api.cases.md`                | `regression/auth-login/auth-login.api.spec.ts`                                                                                                                                                      | api    | `pnpm e2e --project=api --grep @auth-login`     |
-| Логин `/auth/login` | `auth-login`     | `regression/auth-login/auth-login.functional.cases.md`         | `regression/auth-login/auth-login.functional.spec.ts`                                                                                                                                               | web    | `pnpm e2e --project=web --grep @auth-login`     |
-| Логин `/auth/login` | `auth-login`     | `regression/auth-login/auth-login.unit.cases.md`               | `apps/api/src/auth/*.spec.ts`, `apps/api/src/common/crypto/password.spec.ts`, `apps/api/src/users/users.service.spec.ts`, `apps/web/src/lib/session.spec.ts`, `apps/web/src/lib/api-client.spec.ts` | vitest | `pnpm test:auth-login`                          |
-| Главная `/`         | `home-dashboard` | `regression/home-dashboard/home-dashboard.api.cases.md`        | `regression/home-dashboard/home-dashboard.api.spec.ts`                                                                                                                                              | api    | `pnpm e2e --project=api --grep @home-dashboard` |
-| Главная `/`         | `home-dashboard` | `regression/home-dashboard/home-dashboard.functional.cases.md` | `regression/home-dashboard/home-dashboard.functional.spec.ts`                                                                                                                                       | web    | `pnpm e2e --project=web --grep @home-dashboard` |
-| Главная `/`         | `home-dashboard` | `regression/home-dashboard/home-dashboard.unit.cases.md`       | `apps/api/src/meetings/*.spec.ts`, `apps/web/src/lib/format-date.spec.ts`                                                                                                                           | vitest | `pnpm test:home-dashboard`                      |
-| Инфраструктура      | `smoke`          | `smoke/health.api.cases.md`, `smoke/seed.api.cases.md`         | `smoke/health.api.spec.ts`, `smoke/seed.api.spec.ts`                                                                                                                                                | api    | `pnpm e2e e2e/smoke`                            |
-| Реестр изменений    | `ledger`         | `ledger/ledger.api.cases.md`                                   | `ledger/ledger.api.spec.ts`                                                                                                                                                                         | api    | `pnpm e2e e2e/ledger`                           |
-| Конвенция сьюта     | —                | нет (в `SELF_EXEMPT`)                                          | `suite-integrity.api.spec.ts`                                                                                                                                                                       | api    | `pnpm e2e e2e/suite-integrity.api.spec.ts`      |
-| Безопасность        | `security`       | `security/security.api.cases.md`                               | `security/security.api.spec.ts`                                                                                                                                                                     | api    | `pnpm e2e:security`                             |
-| Безопасность        | `security`       | `security/security.functional.cases.md`                        | `security/security.functional.spec.ts`                                                                                                                                                              | web    | `pnpm e2e:security`                             |
+| Фича                 | Slug             | Кейсы (md)                                                     | Спеки                                                                                                                                                                                               | Проект | Запуск                                          |
+| -------------------- | ---------------- | -------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ | ----------------------------------------------- |
+| Логин `/auth/login`  | `auth-login`     | `regression/auth-login/auth-login.api.cases.md`                | `regression/auth-login/auth-login.api.spec.ts`                                                                                                                                                      | api    | `pnpm e2e --project=api --grep @auth-login`     |
+| Логин `/auth/login`  | `auth-login`     | `regression/auth-login/auth-login.functional.cases.md`         | `regression/auth-login/auth-login.functional.spec.ts`                                                                                                                                               | web    | `pnpm e2e --project=web --grep @auth-login`     |
+| Логин `/auth/login`  | `auth-login`     | `regression/auth-login/auth-login.unit.cases.md`               | `apps/api/src/auth/*.spec.ts`, `apps/api/src/common/crypto/password.spec.ts`, `apps/api/src/users/users.service.spec.ts`, `apps/web/src/lib/session.spec.ts`, `apps/web/src/lib/api-client.spec.ts` | vitest | `pnpm test:auth-login`                          |
+| Главная `/`          | `home-dashboard` | `regression/home-dashboard/home-dashboard.api.cases.md`        | `regression/home-dashboard/home-dashboard.api.spec.ts`                                                                                                                                              | api    | `pnpm e2e --project=api --grep @home-dashboard` |
+| Главная `/`          | `home-dashboard` | `regression/home-dashboard/home-dashboard.functional.cases.md` | `regression/home-dashboard/home-dashboard.functional.spec.ts`                                                                                                                                       | web    | `pnpm e2e --project=web --grep @home-dashboard` |
+| Главная `/`          | `home-dashboard` | `regression/home-dashboard/home-dashboard.unit.cases.md`       | `apps/api/src/meetings/*.spec.ts`, `apps/web/src/lib/format-date.spec.ts`                                                                                                                           | vitest | `pnpm test:home-dashboard`                      |
+| Инфраструктура       | `smoke`          | `smoke/health.api.cases.md`, `smoke/seed.api.cases.md`         | `smoke/health.api.spec.ts`, `smoke/seed.api.spec.ts`                                                                                                                                                | api    | `pnpm e2e e2e/smoke`                            |
+| Реестр изменений     | `ledger`         | `ledger/ledger.api.cases.md`                                   | `ledger/ledger.api.spec.ts`                                                                                                                                                                         | api    | `pnpm e2e e2e/ledger`                           |
+| Процесс планирования | `process`        | `process/process.api.cases.md`                                 | `process/process.api.spec.ts`                                                                                                                                                                       | api    | `pnpm e2e e2e/process`                          |
+| Конвенция сьюта      | —                | нет (в `SELF_EXEMPT`)                                          | `suite-integrity.api.spec.ts`                                                                                                                                                                       | api    | `pnpm e2e e2e/suite-integrity.api.spec.ts`      |
+| Безопасность         | `security`       | `security/security.api.cases.md`                               | `security/security.api.spec.ts`                                                                                                                                                                     | api    | `pnpm e2e:security`                             |
+| Безопасность         | `security`       | `security/security.functional.cases.md`                        | `security/security.functional.spec.ts`                                                                                                                                                              | web    | `pnpm e2e:security`                             |
 
 `smoke/seed.api.spec.ts` наполнялся по этапам: `SM-API-02` (логины сид-пользователей) — в T1.5,
 вместе с `POST /auth/login`, `SM-API-03` (сид-встречи) — в T2.4, вместе с контроллером
@@ -90,6 +91,7 @@
 
 Теги задаются опцией `tag` у `test.describe`, а не текстом в заголовке: `@regression`, `@smoke`,
 `@auth-login`, `@home-dashboard`, `@mutating` (кейс изменяет данные), `@p0` (критичный минимум).
+Служебные сьюты несут свой тег: `@security`, `@ledger`, `@process`.
 
 ```bash
 pnpm e2e                                    # всё
@@ -205,15 +207,18 @@ e2e-кейсов, ревью обоснованно сократило их до
 сюда: четыре разошедшиеся копии этого абзаца уже дали `FX-027`. Меняешь числа — правь здесь и ставь
 новую дату замера.
 
-Замер **2026-09-16**, Windows 11, тёплый `.next`. Состав сьюта — **85 e2e в 10 файлах и 42 юнита**
+Замер **2026-09-16**, Windows 11, тёплый `.next`. Состав сьюта — **87 e2e в 11 файлах и 42 юнита**
 (29 в `apps/api`, 13 в `apps/web`) плюс одна supertest-проверка сборки модуля.
 
 | Что                                              | Время       | Чем измерено                          |
 | ------------------------------------------------ | ----------- | ------------------------------------- |
-| `pnpm e2e` — все 85                              | **39,5 с**  | замер команды целиком                 |
+| `pnpm e2e` — все 87                              | **26–40 с** | замер команды целиком                 |
 | `pnpm e2e --project=api --grep @auth-login` — 11 | **13,1 с**  | то же; из них ~12 с — подъём серверов |
-| `pnpm verify` целиком                            | **62–66 с** | два замера подряд                     |
+| `pnpm verify` целиком                            | **47–66 с** | четыре замера за день                 |
 | `pnpm verify` на холодном `.next`                | ~137 с      | первый прогон дня                     |
+
+Разброс — это прогрев: `.next` и `tsc` у Nest тёплые в разной степени. Порядок величины устойчив,
+и именно он важен для правила ниже.
 
 Из второй строки и следует правило про один вызов: **каждый дополнительный `pnpm e2e …` стоит около
 12 с независимо от того, сколько тестов отфильтровано**, потому что заново поднимает **оба** сервера,
