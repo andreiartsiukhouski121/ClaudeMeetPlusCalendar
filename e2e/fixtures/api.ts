@@ -1,14 +1,50 @@
 import { test as base, type APIRequestContext } from '@playwright/test';
 
 /**
- * Адрес Nest в прогоне Playwright. Формула повторяет `playwright.config.ts` дословно,
- * включая дефолт порта: конфиг не экспортирует эту константу, а импортировать его из спека
- * значит тащить в тест и `webServer`, и `projects`.
+ * Опции сьюта, которые задаёт `playwright.config.ts`.
  *
- * Если формулы разойдутся — `apiRequest` начнёт ходить не туда, куда `webServer` поднял Nest.
- * При правке порта в конфиге правится и здесь.
+ * Адрес Nest — значение конфига, а не константа теста. До этого формула адреса (хост, порт из
+ * переменной окружения, дефолт) была выписана в ТРЁХ местах — в конфиге, здесь и в
+ * `security.functional.spec.ts`, — а адрес web ещё и литералом в `SEC-FN-05` (FX-023).
+ *
+ * Копии совпадали: все читали одну переменную окружения, и прогон на нештатных портах был
+ * корректен. Но держалось это комментарием «при правке порта в конфиге правится и здесь», то
+ * есть обещанием, а не инвариантом. Цена расхождения несимметрична: разъехавшись, тест сравнит
+ * трафик со старым адресом и проверка BFF станет вакуумно зелёной — не упадёт, а перестанет
+ * проверять.
  */
-export const API_BASE_URL = `http://127.0.0.1:${process.env.E2E_API_PORT ?? '3101'}`;
+export type ApiOptions = {
+  /** Адрес Nest в прогоне. Приходит из `use.apiBaseURL` в `playwright.config.ts`. */
+  apiBaseURL: string;
+};
+
+/**
+ * Дефолт опции пуст НАМЕРЕННО, а не равен прежней формуле.
+ *
+ * Рабочий дефолт здесь вернул бы ровно ту конструкцию, которую убирали: вторую копию адреса,
+ * способную разойтись с конфигом. Причём разойтись тихо — сьют ходил бы по дефолту, а серверы
+ * поднимались бы по конфигу. Пустое значение так не умеет: любое чтение падает с указанием,
+ * что чинить.
+ */
+function requireApiBaseURL(apiBaseURL: string): string {
+  if (apiBaseURL === '') {
+    throw new Error(
+      'Опция apiBaseURL пуста: она не задана в playwright.config.ts (use.apiBaseURL). ' +
+        'Адрес Nest живёт только в конфиге — не восстанавливай формулу в тесте.',
+    );
+  }
+
+  return apiBaseURL;
+}
+
+/**
+ * Ушёл ли запрос напрямую в Nest. Единственное место, где адрес из конфига сопоставляется
+ * с URL запроса: `HD-FN-11` и `SEC-FN-03` проверяют один и тот же инвариант BFF и обязаны
+ * понимать «напрямую» одинаково.
+ */
+export function isNestRequest(url: string, apiBaseURL: string): boolean {
+  return url.startsWith(requireApiBaseURL(apiBaseURL));
+}
 
 /**
  * Контекст запросов к Nest для кейсов проекта `web`.
@@ -20,9 +56,13 @@ export const API_BASE_URL = `http://127.0.0.1:${process.env.E2E_API_PORT ?? '310
  * BFF это не нарушает: запрос идёт из Node-процесса теста, а не из браузера. Требование
  * «браузер никогда не ходит на :3101» проверяет HD-FN-11 по трафику страницы.
  */
-export const test = base.extend<{ apiRequest: APIRequestContext }>({
-  apiRequest: async ({ playwright }, use) => {
-    const context = await playwright.request.newContext({ baseURL: API_BASE_URL });
+export const test = base.extend<ApiOptions & { apiRequest: APIRequestContext }>({
+  apiBaseURL: ['', { option: true }],
+
+  apiRequest: async ({ playwright, apiBaseURL }, use) => {
+    const context = await playwright.request.newContext({
+      baseURL: requireApiBaseURL(apiBaseURL),
+    });
     await use(context);
     await context.dispose();
   },

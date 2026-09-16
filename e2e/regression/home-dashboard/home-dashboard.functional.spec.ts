@@ -6,7 +6,7 @@ import {
   type Page,
 } from '@playwright/test';
 
-import { API_BASE_URL, test as apiTest } from '../../fixtures/api.js';
+import { isNestRequest, test as apiTest } from '../../fixtures/api.js';
 import { authHeadersFor } from '../../fixtures/auth.api.js';
 import { test as authTest } from '../../fixtures/auth.fixture.js';
 import { collectConsoleProblems } from '../../fixtures/console.js';
@@ -100,7 +100,7 @@ test.describe('Главная: UI', { tag: ['@regression', '@home-dashboard'] },
       await expect(page.getByText(TEACHER.email)).toBeHidden();
     });
 
-    test('HD-FN-11 — браузер не обращается к API напрямую', async ({ page }) => {
+    test('HD-FN-11 — браузер не обращается к API напрямую', async ({ page, apiBaseURL }) => {
       const requestedUrls: string[] = [];
       // Подписка ДО первой навигации: иначе запросы логина в список не попадут.
       page.on('request', (request) => requestedUrls.push(request.url()));
@@ -113,11 +113,11 @@ test.describe('Главная: UI', { tag: ['@regression', '@home-dashboard'] },
       await expect(page).toHaveURL('/');
       await expect(page.getByRole('heading', { level: 1 })).toContainText(TEACHER.email);
 
-      const toNest = requestedUrls.filter((url) => url.startsWith(API_BASE_URL));
+      const toNest = requestedUrls.filter((url) => isNestRequest(url, apiBaseURL));
 
       expect(
         toNest,
-        `Браузер обратился к Nest напрямую (${API_BASE_URL}) — нарушение BFF. ` +
+        `Браузер обратился к Nest напрямую (${apiBaseURL}) — нарушение BFF. ` +
           'Весь трафик страницы обязан идти в Next, а к Nest ходит только сервер Next.',
       ).toEqual([]);
       expect(requestedUrls.length).toBeGreaterThan(0);

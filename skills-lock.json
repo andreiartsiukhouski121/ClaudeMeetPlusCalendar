@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "skills": {
+    "git-commit": {
+      "source": "github/awesome-copilot",
+      "sourceType": "github",
+      "skillPath": "skills/git-commit/SKILL.md",
+      "ref": "main",
+      "commit": "9ce814859eaa473178a1463ee3aa0c54a8860b86",
+      "computedHash": "2607fc60629b82b257136dd2a7a373f0a4466c0b49df7746d845d59313c99b21",
+      "treeHash": "9e2d39a73f180955439ad912512b43492a1261bddb473ac632ef356319fa32d2"
+    },
+    "nestjs-best-practices": {
+      "source": "kadajett/agent-nestjs-skills",
+      "sourceType": "github",
+      "skillPath": "skills/nestjs-best-practices/SKILL.md",
+      "ref": "main",
+      "commit": "3986e0cede33958e000f959031cbee0cd83c2941",
+      "computedHash": "29c326e77d1462ed9526996acae5da0cf4003146982abc8c67378f5dbad6b181",
+      "treeHash": "9acbd59cc18f5694d18d28796ff643d1aad447b91b8e5d2c05be9592e99e6fda"
+    },
+    "requesting-code-review": {
+      "source": "obra/superpowers",
+      "sourceType": "github",
+      "skillPath": "skills/requesting-code-review/SKILL.md",
+      "ref": "main",
+      "commit": "b36e0829c6d0140e93cfef2ca599b1b07d4a7797",
+      "computedHash": "004f340ae65811095d6a9bb0a759c87d0a8085c5e705dbb019b011626293d2e9",
+      "treeHash": "7ea646a4887cae71762fef6e70ffd7f6e986a814223ea327cc52905b0c3d2a83"
+    },
+    "vercel-react-best-practices": {
+      "source": "vercel-labs/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/react-best-practices/SKILL.md",
+      "ref": "main",
+      "commit": "063bee94c3f4df8453406c830b0a7df0f2860278",
+      "computedHash": "6b526d013e28073246a36f99b529bc43745d30832ecfa8217b359c34f260ca6b",
+      "treeHash": "57b41d59ea8d88a4e74c05581009bcef9fd22e0a7ad6f976b17cdb2150e8daf9"
+    }
+  }
+}

@@ -1,8 +1,9 @@
 import { createHmac } from 'node:crypto';
 
-import { expect, type Page } from '@playwright/test';
+import { expect, mergeTests, type Page } from '@playwright/test';
 
-import { test } from '../fixtures/auth.fixture.js';
+import { isNestRequest, test as apiTest } from '../fixtures/api.js';
+import { test as authTest } from '../fixtures/auth.fixture.js';
 import { SEED_USERS } from '../fixtures/seed.js';
 
 /**
@@ -15,11 +16,40 @@ import { SEED_USERS } from '../fixtures/seed.js';
  * контракта конкретной страницы, здесь — инвариант, который обязан держаться для любой новой.
  */
 
+/**
+ * Наборы объединены `mergeTests`: сессия — из `auth.fixture.ts`, адрес Nest — опция `apiBaseURL`
+ * из `api.ts`, которую задаёт `playwright.config.ts`. Раньше здесь лежала своя копия формулы
+ * порта (FX-023): она читала ту же переменную окружения и потому совпадала с конфигом, но
+ * совпадение держалось на дисциплине. Разойдись копии — `SEC-FN-03` сравнивал бы трафик с
+ * адресом, на котором Nest не поднимали, и молча перестал бы проверять BFF.
+ */
+const test = mergeTests(authTest, apiTest);
+
 const SESSION_COOKIE_NAME = 'ps_session';
-const API_PORT = process.env.E2E_API_PORT ?? '3101';
 
 /** Закрытые страницы. Добавляя страницу за гейтом, добавь путь сюда. */
 const PROTECTED_PAGES = ['/'];
+
+/**
+ * Адрес web из настроек проекта. Дефолта нет НАМЕРЕННО: прежнее `baseURL ?? 'http://…:3100'`
+ * было четвёртой копией адреса, причём единственной, которая переменную окружения не читала
+ * вовсе. Сработать она не успевала — у проекта `web` `baseURL` задан всегда, — но сработав,
+ * поставила бы cookie не тому origin, и тест «подделка не даёт доступа» зеленел бы, ничего не
+ * проверив (FX-023). Замена молчаливого дефолта на падение убирает эту возможность.
+ *
+ * Функция модульная, а не проверка внутри кейса: `playwright/no-conditional-in-test` запрещает
+ * ветвление в теле теста, и запрещает справедливо.
+ */
+function requireBaseURL(baseURL: string | undefined): string {
+  if (baseURL === undefined) {
+    throw new Error(
+      'baseURL проекта web не задан в playwright.config.ts — cookie некуда ставить. ' +
+        'Адрес живёт в конфиге; не восстанавливай его литералом здесь.',
+    );
+  }
+
+  return baseURL;
+}
 
 async function sessionCookieValue(page: Page): Promise<string> {
   const cookies = await page.context().cookies();
@@ -70,7 +100,7 @@ test.describe('Безопасность: браузер', { tag: '@security' }, 
   test(
     'SEC-FN-03 — браузер не ходит в API и не светит токен в сети',
     { tag: '@p0' },
-    async ({ authedPage }) => {
+    async ({ authedPage, apiBaseURL }) => {
       const requests: { url: string; hasAuthHeader: boolean }[] = [];
 
       authedPage.on('request', (request) => {
@@ -84,7 +114,10 @@ test.describe('Безопасность: браузер', { tag: '@security' }, 
       await expect(authedPage.getByRole('heading', { level: 1 })).toBeVisible();
 
       expect(requests.length).toBeGreaterThan(0);
-      expect(requests.filter((request) => request.url.includes(`:${API_PORT}`))).toEqual([]);
+      expect(
+        requests.filter((request) => isNestRequest(request.url, apiBaseURL)),
+        `Браузер обратился к Nest напрямую (${apiBaseURL}) — нарушение BFF`,
+      ).toEqual([]);
       // Заголовок с токеном в браузерном запросе означал бы обход BFF, даже если адрес — Next.
       expect(requests.filter((request) => request.hasAuthHeader)).toEqual([]);
     },
@@ -132,7 +165,7 @@ test.describe('Безопасность: браузер', { tag: '@security' }, 
             {
               name: SESSION_COOKIE_NAME,
               value,
-              url: baseURL ?? 'http://127.0.0.1:3100',
+              url: requireBaseURL(baseURL),
             },
           ]);
 
