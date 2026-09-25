@@ -3,11 +3,10 @@ import type { ReactNode } from 'react';
 import styles from './auth.module.css';
 
 /**
- * Общая рамка страниц `/auth/*`: центрированная карточка на всю высоту экрана.
+ * Shared frame for `/auth/*`: a centred card filling the viewport height.
  *
- * Пропсы описаны вручную, а не через `LayoutProps<'/auth'>`: сгенерированные типы маршрутов
- * появляются только после `next typegen`, и зависеть от их свежести в новых файлах не стоит
- * (риск 15).
+ * Props are declared by hand rather than via `LayoutProps<'/auth'>`: generated route types only
+ * appear after `next typegen`, and new files should not depend on how fresh they are.
  */
 export default function AuthLayout({ children }: { children: ReactNode }) {
   return (

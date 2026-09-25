@@ -1,15 +1,13 @@
 import { Logger } from '@nestjs/common';
 
 /**
- * Конфигурация подписи JWT. `@nestjs/config` и dotenv осознанно не подключены
- * (план имплементации §8 п.4), поэтому значения берутся прямо из `process.env`,
- * а `apps/api/.env.example` документирует контракт переменных, а не способ их задать.
+ * JWT signing config. `@nestjs/config` and dotenv are deliberately absent, so values come straight
+ * from `process.env`; `apps/api/.env.example` documents the contract, not a way to set it.
  */
 
 /**
- * Дефолт — стабильная константа, а НЕ `randomBytes` при старте: `nest start --watch`
- * перезапускается на каждой правке, и случайный секрет обнулял бы все выданные токены
- * посреди прогона тестов (план имплементации §3.6, риск 8).
+ * A stable constant, not `randomBytes` at startup: `nest start --watch` restarts on every edit,
+ * and a random secret would invalidate every issued token mid-run.
  */
 const DEV_JWT_SECRET = 'purpleschool-dev-secret';
 const DEFAULT_JWT_EXPIRES_IN = '1h';
@@ -26,8 +24,8 @@ export function loadAuthConfig(): AuthConfig {
 
   if (secret === undefined || secret === '') {
     logger.warn(
-      `JWT_SECRET не задан — используется dev-дефолт «${DEV_JWT_SECRET}». ` +
-        'Для любого не-локального запуска задайте переменную окружения процесса: ' +
+      `JWT_SECRET is not set — falling back to the dev default "${DEV_JWT_SECRET}". ` +
+        'For anything but a local run, set the process environment variable: ' +
         "$env:JWT_SECRET='…'; pnpm dev:api",
     );
   }

@@ -1,278 +1,294 @@
 # PurpleSchool
 
-Монорепозиторий на pnpm: `apps/web` (Next.js 16) + `apps/api` (Nest.js 12).
-Общие конфиги — в `packages/eslint-config` и `packages/tsconfig`.
-Специфика пакетов — в [`apps/api/CLAUDE.md`](apps/api/CLAUDE.md) и
-[`apps/web/CLAUDE.md`](apps/web/CLAUDE.md): карта модулей и то, что касается только одного приложения.
+A pnpm monorepo: `apps/web` (Next.js 16) + `apps/api` (Nest.js 12). Shared configs live in
+`packages/eslint-config` and `packages/tsconfig`. Package specifics are in
+[`apps/api/CLAUDE.md`](apps/api/CLAUDE.md) and [`apps/web/CLAUDE.md`](apps/web/CLAUDE.md): the
+module map and whatever concerns only one application.
 
-## Команды
+The project is English-only (`CH-014`): documents, comments, test titles, UI strings and the seed.
+Commits before that entry are in Russian and are not rewritten.
 
-| Команда                       | Что делает                                                               |
-| ----------------------------- | ------------------------------------------------------------------------ |
-| `pnpm dev`                    | оба приложения параллельно                                               |
-| `pnpm dev:web`                | Next.js на `http://127.0.0.1:3000`                                       |
-| `pnpm dev:api`                | Nest.js на `http://127.0.0.1:3001`                                       |
-| `pnpm lint` / `pnpm lint:fix` | ESLint по корню и всем пакетам                                           |
-| `pnpm typecheck`              | `tsc` по корню (e2e) + по каждому пакету                                 |
-| `pnpm test`                   | юнит-тесты (Vitest в `apps/api` и `apps/web`)                            |
-| `pnpm test:<фича>`            | юниты одной фичи: `test:auth-login`, `test:home-dashboard`               |
-| `pnpm plan:new <slug>`        | создать план фичи из шаблона                                             |
-| `pnpm plan:new <slug> --bug`  | создать план багфикса: воспроизведение, причина, влияние                 |
-| `pnpm check:orientation`      | раздел 0 планов заполнен по существу (стоит в pre-commit и в `verify`)   |
-| `pnpm verify`                 | **вся проверка одним подъёмом серверов**: lint + typecheck + юниты + e2e |
-| `pnpm e2e`                    | E2E через Playwright на портах 3100/3101, серверы поднимает сам          |
-| `pnpm e2e:security`           | межфичевые security-инварианты (API + браузер)                           |
-| `pnpm audit`                  | известные CVE в зависимостях (уровень high и выше)                       |
-| `pnpm e2e:report`             | HTML-отчёт последнего прогона Playwright                                 |
+## Commands
 
-Адреса пиши как `127.0.0.1`, не `localhost`: на Windows `localhost` резолвится в `::1`, куда
-`next dev` не слушает.
+| Command                       | What it does                                                                 |
+| ----------------------------- | ---------------------------------------------------------------------------- |
+| `pnpm dev`                    | both applications in parallel                                                |
+| `pnpm dev:web`                | Next.js on `http://127.0.0.1:3000`                                           |
+| `pnpm dev:api`                | Nest.js on `http://127.0.0.1:3001`                                           |
+| `pnpm lint` / `pnpm lint:fix` | ESLint over the root and every package                                       |
+| `pnpm typecheck`              | `tsc` over the root (e2e) and over each package                              |
+| `pnpm test`                   | unit tests (Vitest in `apps/api` and `apps/web`)                             |
+| `pnpm test:<feature>`         | one feature's units: `test:auth-login`, `test:home-dashboard`                |
+| `pnpm plan:new <slug>`        | create a feature plan from the template                                      |
+| `pnpm plan:new <slug> --bug`  | create a bugfix plan: reproduction, cause, impact                            |
+| `pnpm check:orientation`      | section 0 of the plans is filled in substance (in pre-commit and verify)     |
+| `pnpm verify`                 | **the whole check on a single server start**: lint + typecheck + units + e2e |
+| `pnpm e2e`                    | E2E through Playwright on ports 3100/3101; it starts the servers itself      |
+| `pnpm e2e:security`           | cross-feature security invariants (API + browser)                            |
+| `pnpm audit`                  | known CVEs in the dependencies (high and above)                              |
+| `pnpm e2e:report`             | the HTML report of the last Playwright run                                   |
+| `pnpm skills:sync`            | fetch the external skill sets into `.agents/` by the lock file               |
+| `pnpm skills:check`           | offline: verify what is on disk matches the lock file                        |
 
-Playwright работает на **отдельных портах 3100 (web) и 3101 (api)** и поднимает серверы сам, чтобы
-не переиспользовать то, что висит на 3000/3001. Если на 3000 стоит `next start`, он отдаёт прежнюю
-сборку, и прогон покажет ложное «зелено» на сломанном коде. Не переводи `playwright.config.ts` на
+Write addresses as `127.0.0.1`, never `localhost`: on Windows `localhost` resolves to `::1`, where
+`next dev` does not listen.
+
+Playwright runs on **dedicated ports 3100 (web) and 3101 (api)** and starts the servers itself, so
+it never reuses whatever is on 3000/3001. If `next start` is sitting on 3000 it serves a stale
+build, and the run goes falsely green on broken code. Do not move `playwright.config.ts` to
 3000/3001.
 
-Проверяй одним `pnpm verify`, а не серией вызовов с разными `--grep`: разбивка по фичам нужна для
-локализации падения, а не для приёмки.
+Verify with a single `pnpm verify` rather than a series of `--grep` calls: the per-feature split is
+for localizing a failure, not for acceptance.
 
-Замеры прогонов и состав сьюта живут **в одном месте** — [`e2e/README.md`](e2e/README.md),
-раздел «Экономика прогонов». Сюда они не переписаны намеренно: четыре разошедшиеся копии этого
-абзаца уже дали `FX-027`.
+Run measurements and the suite composition live **in one place** — [`e2e/README.md`](e2e/README.md),
+"Run economics". They are deliberately not restated here: four diverging copies of that paragraph
+already produced `FX-027`.
 
-**Изоляция параллельных агентов возможна ТОЛЬКО через отдельный git worktree, а не через порты.**
-Проверено опытом: Next 16 регистрирует dev-сервер по **каталогу проекта**, а не по порту. Пока в
-`apps/web` работает один `next dev`, второй не поднимается ни на каком порту:
-`Another next dev server is already running`, `webServer` Playwright не стартует, прогон падает с
-`Exit code: 1` и **ноль запущенных тестов**. Отсюда два следствия:
+**Isolating parallel agents is possible ONLY through a separate git worktree, never through ports.**
+Proven by experience: Next 16 registers its dev server per **project directory**, not per port.
+While one `next dev` is running in `apps/web`, a second one starts on no port at all:
+`Another next dev server is already running`, Playwright's `webServer` never comes up, and the run
+fails with `Exit code: 1` and **zero tests executed**. Two consequences:
 
-1. Перед `pnpm e2e` рабочий `pnpm dev` надо **остановить** — иначе прогона не будет вовсе.
-2. Двум агентам мало разных портов: нужен **свой git worktree на агента**, и тогда порты нужны уже
-   вторично — чтобы не столкнуться на 3100/3101 между worktree. Чем заводить worktree — дело
-   машины: на этой есть общемашинный скил `agent-team`, в репозитории его нет, и в свежем клоне
-   worktree создаётся руками (`git worktree add`).
+1. Before `pnpm e2e`, a running `pnpm dev` must be **stopped** — otherwise there is no run at all.
+2. Different ports are not enough for two agents: each needs its own git worktree, and only then do
+   ports matter — so two worktrees do not collide on 3100/3101. How the worktree is created is a
+   property of the machine: this one has the machine-wide `agent-team` skill, the repository has
+   nothing, and in a fresh clone it is `git worktree add` by hand.
 
-Переменные `E2E_WEB_PORT` / `E2E_API_PORT` работают (один прогон на 3200/3201 зелёный) и полезны
-внутри worktree, но сами по себе параллельность не дают.
+`E2E_WEB_PORT` / `E2E_API_PORT` do work (a run on 3200/3201 is green) and are useful inside a
+worktree, but on their own they give no parallelism.
 
 ```bash
-# внутри своего worktree, если 3100/3101 заняты соседним
+# inside your own worktree, if 3100/3101 are taken by a neighbour
 E2E_WEB_PORT=3200 E2E_API_PORT=3201 pnpm e2e
 ```
 
-## Два потока работ: фича и багфикс
+## Two workflows: feature and bugfix
 
-Прежде чем планировать, определи, что перед тобой. Развилка одна и проходит по вопросу **«заявлено
-ли уже это поведение»**:
+Before planning, decide which one you are in. The fork turns on a single question: **has this
+behaviour already been promised?**
 
-|                      | Фича                                            | Багфикс                                        |
-| -------------------- | ----------------------------------------------- | ---------------------------------------------- |
-| Когда                | поведения ещё нет ни в кейсах, ни в инвариантах | поведение заявлено, а код ему не соответствует |
-| Скил                 | `feature-pipeline`                              | `bugfix-pipeline`                              |
-| Шаблон плана         | `pnpm plan:new <slug>`                          | `pnpm plan:new <slug> --bug`                   |
-| Чем занят первый шаг | спайк рискованных допущений                     | воспроизведение дефекта                        |
-| Что проектируется    | контракт и данные                               | ничего: поведение восстанавливается            |
-| Тест                 | пишется вместе с кодом                          | пишется **до** фикса и обязан краснеть         |
-| Запись в реестре     | `FT-` (или `CH-` для процесса)                  | `FX-` с графой «Чем найдено»                   |
+|                    | Feature                                          | Bugfix                                        |
+| ------------------ | ------------------------------------------------ | --------------------------------------------- |
+| When               | the behaviour is in no case and no invariant yet | the behaviour is promised, the code disagrees |
+| Skill              | `feature-pipeline`                               | `bugfix-pipeline`                             |
+| Plan template      | `pnpm plan:new <slug>`                           | `pnpm plan:new <slug> --bug`                  |
+| The first step     | a spike of risky assumptions                     | reproducing the defect                        |
+| What gets designed | the contract and the data                        | nothing: behaviour is restored                |
+| The test           | written alongside the code                       | written **before** the fix and must go red    |
+| Ledger entry       | `FT-` (or `CH-` for process)                     | `FX-` with the "Found by" column              |
 
-Общее у них — раздел 0 «Ориентация» (одинаковый по форме в обоих шаблонах, его читает
-`pnpm check:orientation`), приёмка одним `pnpm verify` и обязательная запись в реестр.
+What they share: section 0 "Orientation" (identical in form in both templates and read by
+`pnpm check:orientation`), acceptance through one `pnpm verify`, and a mandatory ledger entry.
 
-**Плана требует не всякий багфикс.** Порог — в `bugfix-pipeline` §4: причина не найдена за четверть
-часа, затронут контракт или инвариант, затронута безопасность, затронут больше чем один модуль.
-Иначе поток короче: красный тест, фикс, запись `FX-`. Документ на однострочный фикс стоит дороже
-фикса — это ровно то, от чего ушли в `CH-004`.
+**Not every bugfix needs a plan.** The threshold is in `bugfix-pipeline` §4: the cause was not found
+in about fifteen minutes, a contract or an invariant is touched, security is involved, or more than
+one module is affected. Otherwise the flow is shorter: a red test, the fix, an `FX-` entry. A
+document for a one-line fix costs more than the fix — exactly what `CH-004` moved away from.
 
-## Что уже делалось: реестр и бэклог
+## What has been done: the ledger and the backlog
 
-**Перед планированием любой задачи читаются два файла**, а не после:
+**Two files are read before planning any task**, not after:
 
-- [`docs/CHANGELOG.md`](docs/CHANGELOG.md) — реализованные фичи, изменения процесса и **все
-  найденные дефекты** с графой «Чем найдено». Половина записей — про то, чего не видно в диффе:
-  вакуумно проходящий мета-тест, правила линта в `warn`, тайминговый оракул на логине, бесконечный
-  редирект при негодной cookie.
-- [`docs/BACKLOG.md`](docs/BACKLOG.md) — что предстоит (с графой «Конфликтует с») и раздел
-  **«Отклонено»** с причинами: он существует затем, чтобы одно и то же не предлагали заново.
+- [`docs/CHANGELOG.md`](docs/CHANGELOG.md) — shipped features, process changes and **every defect
+  found**, with the "Found by" column. Half the entries are about things invisible in a diff: a
+  vacuously passing meta-test, lint rules left at `warn`, a login timing oracle, an endless redirect
+  on a broken cookie.
+- [`docs/BACKLOG.md`](docs/BACKLOG.md) — what is ahead (with the "Conflicts with" column) and a
+  **Rejected** section with reasons: it exists so the same idea is not proposed again.
 
-Форма ориентации — раздел 0 шаблона [`docs/plans/TEMPLATE.md`](docs/plans/TEMPLATE.md): четыре
-письменных ответа про дубль, конфликт с реализованным, конфликт с планируемым и неясности.
+The orientation form is section 0 of [`docs/plans/TEMPLATE.md`](docs/plans/TEMPLATE.md): four
+written answers about duplication, conflicts with shipped work, conflicts with planned work, and
+open questions.
 
-**Пропустить шаг нельзя технически.** План создаётся `pnpm plan:new <slug>`, а
-`pnpm check:orientation` стоит в `.husky/pre-commit` и в `pnpm verify`: пустой ответ, отписка
-(`—`, `TODO`, `нет`), ответ короче 20 символов, незаполненный текст шаблона и ссылка на
-несуществующую запись реестра **роняют коммит**. Для вопросов про дубль и про планируемое ответ
-обязан либо ссылаться на существующий ID, либо прямо говорить «совпадений нет» — иначе неясно,
-открывали ли реестр вообще.
+**The step cannot be skipped technically.** A plan is created with `pnpm plan:new <slug>`, and
+`pnpm check:orientation` runs in `.husky/pre-commit` and in `pnpm verify`: an empty answer, a
+brush-off (`—`, `TODO`, `no`), an answer under 20 characters, untouched template text, and a
+reference to a non-existent ledger entry all **fail the commit**. For the duplication and planned
+questions the answer must either cite an existing ID or say "no matches" outright — otherwise there
+is no telling whether the ledger was opened at all.
 
-Если задача оказалась дублем — сказать это и остановиться: «уже сделано в `FX-007`» — полноценный
-результат, а не отказ от работы.
+If the task turns out to be a duplicate, say so and stop: "already done in `FX-007`" is a complete
+result, not a refusal to work.
 
-**По итогам задачи запись в реестр обязательна:** фича → `FT-`, изменение процесса → `CH-`, каждый
-найденный дефект → `FX-` с указанием, чем найден. Закрытый пункт бэклога помечается закрытым со
-ссылкой, но **не удаляется**. Структуру проверяет `e2e/ledger/ledger.api.spec.ts` на каждом
-`pnpm verify`; смысл записей машина не проверяет — за это отвечает ориентация и ревью.
+**A ledger entry is mandatory when the task is done:** a feature → `FT-`, a process change → `CH-`,
+every defect found → `FX-` with what found it. A closed backlog item is marked closed with a
+reference but is **never deleted**. The structure is checked by `e2e/ledger/ledger.api.spec.ts` on
+every `pnpm verify`; the machine does not check what the entries mean — orientation and review do.
 
-## Инварианты проекта
+## Project invariants
 
-Девятнадцать правил, на которых уже ломались реализации. Каждое стоило отдельного разбора, поэтому
-читай их **до** того, как писать код, и не выводи заново из документов.
+Nineteen rules that implementations have already broken. Each cost its own investigation, so read
+them **before** writing code rather than re-deriving them from documents.
 
 **Nest (`apps/api`)**
 
-1. `POST /auth/login` отвечает **200**, а не 201: на методе `@HttpCode(HttpStatus.OK)`. Nest по
-   умолчанию ставит POST код 201, и снятый декоратор нарушает контракт молча.
-2. Любое **опциональное** поле DTO обязано иметь `@IsOptional()`. Без него отсутствующее поле
-   проходит через `@IsInt`/`@Min`/`@Max` и даёт 400 — так «ломались» и `limit`, и `durationMinutes`.
-3. `ValidationPipe` регистрируется провайдером `APP_PIPE` в `AppModule`, не `useGlobalPipes`: иначе
-   тестовые модули поднимают приложение без валидации и проверки 400 расходятся с сервером.
-4. `total` — полное число записей владельца, **никогда** не `items.length`: `items` отсечён лимитом.
-5. `ownerId` берётся из `@CurrentUser()`, то есть из подписанного токена, и никогда из тела запроса.
-6. Неверный пароль и неизвестный email дают **одно и то же** сообщение — иначе по ответу можно
-   перечислять аккаунты.
-7. Сортировка по дате всегда с вторичным ключом по `id`: при равных датах порядок иначе
-   недетерминирован и тест флакает.
-8. Форма ошибки: при 400 от `ValidationPipe` `message` — **массив** строк, при 401 — строка. Не
-   полагайся на одну форму.
+1. `POST /auth/login` answers **200**, not 201: `@HttpCode(HttpStatus.OK)` on the method. Nest
+   defaults POST to 201, and removing the decorator breaks the contract silently.
+2. Any **optional** DTO field must carry `@IsOptional()`. Without it a missing field still runs
+   through `@IsInt`/`@Min`/`@Max` and gives 400 — that is how both `limit` and `durationMinutes`
+   "broke".
+3. `ValidationPipe` is registered as an `APP_PIPE` provider in `AppModule`, not via
+   `useGlobalPipes`: otherwise test modules boot the app without validation and the 400 checks
+   disagree with the server.
+4. `total` is the owner's full record count, **never** `items.length`: `items` is cut by the limit.
+5. `ownerId` comes from `@CurrentUser()` — the signed token — and never from the request body.
+6. A wrong password and an unknown email give **the same** message, or responses can be used to
+   enumerate accounts.
+7. Sorting by date always carries a secondary key on `id`: with equal dates the order is otherwise
+   undefined and the test flakes.
+8. Error shape: with a 400 from `ValidationPipe`, `message` is an **array** of strings; with a 401
+   it is a string. Do not rely on one shape.
 
 **Next.js (`apps/web`)**
 
-9. Гейт неавторизованных живёт в `src/proxy.ts` — `middleware.ts` в Next 16 deprecated. Матчер
-   узкий, иначе proxy срабатывает на `_next/static` и ломает CSS; обратный редирект только для
-   `GET`, иначе POST Server Action получит редирект вместо выполнения.
-10. `proxy.ts` — «оптимистичная» проверка, а не безопасность: он видит только наличие cookie.
-    Настоящая проверка дублируется в `lib/dal.ts` и **внутри каждого Server Action**.
-11. `redirect()` вызывается строго **вне** `try/catch`: он работает выбросом `NEXT_REDIRECT`, и
-    `catch` внутри блока его проглотит. Симптом — «логин ничего не делает, но cookie выставлена».
-12. `secure` у cookie — `process.env.NODE_ENV === 'production'`, не безусловный `true`.
-13. Файл с `'use server'` экспортирует **только** async-функции: типы и константы — в `lib/types.ts`
-    и `lib/session-cookie.ts`.
-14. `import 'server-only'` **не резолвится Vitest**. Всё тестируемое держи в модулях без него
-    (`api-client.ts`, `session-cookie.ts`, `format-date.ts`); `session.ts` и `dal.ts` — с ним и без
-    юнитов.
-15. У полей формы нет `required`, а email — `type="text"`: с ними браузер блокирует отправку,
-    серверная ветка валидации не выполняется, и тест проверяет поведение браузера, а не наш код.
-    Пароль **не обрезается** (`trim` только у email) — обрезка молча меняет введённые данные.
+9. The gate for unauthenticated visitors lives in `src/proxy.ts` — `middleware.ts` is deprecated in
+   Next 16. The matcher is narrow, or the proxy fires on `_next/static` and breaks CSS; the bounce
+   back is `GET`-only, or a POST Server Action gets a redirect instead of executing.
+10. `proxy.ts` is an "optimistic" check, not security: all it sees is that a cookie exists. The real
+    check is duplicated in `lib/dal.ts` and **inside every Server Action**.
+11. `redirect()` is called strictly **outside** `try/catch`: it works by throwing `NEXT_REDIRECT`,
+    and a `catch` inside the block swallows it. The symptom is "login does nothing but the cookie is
+    set".
+12. A cookie's `secure` is `process.env.NODE_ENV === 'production'`, not an unconditional `true`.
+13. A file with `'use server'` exports **only** async functions: types and constants go to
+    `lib/types.ts` and `lib/session-cookie.ts`.
+14. `import 'server-only'` **does not resolve under Vitest**. Keep everything testable in modules
+    without it (`api-client.ts`, `session-cookie.ts`, `format-date.ts`); `session.ts` and `dal.ts`
+    have it and therefore have no units.
+15. Form fields carry no `required`, and email is `type="text"`: with either, the browser blocks
+    submission, the server validation branch never runs, and the test checks browser behaviour
+    rather than our code. The password is **never trimmed** (`trim` applies to email only) —
+    trimming silently alters what was typed.
 
-Отображение даты прибито к `timeZone: 'UTC'` — иначе юнит и e2e зависят от таймзоны машины.
+Date display is pinned to `timeZone: 'UTC'`, or both the units and the e2e depend on the machine's
+time zone.
 
-**Безопасность**
+**Security**
 
-16. Каждый новый защищённый эндпоинт добавляется в `PROTECTED_ROUTES`
-    (`e2e/security/security.api.spec.ts`), каждая новая закрытая страница — в `PROTECTED_PAGES`
-    (`security.functional.spec.ts`). Эти списки — единственное, что связывает межфичевой
-    security-сьют с растущим приложением: забыл строку, и проверка молча перестала покрывать новое.
-17. Негодная сессия уводится через Route Handler `/auth/session-expired`, который стирает cookie, а
-    **не** напрямую на `/auth/login`: `proxy.ts` видит только наличие cookie и вернёт пользователя
-    обратно на `/` — получится `ERR_TOO_MANY_REDIRECTS`, и войти заново будет невозможно.
-18. Ветки отказа аутентификации не различаются **ни текстом, ни временем ответа**: пароль сверяется
-    всегда, при неизвестном пользователе — по хешу-пустышке. Одинакового сообщения недостаточно.
-19. Токен не передаётся пропсом в клиентский компонент: он уедет в поток RSC и станет доступен
-    любому скрипту на странице.
+16. Every new protected endpoint is added to `PROTECTED_ROUTES`
+    (`e2e/security/security.api.spec.ts`), and every new protected page to `PROTECTED_PAGES`
+    (`security.functional.spec.ts`). Those lists are the only thing connecting the cross-feature
+    security suite to a growing application: forget a line and the check silently stops covering
+    what is new.
+17. A broken session is sent through the `/auth/session-expired` Route Handler, which erases the
+    cookie, and **not** straight to `/auth/login`: `proxy.ts` only sees that a cookie exists and
+    would send the user back to `/` — that is `ERR_TOO_MANY_REDIRECTS`, and signing in again becomes
+    impossible.
+18. Authentication rejection branches differ **neither in text nor in response time**: the password
+    is always verified, against a dummy hash when the user is unknown. An identical message is not
+    enough.
+19. The token is never passed as a prop into a client component: it would travel in the RSC stream
+    and become available to any script on the page.
 
-Модель угроз, что нашли автоматические проверки и список осознанных пробелов — в
-[`docs/security.md`](docs/security.md). Запуск: `pnpm e2e:security`, `pnpm audit --audit-level high`.
+The threat model, what the automated checks found and the list of deliberate gaps are in
+[`docs/security.md`](docs/security.md). Run them with `pnpm e2e:security` and
+`pnpm audit --audit-level high`.
 
-## Проверка изменений — обязательна
+## Verifying a change is mandatory
 
-Любое изменение в `apps/web` или `apps/api`, влияющее на поведение в рантайме, проверяется
-запуском Playwright по скилу **`playwright-verify`** — до того, как отчитываться о готовности.
-Дифф не доказывает, что страница отрендерилась и что эндпоинт ответил.
+Any change under `apps/web` or `apps/api` that affects runtime behaviour is verified by actually
+running Playwright through the **`playwright-verify`** skill, before reporting readiness. A diff
+does not prove the page rendered or the endpoint answered.
 
-Правила:
+Rules:
 
-- Изменение считается сделанным только после **зелёного `pnpm e2e`**. Не писать «проверено» без
-  фактического прогона.
-- UI-изменения дополнительно проходят интерактивную проверку в браузере через Playwright MCP
+- A change counts as done only after a **green `pnpm e2e`**. Do not write "verified" without an
+  actual run.
+- UI changes additionally go through an interactive browser check with the Playwright MCP
   (`browser_navigate`, `browser_snapshot`, `browser_console_messages`).
-- На каждое поведенческое изменение — новый или обновлённый spec в `e2e/regression/<фича>/`.
-  Разовая проверка в браузере не защищает от регресса.
-- Чисто конфигурационные, типовые или документационные правки проверку могут пропустить, но
-  **пропуск нужно назвать явно** в отчёте, а не умолчать.
+- Every behavioural change gets a new or updated spec in `e2e/regression/<feature>/`. A one-off
+  browser check does not protect against a regression.
+- Purely configuration, type or documentation edits may skip the check, but **the skip must be named
+  explicitly** in the report rather than passed over.
 
-Детали процедуры, правила локаторов и разбор типичных сбоев — в
+The procedure, the locator rules and the common failures are in
 `.claude/skills/playwright-verify/SKILL.md`.
 
-### Кто что гоняет
+### Who runs what
 
-Три слоя, и у каждого своя работа. Держи их в голове перед тем, как набрать очередную команду
-прогона: почти всё, что хочется запустить руками, уже входит в один из них.
+Three layers, each with its own job. Keep them in mind before typing another run command: almost
+everything you might want to run by hand is already part of one of them.
 
-| Слой                | Что гоняет                                                                    | Когда               | Цена  |
-| ------------------- | ----------------------------------------------------------------------------- | ------------------- | ----- |
-| `.husky/pre-commit` | ориентация + `lint-staged` (`eslint --fix`, `prettier --write`) + `pnpm test` | каждый `git commit` | ~6 с  |
-| `pnpm verify`       | ориентация + lint + typecheck + юниты + supertest + формат + весь e2e + audit | приёмка изменения   | ~66 с |
-| CI, job `verify`    | тот же список шагов, что и локальный `pnpm verify`                            | push и PR           | —     |
+| Layer               | What it runs                                                                   | When               | Cost  |
+| ------------------- | ------------------------------------------------------------------------------ | ------------------ | ----- |
+| `.husky/pre-commit` | orientation + `lint-staged` (`eslint --fix`, `prettier --write`) + `pnpm test` | every `git commit` | ~6 s  |
+| `pnpm verify`       | orientation + lint + typecheck + units + supertest + format + all e2e + audit  | accepting a change | ~66 s |
+| CI, job `verify`    | the same list of steps as the local `pnpm verify`                              | push and PR        | —     |
 
-**Хук — нижняя планка, а не приёмка.** Красный юнит **роняет коммит**. Но полный `pnpm lint`
-(49 с), typecheck и e2e в хук не вынесены: хук длиннее десятка секунд начинают обходить
-`--no-verify`, и тогда не работает ни одна его проверка. Зелёный хук не заменяет `pnpm verify` —
-e2e он не запускает вовсе.
+**The hook is a floor, not acceptance.** A red unit **fails the commit**. But the full `pnpm lint`
+(49 s), typecheck and e2e are deliberately not in the hook: a hook longer than ten seconds starts
+getting bypassed with `--no-verify`, and then none of its checks run. A green hook does not replace
+`pnpm verify` — it runs no e2e at all.
 
-**Юниты запускаются дважды за цикл — в `pnpm verify` и снова в хуке — и это не забытый дубль.**
-`lint-staged` правит файлы `--fix`/`--write` уже **после** того, как `verify` отработал, поэтому в
-хуке юниты идут по другому содержимому — ровно по тому, что уйдёт в коммит. Отсюда правило:
+**The units run twice per cycle — in `pnpm verify` and again in the hook — and that is not an
+oversight.** `lint-staged` edits files with `--fix`/`--write` **after** `verify` has finished, so
+the hook runs the units against different content — exactly what will go into the commit. Hence:
 
-- **не вызывай `pnpm test` руками** ни до `pnpm verify`, ни после него — это был бы третий прогон
-  тех же 42 тестов, не добавляющий ни одного нового факта;
-- `pnpm test:<фича>` оправдан **только для локализации** уже случившегося падения;
-- коммит, где в индексе одни `.md`, юниты пропускает: ни один из 11 спеков не читает markdown,
-  а docs-коммит с заполнением хеша (`pnpm ledger:fill`) процесс предписывает после каждой фичи.
+- **do not run `pnpm test` by hand**, before or after `pnpm verify` — that would be a third run of
+  the same 42 tests adding no new fact;
+- `pnpm test:<feature>` is justified **only for localizing** a failure that already happened;
+- a commit holding only `.md` files skips the units: none of the 11 specs reads markdown, and the
+  ledger process prescribes a docs commit (`pnpm ledger:fill`) after every feature.
 
-## Скилы: свои и внешние
+## Skills: our own and external
 
-В `.claude/skills/` их семь. Свои три — `feature-pipeline`, `playwright-verify`,
-`regression-verify`. Остальные четыре — **адаптеры** к внешним наборам: `git-commit`,
-`nestjs-best-practices`, `requesting-code-review`, `vercel-react-best-practices`.
+There are eight in `.claude/skills/`. Four are ours — `feature-pipeline`, `bugfix-pipeline`,
+`playwright-verify`, `regression-verify`. The other four are **adapters** to external sets:
+`git-commit`, `nestjs-best-practices`, `requesting-code-review`, `vercel-react-best-practices`.
 
-**Внешний скил подключается адаптером, а не копией.** Копия правила расходится с оригиналом молча
-(`FX-023`), а внешний набор вдобавок обновляется помимо нас. Адаптер держит только локальную
-часть: что из набора здесь неверно, чего он не знает про этот репозиторий и когда его вообще
-звать. **Адаптер обязан оставаться работоспособным без `.agents/`** — всё, без чего он теряет
-предмет, лежит рядом с ним в git.
+**An external skill is wired in through an adapter, never a copy.** A copied rule drifts from the
+original silently (`FX-023`), and an external set is updated without us besides. An adapter holds
+only the local part: what is wrong here, what the set does not know about this repository, and when
+to call it at all. **An adapter must keep working without `.agents/`** — anything it would lose its
+subject without lives next to it in git.
 
-Сами наборы лежат в `.agents/skills/` — каталог в `.gitignore`, как `node_modules`. Источник, ветка
-и коммит каждого — в `skills-lock.json` (он в git), восстановление и сверка:
+The sets themselves live in `.agents/skills/`, a directory in `.gitignore` like `node_modules`. The
+source, branch, commit and `treeHash` of each are in `skills-lock.json`, which is in git:
 
 ```bash
-pnpm skills:sync     # выкачать наборы по lock-файлу в .agents/ (нужна сеть)
-pnpm skills:check    # офлайн: сверить treeHash того, что лежит на диске, с lock
+pnpm skills:sync     # fetch the sets into .agents/ by the lock file (needs a network)
+pnpm skills:check    # offline: compare the treeHash on disk with the lock file
 ```
 
-Восстановление воспроизводимо: в lock у каждого набора записаны ветка, **коммит** и `treeHash` —
-хеш всего каталога, который считает `scripts/skills-sync.mjs` и потому можно проверить. В
-`pnpm verify` ни один из двух шагов не встроен намеренно: `sync` ходит в сеть, а `check` требует
-каталога, которого в свежем клоне нет, — приёмка не должна зависеть ни от того, ни от другого.
+Restoration is reproducible: the lock file records a branch, a **commit** and a `treeHash` — the
+hash of the whole directory, computed by `scripts/skills-sync.mjs` and therefore verifiable.
+Neither step is wired into `pnpm verify` on purpose: `sync` needs the network, and `check` needs a
+directory a fresh clone does not have.
 
-**Инварианты этого файла выше любого правила внешнего скила.** Четыре правила
-`nestjs-best-practices` прямо противоречат здешнему коду — поимённо перечислены в адаптере;
-политика вызовов ревьюера в `requesting-code-review` заменена на «одно ревью на фичу, ревьюер
-только на чтение».
+**The invariants of this file outrank any rule of an external skill.** Four rules of
+`nestjs-best-practices` directly contradict the code here and are listed by name in its adapter;
+the reviewer call policy in `requesting-code-review` is replaced with "one review per feature,
+reviewer read-only".
 
-## Тесты: что где
+## Tests: what lives where
 
-- `e2e/` (корень) — Playwright. **Канонический источник истины для HTTP-контракта API и всего UI.**
-  Разложен по фичам: `e2e/regression/<фича>/` содержит четыре файла — `<фича>.api.cases.md` +
-  `<фича>.api.spec.ts` и `<фича>.functional.cases.md` + `<фича>.functional.spec.ts`, плюс
-  `<фича>.unit.cases.md` со ссылками на юнит-спеки. `e2e/smoke/` — «инфраструктура жива»,
-  `e2e/fixtures/` — сид и хелперы, `e2e/suite-integrity.api.spec.ts` — мета-тест конвенции.
-  Индекс сьюта с командами запуска — `e2e/README.md`.
-- **Проект Playwright выбирается суффиксом имени файла, а не каталогом:** `*.api.spec.ts` → проект
-  `api` (фикстура `request`, `:3101`), `*.functional.spec.ts` → проект `web` (браузер, `:3100`).
-  Файл со `.spec.ts`, но без одного из этих суффиксов, не попадёт **ни в один** проект и молча не
-  запустится. Мета-тест это ловит, ревью — нет.
-- Каждому файлу тест-кейсов соответствует одноимённый файл со спеком, и наоборот. Спек без парного
-  `.cases.md` — блокер.
-- `apps/api/src/**/*.spec.ts`, `apps/web/src/**/*.spec.ts` — Vitest, юниты (сервисы, провайдеры,
-  чистые хелперы). Заголовок юнит-теста начинается с ID кейса (`AL-UT-09 — …`) — иначе не работает
-  ни `pnpm test:<фича>`, ни проверка парности.
-- `apps/api/test/app.e2e-spec.ts` — Vitest + supertest. Оставлен ровно для одной цели: убедиться,
-  что `AppModule` поднимается в тестовом модуле. **Новые проверки HTTP-контракта добавляй в
-  `e2e/regression/<фича>/<фича>.api.spec.ts`**, а не сюда, иначе покрытие разъедется по двум
-  наборам с разной степенью актуальности.
-- Приёмка фичи целиком — по скилу **`regression-verify`**: обязательный прогон юнитов,
-  API- и функциональных тестов в фиксированном порядке. `playwright-verify` — быстрая проверка
-  одного изменения; одно другое не заменяет.
+- `e2e/` (at the root) — Playwright. **The canonical source of truth for the API HTTP contract and
+  for the whole UI.** Grouped by feature: `e2e/regression/<feature>/` holds four files —
+  `<feature>.api.cases.md` + `<feature>.api.spec.ts` and `<feature>.functional.cases.md` +
+  `<feature>.functional.spec.ts` — plus `<feature>.unit.cases.md` referencing the unit specs.
+  `e2e/smoke/` is "the infrastructure is alive", `e2e/fixtures/` is the seed and helpers, and
+  `e2e/suite-integrity.api.spec.ts` is the convention meta-test. The suite index with run commands
+  is `e2e/README.md`.
+- **The Playwright project is chosen by the filename suffix, not by the directory:**
+  `*.api.spec.ts` → project `api` (the `request` fixture, `:3101`), `*.functional.spec.ts` →
+  project `web` (browser, `:3100`). A file ending in `.spec.ts` without one of those suffixes joins
+  **no** project and silently never runs. The meta-test catches that; review does not.
+- Every case doc has a spec of the same name and the other way round. A spec without a paired
+  `.cases.md` is a blocker.
+- `apps/api/src/**/*.spec.ts`, `apps/web/src/**/*.spec.ts` — Vitest units (services, providers, pure
+  helpers). A unit test title starts with its case ID (`AL-UT-09 — …`), or neither
+  `pnpm test:<feature>` nor the pairing check works.
+- `apps/api/test/app.e2e-spec.ts` — Vitest + supertest, kept for exactly one purpose: proving
+  `AppModule` boots in a test module. **New HTTP contract checks go into
+  `e2e/regression/<feature>/<feature>.api.spec.ts`**, not here, or coverage spreads across two sets
+  of differing freshness.
+- Accepting a whole feature goes through the **`regression-verify`** skill: a mandatory run of the
+  units, the API and the functional tests in a fixed order. `playwright-verify` is the quick check
+  of one change; neither replaces the other.
 
-Playwright стоит в **корне** монорепозитория, а не в `apps/*`: корень не попадает под globs
-`pnpm-workspace.yaml`, поэтому `pnpm -r` его не задевает, и один `playwright.config.ts`
-обслуживает оба приложения.
+Playwright lives at the **root** of the monorepo rather than in `apps/*`: the root is outside the
+`pnpm-workspace.yaml` globs, so `pnpm -r` does not touch it and one `playwright.config.ts` serves
+both applications.

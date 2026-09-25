@@ -3,16 +3,16 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { UsersService } from './users.service.js';
 import { SEED_USERS } from './users.seed.js';
 
-/** Кейсы AL-UT-17 и AL-UT-19 из `e2e/regression/auth-login/auth-login.unit.cases.md`. */
+/** Cases AL-UT-17 and AL-UT-19 from `e2e/regression/auth-login/auth-login.unit.cases.md`. */
 describe('UsersService', () => {
   let service: UsersService;
 
-  // Один инстанс на файл: конструктор считает scrypt для каждого сид-пользователя.
+  // One instance per file: the constructor runs scrypt for every seeded user.
   beforeAll(() => {
     service = new UsersService();
   });
 
-  it('AL-UT-17 — findByEmail нечувствителен к регистру и к пробелам по краям', () => {
+  it('AL-UT-17 — findByEmail ignores case and surrounding whitespace', () => {
     const seed = SEED_USERS[0];
 
     const byExact = service.findByEmail(seed.email);
@@ -22,12 +22,12 @@ describe('UsersService', () => {
     expect(byExact?.id).toBe(seed.id);
     expect(byUpper).toBe(byExact);
     expect(byPadded).toBe(byExact);
-    // Хранится и отдаётся канонический email из сида, а не то, что прислал клиент.
+    // The canonical seeded email is stored and returned, not whatever the client sent.
     expect(byUpper?.email).toBe(seed.email.toLowerCase());
     expect(service.findByEmail('nobody@purpleschool.test')).toBeUndefined();
   });
 
-  it('AL-UT-19 — toPublic не содержит passwordHash', () => {
+  it('AL-UT-19 — toPublic contains no passwordHash', () => {
     const user = service.findByEmail(SEED_USERS[0].email);
     expect(user?.passwordHash).toEqual(expect.stringContaining('scrypt$'));
 

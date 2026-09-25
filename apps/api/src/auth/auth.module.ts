@@ -12,10 +12,10 @@ import { TokenService } from './token.service.js';
 const { jwtSecret, jwtExpiresIn } = loadAuthConfig();
 
 /**
- * `expiresIn` у `jsonwebtoken@9` типизирован шаблонным литералом `ms.StringValue`
- * (`'1h'`, `'30m'`, …), а из окружения приходит обычная `string`. Проверить формат на
- * этапе типов нельзя, поэтому приведение — здесь и с явной причиной: неверное значение
- * уронит подпись токена на старте, а не молча выдаст вечный токен.
+ * `jsonwebtoken@9` types `expiresIn` as the template literal `ms.StringValue` (`'1h'`, `'30m'`, …)
+ * while the environment hands over a plain `string`. The format cannot be checked at the type
+ * level, so the cast lives here with its reason: a bad value fails token signing at startup
+ * instead of silently issuing an eternal token.
  */
 type JwtSignOptions = NonNullable<JwtModuleOptions['signOptions']>;
 const expiresIn = jwtExpiresIn as JwtSignOptions['expiresIn'];
@@ -24,7 +24,7 @@ const expiresIn = jwtExpiresIn as JwtSignOptions['expiresIn'];
   imports: [UsersModule, JwtModule.register({ secret: jwtSecret, signOptions: { expiresIn } })],
   controllers: [AuthController],
   providers: [AuthService, PasswordService, TokenService, JwtAuthGuard],
-  // `JwtAuthGuard` и `TokenService` понадобятся `MeetingsModule` в фиче 2.
+  // `MeetingsModule` needs both of these.
   exports: [JwtAuthGuard, TokenService],
 })
 export class AuthModule {}

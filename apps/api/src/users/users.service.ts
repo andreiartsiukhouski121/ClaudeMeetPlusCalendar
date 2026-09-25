@@ -6,17 +6,17 @@ import { toPublicUser } from './users.mapper.js';
 import { SEED_USERS } from './users.seed.js';
 
 /**
- * Приведение email к канону: `trim` + `toLowerCase`. Регистр и краевые пробелы не должны
- * мешать входу (AL-API-10, AL-UT-17), а `GET /auth/me` обязан отдавать email из сида,
- * а не то, что прислал клиент.
+ * Canonical email form: `trim` + `toLowerCase`. Case and stray spaces must not block a login
+ * (AL-API-10, AL-UT-17), and `GET /auth/me` must return the seeded email rather than whatever the
+ * client sent.
  */
 export function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
 }
 
 /**
- * In-memory хранилище пользователей: БД в проекте нет. Сид применяется в конструкторе,
- * хеши считаются из плейнтекстов `users.seed.ts` — см. §3.2 плана имплементации.
+ * In-memory user store — the project has no database. The seed is applied in the constructor and
+ * hashes are derived from the plaintexts in `users.seed.ts`.
  */
 @Injectable()
 export class UsersService {

@@ -1,73 +1,76 @@
 # @purpleschool/api
 
-Nest.js 12, чистый ESM (`"type": "module"`, импорты с расширением `.js`). Порт — `PORT`, по
-умолчанию 3001. Playwright поднимает свой экземпляр на 3101.
+Nest.js 12, pure ESM (`"type": "module"`, imports carry the `.js` extension). The port comes from
+`PORT`, defaulting to 3001. Playwright starts its own instance on 3101.
 
 ```bash
-pnpm dev:api          # из корня, watch-режим
-pnpm --filter @purpleschool/api test      # юниты
-pnpm --filter @purpleschool/api test:e2e  # supertest: AppModule поднимается в тестовом модуле
+pnpm dev:api                              # from the root, watch mode
+pnpm --filter @purpleschool/api test      # units
+pnpm --filter @purpleschool/api test:e2e  # supertest: AppModule boots in a test module
 ```
 
-## Эндпоинты
+## Endpoints
 
-| Метод  | Путь               | Авторизация | Ответ                                                                  |
-| ------ | ------------------ | ----------- | ---------------------------------------------------------------------- |
-| `GET`  | `/`                | нет         | `200 text/plain: Hello World!` — признак «сервер жив»                  |
-| `POST` | `/auth/login`      | нет         | `200 {accessToken, user}`; `401` при неверных данных; `400` на payload |
-| `GET`  | `/auth/me`         | `Bearer`    | `200 {id, email, name}`; `401` без токена или с битым                  |
-| `GET`  | `/meetings?limit=` | `Bearer`    | `200 {items, total}`; `400` при `limit` вне `1..100`                   |
-| `POST` | `/meetings`        | `Bearer`    | `201 MeetingDto`; `400` на payload                                     |
+| Method | Path               | Auth     | Response                                                              |
+| ------ | ------------------ | -------- | --------------------------------------------------------------------- |
+| `GET`  | `/`                | none     | `200 text/plain: Hello World!` — the "server is alive" signal         |
+| `POST` | `/auth/login`      | none     | `200 {accessToken, user}`; `401` on bad credentials; `400` on payload |
+| `GET`  | `/auth/me`         | `Bearer` | `200 {id, email, name}`; `401` without a token or with a broken one   |
+| `GET`  | `/meetings?limit=` | `Bearer` | `200 {items, total}`; `400` when `limit` is outside `1..100`          |
+| `POST` | `/meetings`        | `Bearer` | `201 MeetingDto`; `400` on payload                                    |
 
-Три вещи, которые легко сломать незаметно:
+Three things that are easy to break unnoticed:
 
-- **`POST /auth/login` отвечает `200`, а не `201`.** Nest по умолчанию ставит POST код 201, поэтому
-  на методе стоит `@HttpCode(HttpStatus.OK)`. Снимете декоратор — контракт нарушится молча.
-- **`total` — полное число встреч владельца, а не длина `items`.** `items` отсечён лимитом.
-- **`ownerId` берётся из токена, никогда из тела запроса.** Поля владельца в `CreateMeetingDto` нет,
-  а `forbidNonWhitelisted` отвергает попытку его прислать.
+- **`POST /auth/login` answers `200`, not `201`.** Nest defaults POST to 201, so the method carries
+  `@HttpCode(HttpStatus.OK)`. Remove the decorator and the contract breaks silently.
+- **`total` is the owner's full meeting count, not the length of `items`.** `items` is cut by the
+  limit.
+- **`ownerId` comes from the token, never from the request body.** `CreateMeetingDto` has no owner
+  field, and `forbidNonWhitelisted` rejects any attempt to send one.
 
-Ошибки — стандартной формы Nest: при `400` от `ValidationPipe` поле `message` это **массив** строк,
-при `401` — строка. `ValidationPipe` зарегистрирован провайдером `APP_PIPE` в `AppModule`, а не
-через `useGlobalPipes`: иначе тестовые модули поднимали бы приложение без валидации и проверки 400
-разошлись бы с реальным сервером.
+Errors use Nest's standard shape: with a `400` from `ValidationPipe` the `message` field is an
+**array** of strings, with a `401` it is a string. `ValidationPipe` is registered as an `APP_PIPE`
+provider in `AppModule` rather than through `useGlobalPipes`: otherwise test modules would boot the
+app without validation and the 400 checks would disagree with the real server.
 
-## Хранилище и сид
+## Storage and the seed
 
-Базы нет — репозитории in-memory, сид применяется при инициализации сервисов. Отсюда следствие:
-`nest start --watch` перезапускается на каждой правке и обнуляет всё, что создали тесты. Поэтому
-ни один тест не должен зависеть от данных, созданных другим.
+There is no database — the repositories are in-memory and the seed is applied when the services
+initialize. The consequence: `nest start --watch` restarts on every edit and wipes whatever the
+tests created, so no test may depend on data created by another.
 
-Пароли пользователей лежат в `users.seed.ts` открытым текстом и хешируются `scrypt` при старте —
-осознанный компромисс демо без БД: в самом хранилище плейнтекста нет. В реальном проекте файл сида
-заменялся бы миграцией с уже посчитанными хешами.
+User passwords sit in `users.seed.ts` as plaintext and are hashed with `scrypt` at startup — a
+deliberate concession of a demo without a database: the store itself holds no plaintext. In a real
+project the seed file would be replaced by a migration with pre-computed hashes.
 
-| Пользователь                  | Пароль      | Встреч | Роль в тестах                                   |
-| ----------------------------- | ----------- | ------ | ----------------------------------------------- |
-| `teacher@purpleschool.test`   | `Passw0rd!` | 5      | read-only, точные числа и порядок «последних 3» |
-| `student@purpleschool.test`   | `Passw0rd!` | 0      | read-only, граничный случай «встреч нет»        |
-| `planner@purpleschool.test`   | `Passw0rd!` | 1      | песочница мутаций для API-тестов                |
-| `organizer@purpleschool.test` | `Passw0rd!` | 1      | песочница мутаций для функциональных тестов     |
+| User                          | Password    | Meetings | Role in the tests                                  |
+| ----------------------------- | ----------- | -------- | -------------------------------------------------- |
+| `teacher@purpleschool.test`   | `Passw0rd!` | 5        | read-only; exact numbers and the "last 3" ordering |
+| `student@purpleschool.test`   | `Passw0rd!` | 0        | read-only; the "no meetings" edge case             |
+| `planner@purpleschool.test`   | `Passw0rd!` | 1        | mutation sandbox for the API tests                 |
+| `organizer@purpleschool.test` | `Passw0rd!` | 1        | mutation sandbox for the functional tests          |
 
-`teacher` и `student` **мутировать нельзя**: на них завязаны абсолютные ассерты. Отдельные владельцы
-для API- и UI-тестов нужны потому, что Playwright гоняет проекты параллельно в общий store.
+`teacher` and `student` **must never be mutated**: absolute assertions depend on them. Separate
+owners for the API and UI tests are needed because Playwright runs the projects in parallel against
+a shared store.
 
-Зеркало сида для тестов — `e2e/fixtures/seed.ts`; расхождение ловит `e2e/smoke/seed.api.spec.ts`.
+The test-side mirror of the seed is `e2e/fixtures/seed.ts`; drift is caught by
+`e2e/smoke/seed.api.spec.ts`.
 
-## Конфигурация
+## Configuration
 
-`.env` **не читается** — dotenv и `@nestjs/config` не подключены. Переменные задаются окружением
-процесса; `.env.example` документирует контракт.
+`.env` is **not read** — neither dotenv nor `@nestjs/config` is wired in. Variables come from the
+process environment; `.env.example` documents the contract.
 
-| Переменная       | По умолчанию              | Примечание                                            |
-| ---------------- | ------------------------- | ----------------------------------------------------- |
-| `PORT`           | `3001`                    | Playwright передаёт `3101`                            |
-| `JWT_SECRET`     | `purpleschool-dev-secret` | при отсутствии пишется `Logger.warn`                  |
-| `JWT_EXPIRES_IN` | `1h`                      | обязан совпадать с временем жизни cookie в `apps/web` |
+| Variable         | Default                   | Note                                         |
+| ---------------- | ------------------------- | -------------------------------------------- |
+| `PORT`           | `3001`                    | Playwright passes `3101`                     |
+| `JWT_SECRET`     | `purpleschool-dev-secret` | a `Logger.warn` is emitted when it is absent |
+| `JWT_EXPIRES_IN` | `1h`                      | must match the cookie lifetime in `apps/web` |
 
-Секрет — стабильная константа, а не случайная строка при старте: с `--watch` случайный секрет
-обнулял бы выданные токены при каждой правке.
+The secret is a stable constant rather than a random string at startup: with `--watch`, a random
+secret would invalidate issued tokens on every edit.
 
-CORS не включён и глобального префикса нет — намеренно: единственные клиенты Nest это серверный
-`fetch` из Next.js и фикстура `request` Playwright, браузер сюда не ходит. `enableCors()` без
-аргументов открыл бы API любому сайту за ноль пользы.
+CORS is off and there is no global prefix, deliberately: the only clients are Next.js's server-side
+`fetch` and Playwright's `request` fixture — no browser reaches here. A bare `enableCors()` would
+open the API to any site for zero benefit.

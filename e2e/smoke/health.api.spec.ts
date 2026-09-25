@@ -1,13 +1,13 @@
 import { expect, test } from '@playwright/test';
 
 /**
- * Смоук инфраструктуры: Nest поднялся и роутинг жив. К фичам не относится, поэтому лежит
- * в e2e/smoke/, а не в e2e/regression/<feature>/ — и падать должен первым и понятно.
+ * Infrastructure smoke: Nest came up and routing works. Not tied to a feature, hence
+ * `e2e/smoke/` rather than `e2e/regression/<feature>/` — and it should fail first and clearly.
  *
- * Кейсы — в парном health.api.cases.md.
+ * Cases live in the paired health.api.cases.md.
  */
-test.describe('Смоук: доступность API', { tag: '@smoke' }, () => {
-  test('SM-API-01 — GET / отвечает приветствием', async ({ request }) => {
+test.describe('Smoke: API availability', { tag: '@smoke' }, () => {
+  test('SM-API-01 — GET / answers with a greeting', async ({ request }) => {
     const response = await request.get('/');
 
     await expect(response).toBeOK();

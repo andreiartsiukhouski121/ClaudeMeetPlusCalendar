@@ -3,21 +3,21 @@ import { redirect } from 'next/navigation';
 import { destroySession } from '@/lib/session';
 
 /**
- * Сброс негодной сессии: удаляет cookie и уводит на форму логина.
+ * Invariant 17: clears a broken session — deletes the cookie, then sends the user to the login
+ * form.
  *
- * Зачем отдельный Route Handler, а не `redirect('/auth/login')` прямо из страницы.
+ * Why a Route Handler rather than `redirect('/auth/login')` straight from the page. A cookie
+ * holding an invalid token (expired, forged, signed with an old secret) wedges the app: `proxy.ts`
+ * only sees that a cookie **exists**, so it lets the request through to `/`; the page gets a 401
+ * from Nest and redirects to `/auth/login`; proxy sees the cookie again and sends the user back to
+ * `/`. That is `ERR_TOO_MANY_REDIRECTS`, and the user cannot even reach the form to sign in again.
+ * Found by `SEC-FN-05`.
  *
- * Cookie с невалидным токеном (протухшим, подделанным, подписанным прежним секретом) ломает
- * приложение наглухо: `proxy.ts` по устройству видит только **наличие** cookie, поэтому пускает
- * запрос на `/`; страница получает 401 от Nest и уводит на `/auth/login`; proxy снова видит
- * cookie и возвращает на `/`. Получается `ERR_TOO_MANY_REDIRECTS`, и пользователь не может даже
- * дойти до формы, чтобы войти заново. Найдено кейсом `SEC-FN-05`.
+ * The loop cannot be broken by deleting the cookie while rendering: `cookies().delete()` throws
+ * outside a Server Action or Route Handler. A Route Handler is the only place that can read the
+ * session, erase it and redirect in one go.
  *
- * Разорвать цикл удалением cookie при рендере страницы нельзя: `cookies().delete()` вне Server
- * Action и Route Handler бросает ошибку. Route Handler — единственное место, где сессию можно и
- * прочитать, и стереть, и сразу увести пользователя.
- *
- * Путь **не входит** в матчер `proxy.ts` — иначе цикл бы вернулся.
+ * The path is deliberately **outside** the `proxy.ts` matcher, or the loop would return.
  */
 export async function GET(): Promise<never> {
   await destroySession();

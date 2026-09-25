@@ -5,9 +5,9 @@ import type { JwtPayload } from './auth.types.js';
 import { TokenService } from './token.service.js';
 
 /**
- * Кейсы AL-UT-13…15 из `e2e/regression/auth-login/auth-login.unit.cases.md`.
- * `JwtService` инстанцируется руками, без `Test.createTestingModule`: секрет и срок
- * жизни в юните должны быть свои, а не из `AuthModule`.
+ * Cases AL-UT-13…15 from `e2e/regression/auth-login/auth-login.unit.cases.md`. `JwtService` is
+ * built by hand rather than through `Test.createTestingModule`: a unit needs its own secret and
+ * lifetime, not `AuthModule`'s.
  */
 describe('TokenService', () => {
   const PAYLOAD: JwtPayload = { sub: 'usr-teacher', email: 'teacher@purpleschool.test' };
@@ -20,7 +20,7 @@ describe('TokenService', () => {
     tokenService = new TokenService(jwtService);
   });
 
-  it('AL-UT-13 — round-trip: verify(sign(payload)) возвращает исходные sub и email', async () => {
+  it('AL-UT-13 — round trip: verify(sign(payload)) returns the original sub and email', async () => {
     const token = await tokenService.sign(PAYLOAD);
 
     expect(token.split('.')).toHaveLength(3);
@@ -31,15 +31,15 @@ describe('TokenService', () => {
     expect(verified.email).toBe(PAYLOAD.email);
   });
 
-  it('AL-UT-14 — verify на токене с испорченной подписью бросает ошибку', async () => {
+  it('AL-UT-14 — verify throws on a token with a tampered signature', async () => {
     const [header, payload, signature] = (await tokenService.sign(PAYLOAD)).split('.');
     const tampered = `${header}.${payload}.${signature.slice(0, -2)}xx`;
 
     await expect(tokenService.verify(tampered)).rejects.toThrow('invalid signature');
   });
 
-  it('AL-UT-15 — истёкший токен отвергается', async () => {
-    // Срок в прошлом вместо фиктивных таймеров: jsonwebtoken сверяется с реальным Date.now().
+  it('AL-UT-15 — an expired token is rejected', async () => {
+    // A past expiry instead of fake timers: jsonwebtoken checks against the real Date.now().
     const expired = await jwtService.signAsync(PAYLOAD, { expiresIn: '-1s' });
 
     await expect(tokenService.verify(expired)).rejects.toThrow('jwt expired');

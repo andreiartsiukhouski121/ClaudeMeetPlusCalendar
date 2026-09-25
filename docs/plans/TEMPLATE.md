@@ -1,120 +1,107 @@
-# План: <фича>
+# Plan: <feature>
 
-> Шаблон плана фичи. **Цель — 100–150 строк, не больше.** Два первых плана в этом каталоге
-> (`feature-plan-implementation.md`, `feature-plan-testing.md`) вышли на ~2000 строк, и это стоило
-> дороже, чем сэкономило: три из девяти блокеров второго ревью и оба блокера третьего оказались не
-> дефектами архитектуры, а бухгалтерией, внесённой правками самого документа — разъехавшиеся итоги,
-> переиспользованный номер кейса, сломанная строка таблицы. Чем длиннее план, тем больше в нём
-> работы, не связанной с фичей.
+> Feature plan template. Created by `pnpm plan:new <slug>`. **Target: 100–150 lines.**
 >
-> Разделы ниже удалять нельзя — они и есть тот минимум, отсутствие которого приходилось потом
-> восполнять. Всё остальное в план не попадает: **тест-кейсы пишутся один раз, сразу в
-> `e2e/regression/<фича>/*.cases.md`**, а не перечисляются здесь, чтобы потом быть переписанными
-> второй раз. Матрица покрытия не нужна — её роль выполняет `e2e/suite-integrity.api.spec.ts`.
+> Do not delete the sections below — they are the minimum whose absence had to be made up for
+> later. Nothing else belongs here: **test cases are written once, straight into
+> `e2e/regression/<feature>/*.cases.md`**, and the coverage matrix is the job of
+> `e2e/suite-integrity.api.spec.ts`. The first two plans in this directory grew to ~2000 lines, and
+> that cost more than it saved: three of the nine blockers in the second review and both blockers
+> in the third were bookkeeping introduced by edits to the document itself.
 
-## 0. Ориентация: что в проекте уже есть
+## 0. Orientation: what the project already has
 
-Заполняется **первым**, до спайка и до всего остального. Источники — [`docs/CHANGELOG.md`](../CHANGELOG.md)
-(что сделано, включая все найденные дефекты), [`docs/BACKLOG.md`](../BACKLOG.md) (что предстоит и
-что отклонено), затем сам код.
+Filled in **first**, before the spike. Sources: [`docs/CHANGELOG.md`](../CHANGELOG.md) (what was
+done, defects included), [`docs/BACKLOG.md`](../BACKLOG.md) (planned and rejected), then the code.
 
-Четыре ответа. **Форму не менять** — её читает `pnpm check:orientation`, который стоит в
-`.husky/pre-commit`: с пустым или отписочным ответом коммит не пройдёт.
+Four answers. **Do not change the form** — `pnpm check:orientation` reads it and sits in
+`.husky/pre-commit`: an empty or brush-off answer fails the commit.
 
-- **Дубль:** это уже делали? Ссылки на записи `FT-`/`CH-`/`FX-`, закрывающие задачу целиком или
-  частично, либо прямо «совпадений нет» и почему.
-- **Конфликт с реализованным:** какие существующие инварианты (`CLAUDE.md`), тест-кейсы и файлы
-  задача меняет.
-- **Конфликт с планируемым:** пункты `BL-`, которые задача пересекает, блокирует или делает
-  ненужными, либо прямо «совпадений нет».
-- **Неясности:** термины задачи, уже занятые в проекте другим смыслом; что нужно уточнить у
-  заказчика.
+- **Duplicate:** has this been done already? Cite `FT-`/`CH-`/`FX-` entries that close the task in
+  whole or in part, or say "no matches" and why.
+- **Conflicts with shipped:** which existing invariants (`CLAUDE.md`), cases and files the task
+  changes.
+- **Conflicts with planned:** which `BL-` items the task overlaps, blocks or makes redundant, or
+  "no matches".
+- **Open questions:** terms already used in this project with a different meaning; what to confirm
+  with the customer.
 
-Что проверка не пропустит: пустоту, `—`, `TODO`, `нет`, ответ короче 20 символов, ссылку на
-несуществующую запись реестра, а для вопросов про дубль и планируемое — ответ без единого ID и без
-явного «совпадений нет». Смысл ответов машина не оценивает, это работа ревью.
+Also check the **Rejected** section of the backlog: if the task is there, it was already weighed.
+Either name the new reason, or do not take it.
 
-Файл плана создаётся командой `pnpm plan:new <slug>`: по имени `<slug>.plan.md` проверка и находит
-активные планы.
+Rejected by the check: emptiness, `—`, `TODO`, `no`, answers under 20 characters, references to
+non-existent ledger entries, and — for the duplicate and planned questions — any answer without an
+ID and without an explicit "no matches".
 
-Отдельно проверь **раздел «Отклонено»** в бэклоге: если задача там есть, её уже взвешивали. Значит
-либо появилось новое основание — назови его, — либо задачу брать не надо.
+**If orientation shows a duplicate or a conflict, stop and say so.** "Already done in `FX-007`" is
+a result, not a refusal.
 
-Почему это первый раздел, а не «здравый смысл». В проекте уже два десятка записей о дефектах, и
-половина — про вещи, которые невозможно увидеть в диффе: вакуумно проходящий мета-тест, правила
-линта в `warn`, тайминговый оракул, бесконечный редирект. Планирование без чтения этой истории
-означает повторить их или сломать существующий фикс, не заметив.
+## 1. Spike: how the risky assumptions were proven
 
-По итогам задачи: запись в `CHANGELOG.md`, закрытые пункты бэклога помечаются закрытыми со ссылкой
-на неё, а новые обнаруженные пробелы дописываются в бэклог с заполненной графой «Конфликтует с».
+Filled in **before** the rest of the plan, with throwaway code rather than reasoning. Five to seven
+rows.
 
-## 1. Спайк: чем проверены рискованные допущения
+| Assumption | How it was proven | Fact |
+| ---------- | ----------------- | ---- |
+|            |                   |      |
 
-Заполняется **до** остального плана, выброшенным кодом, а не рассуждением. Пять–семь строк.
+Why this comes first: in the first iteration four of the five most expensive review findings were
+library behaviour (`@IsOptional()` on two fields, `@Max` against a case boundary, Playwright
+refusing a spec with a worker-scoped option) — each provable by a twenty-line probe in minutes.
+Instead they were described in the plan, then two agents spent 25 minutes each re-deriving them.
 
-| Допущение | Как проверено | Факт |
-| --------- | ------------- | ---- |
-|           |               |      |
+Worth probing almost always: validation behaviour on missing and extra fields, a framework's
+default response code, test fixture scopes, whether special imports resolve in the test runner, how
+subprocess environments merge.
 
-Почему это первый раздел, а не последний: в первой итерации четыре из пяти самых дорогих находок
-ревью (`@IsOptional()` у двух полей, `@Max` против границы кейса, отказ Playwright грузить спек с
-worker-scoped опцией) — это поведение библиотек, которое доказывается пробой за минуты. Мы же
-описали их в плане, потом два агента по 25 минут читали план и собирали те же пробы, потом ещё
-один 29 минут переписывал план под находки.
+## 2. Contract
 
-Что стоит проверять спайком почти всегда: поведение валидации на отсутствующих и лишних полях,
-код ответа фреймворка по умолчанию, скоупы тестовых фикстур, резолвятся ли специальные импорты в
-тестовом раннере, как мержится окружение подпроцессов.
+Method, path, authorization, request body, success response, codes and **exact error bodies**.
+Error shapes come from the framework's source, not from memory — invariants 1 and 8 were both
+learned that way.
 
-## 2. Контракт
+## 3. Data
 
-Таблица: метод, путь, авторизация, тело запроса, успешный ответ, коды и **точные тела** ошибок.
-Формы ошибок берутся из исходников фреймворка, а не по памяти.
+Seed types and contents as concrete values that tests can rely on. Absolute dates, no `Date.now()`.
+Separate owners for mutating tests, since the store is shared.
 
-## 3. Данные
+## 4. Tasks
 
-Типы и состав сида: конкретные значения, на которые смогут опираться тесты. Даты — абсолютные,
-никаких `Date.now()`. Отдельные владельцы для мутирующих тестов, если сьют ходит в общий store.
+Numbered, with dependencies, **files** and a verifiable definition of done. Verification tasks and
+**separate fix tasks** are part of the numbering: the plan is not rewritten when something is
+found.
 
-## 4. Задачи
+| ID  | What to do | Files | Done when | Depends on |
+| --- | ---------- | ----- | --------- | ---------- |
 
-Нумерованные, с зависимостями и проверяемым критерием готовности. Задачи проверки и **отдельные
-задачи на фиксы** входят в нумерацию: план при находках не переписывается.
+The "files" column is not decoration: tasks that overlap on a file are not marked parallel, and a
+shared file (`app.module.ts`, `e2e/README.md`, the unit cases doc) becomes its own merge task.
+Parallel work needs **one git worktree per agent** — different ports are not enough, since Next 16
+registers a dev server per project directory.
 
-| ID  | Что делать | Файлы | Готово, когда | Зависит от |
-| --- | ---------- | ----- | ------------- | ---------- |
+## 5. Risks
 
-Разделяй задачи так, чтобы части, не связанные общими файлами (например, бэкенд и веб), могли идти
-**параллельно** — каждая в **своём git worktree**. Одних разных портов недостаточно: Next 16
-регистрирует dev-сервер по каталогу, и второй прогон в том же дереве не стартует вовсе. Отдельно
-выпиши файлы, которые правят обе части (`app.module.ts`, `e2e/README.md`, файл юнит-кейсов) — их
-надо закрепить за одним агентом, иначе параллельность обернётся конфликтом.
+Only what is specific to this feature and not covered by "Project invariants" in `CLAUDE.md`.
 
-## 5. Риски
+## 6. Assumptions and deliberate omissions
 
-Только те, что специфичны для этой фичи и не покрыты разделом «Инварианты проекта» в `CLAUDE.md`.
-Дублировать инварианты в план не надо — их и так читают перед кодом.
-
-## 6. Допущения и осознанные пропуски
-
-Всё, что выходит за буквальную спецификацию или сознательно не делается. Пропуск, о котором не
-сказано, — это не пропуск, а искажение отчёта.
+Everything outside the literal specification or deliberately left undone. An omission not stated is
+not an omission — it is a misreported result.
 
 ---
 
-## Как этим пользоваться
+## How to use this
 
-1. **Ориентация** (~5 мин) — прочитать реестр и бэклог, заполнить раздел 0. Если задача
-   оказалась дублем или конфликтует с планируемым — остановиться и сказать это, а не планировать
-   дальше.
-2. **Спайк** (~7 мин) — доказать допущения выброшенным кодом, заполнить раздел 1.
-3. **План** (~10 мин) — по этому шаблону, поверх фактов спайка.
-4. **Одно ревью** (~12 мин) — предмет ревью: полнота относительно спецификации, зависимости задач,
-   и не противоречит ли план фактам спайка. Проверять поведение библиотек ревью уже не нужно — это
-   сделал спайк. Второе ревью назначается только если первое нашло блокер, меняющий архитектуру.
-5. **Реализация** — параллельно там, где файлы не пересекаются.
-6. **Приёмка** — по скилу `regression-verify`, один `pnpm verify`, запись в реестр.
+1. **Orientation** (~5 min) — read the ledger and backlog, fill section 0. Duplicate or conflict:
+   stop and say so.
+2. **Spike** (~7 min) — prove the assumptions with throwaway code.
+3. **Plan** (~10 min) — this template, on top of the spike's facts.
+4. **One review** (~12 min) — completeness against the spec, task dependencies, and whether the
+   plan contradicts the spike. Library behaviour is not reviewed; the spike settled it. A second
+   review happens only if the first found an architecture-changing blocker.
+5. **Implementation** — parallel only where files do not overlap, each agent in its own worktree.
+6. **Acceptance** — skill `regression-verify`, one `pnpm verify`, then the ledger entry.
 
-Ориентир для фичи размера «страница плюс два эндпоинта»: ориентация 5, спайк 7, план 10, ревью 12,
-реализация 25, приёмка 10 — около часа. Если выходит вдвое больше, причина почти всегда в объёме плана или в
-числе итераций ревью, а не в сложности кода.
+Baseline for a "page plus two endpoints" feature: about 70 minutes, and that is the floor. Twice
+that usually means the plan grew or the review iterated, not that the code was hard. The full order
+of work is the `feature-pipeline` skill.

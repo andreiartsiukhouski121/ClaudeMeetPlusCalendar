@@ -9,26 +9,16 @@ import { readSessionToken } from '../session';
 import type { CreateMeetingFormState, Meeting } from '../types';
 
 /**
- * Server Action создания встречи.
+ * Meeting creation Server Action.
  *
- * Файл экспортирует ТОЛЬКО async-функции: `'use server'` не разрешает экспорт констант и
- * типов (риск 19), поэтому `CreateMeetingFormState` живёт в `lib/types.ts`.
- */
-
-/**
- * Создание встречи из формы дашборда (`useActionState`).
+ * Invariant 13: only async functions are exported, so `CreateMeetingFormState` lives in
+ * `lib/types.ts`.
  *
- * Проверка сессии дублируется **внутри** действия и не полагается на `proxy.ts`: матчер
- * proxy не покрывает Server Actions надёжно, а документация Next прямо называет proxy
- * «не гарантией безопасности» (§0, риск 3).
+ * Invariant 10: the session check is repeated **inside** the action rather than delegated to
+ * `proxy.ts` — the proxy matcher does not cover Server Actions reliably, and Next's own docs call
+ * the proxy no security guarantee.
  *
- * `redirect()` вызывается вне `try/catch` (риск 18): он реализован через выброс
- * `NEXT_REDIRECT`, и `catch` внутри блока перехватил бы его — вместо перехода на логин
- * пользователь увидел бы форму с непонятной ошибкой.
- *
- * Валидация только серверная: у полей формы нет ни `required`, ни встроенных ограничений
- * (риск 20), иначе ветки «Введите название» / «Укажите дату» никогда бы не выполнились
- * и проверяли бы поведение браузера, а не наш код.
+ * Invariant 11: `redirect()` is called outside `try/catch`.
  */
 export async function createMeetingAction(
   _prevState: CreateMeetingFormState,
@@ -44,17 +34,17 @@ export async function createMeetingAction(
   const startsAt = toIsoStartsAt(String(formData.get('startsAt') ?? ''));
 
   if (title === '') {
-    return { error: 'Введите название встречи' };
+    return { error: 'Enter a meeting title' };
   }
   if (startsAt === null) {
-    return { error: 'Укажите дату и время встречи' };
+    return { error: 'Enter a meeting date and time' };
   }
 
   let failure: ApiError | undefined;
 
   try {
-    // `durationMinutes` не отправляется вовсе — Nest подставит дефолт 60. Именно из-за
-    // этого запроса `@IsOptional()` на поле DTO обязателен (`HD-API-20`).
+    // `durationMinutes` is not sent at all — Nest defaults it to 60. This request is exactly why
+    // `@IsOptional()` on the DTO field is mandatory (`HD-API-20`).
     await apiFetch<Meeting>('/meetings', {
       method: 'POST',
       token,
@@ -62,8 +52,7 @@ export async function createMeetingAction(
     });
   } catch (error) {
     if (!(error instanceof ApiError)) {
-      // Nest не поднят или 500 — не наша ветка: пусть падает в error boundary, а не
-      // превращается в «проверьте название».
+      // Nest down or a 500: let it reach the error boundary rather than become "check the title".
       throw error;
     }
     failure = error;
@@ -76,14 +65,14 @@ export async function createMeetingAction(
     return {
       error:
         failure.status === 400
-          ? 'Проверьте название (от 3 до 100 символов) и дату встречи'
-          : 'Не удалось создать встречу, попробуйте ещё раз',
+          ? 'Check the title (3 to 100 characters) and the meeting date'
+          : 'Could not create the meeting, please try again',
     };
   }
 
-  // Без этого клиентский router-кэш покажет старый список даже при свежем серверном
-  // рендере (риск 13). `revalidatePath`, а не `refresh()`: работает и при отправке формы
-  // без JS, и выбор фиксируется один на кодовую базу.
+  // Without this the client router cache shows the stale list even on a fresh server render.
+  // `revalidatePath` rather than `refresh()`: it also works when the form is submitted without JS,
+  // and the choice is fixed once for the whole codebase.
   revalidatePath('/');
 
   return {};

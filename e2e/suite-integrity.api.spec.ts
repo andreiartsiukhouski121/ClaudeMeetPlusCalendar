@@ -3,63 +3,61 @@ import path from 'node:path';
 import { expect, test } from '@playwright/test';
 
 /**
- * Исполняемая версия конвенции сьюта (тест-план §1.6). Девять правил, каждое — отдельный тест,
- * чтобы падение называло конкретное нарушение, а не «что-то не так со структурой».
+ * The suite convention, made executable. Nine rules, one test each, so a failure names the exact
+ * violation rather than "something is off with the structure".
  *
- * Работает через node:fs, поэтому живёт в проекте `api`: браузер ему не нужен, а суффикс
- * `.api.spec.ts` обязателен по правилу 1 — иначе файл не попал бы ни в один проект.
+ * It works through node:fs, hence the `api` project: no browser needed, and the `.api.spec.ts`
+ * suffix is mandatory by rule 1 — otherwise the file would join no project.
  *
- * Зачем это вообще: ревью не ловит забытый `.cases.md`, а спек без суффикса `.api.`/`.functional.`
- * молча не запускается — «зелёный» прогон при этом ничего не проверяет. Мета-тест ловит и то, и то
- * на каждом `pnpm e2e`.
+ * Why at all: review does not catch a forgotten `.cases.md`, and a spec without the
+ * `.api.`/`.functional.` suffix silently never runs — the "green" run checks nothing. This
+ * meta-test catches both on every `pnpm e2e`.
  *
- * У тестов этого файла ID-нумерации нет — так решено планом (тест-план §6.3): он не описывает
- * фичу, а исполняет конвенцию, поэтому и парного `suite-integrity.api.cases.md` у него нет.
+ * Its own tests carry no case IDs: it does not describe a feature, it executes the convention, so
+ * it has no paired `suite-integrity.api.cases.md` either.
  */
 
 /**
- * Правила 1–3 не применяются к самому мета-тесту: парного `.cases.md` у него нет и быть не должно.
- * Явный список, а НЕ регулярка вида «файлы в корне e2e/»: такая регулярка со временем начнёт
- * покрывать что-то ещё, и первый же спек, положенный в корень «на минутку», выпадет из проверки
- * парности молча.
+ * Rules 1–3 do not apply to the meta-test itself: it has no paired `.cases.md` and must not have
+ * one. An explicit list, NOT a regex like "files in the e2e root": such a regex would grow to
+ * cover something else, and the first spec dropped into the root "for a minute" would fall out of
+ * the pairing check silently.
  */
 const SELF_EXEMPT = ['suite-integrity.api.spec.ts'];
 
 /**
- * Правило 8: единственный baseline-спек скаффолда, не относящийся ни к одной из двух фич.
- * Новые спеки в этот список не добавляются: попал спек в `apps/**\/src/**` — попал и в
- * `*.unit.cases.md`.
+ * Rule 8: the single scaffold baseline spec belonging to neither feature. New specs are not added
+ * to this list: a spec in `apps/**\/src/**` belongs in a `*.unit.cases.md`.
  */
 const UNIT_SPEC_EXEMPT = ['apps/api/src/app.controller.spec.ts'];
 
 /**
- * Префиксы фич, известные конвенции. Список явный, а не «любые заглавные буквы»: так падение
- * называет причину («допиши префикс»), а не молчит.
+ * Feature prefixes known to the convention. An explicit list rather than "any capitals", so a
+ * failure names the cause ("register the prefix") instead of staying silent.
  *
- * **Добавляя фичу, добавь сюда её префикс.** Забыть нельзя: тест «префиксы ID покрыты» ниже
- * находит в файлах кейсов любой ID вида `XX-API-01` с неизвестным префиксом и краснеет. Без
- * этой страховки третья фича (скажем, `PR-API-01`) просто не распознавалась бы как ID, и
- * правила 5–7 стали бы **вакуумно зелёными** — то есть перестали бы проверять что-либо.
+ * **Adding a feature means adding its prefix here.** Forgetting is impossible: the test below
+ * finds any `XX-API-01`-shaped ID with an unknown prefix in the case docs and goes red. Without
+ * that guard a third feature (say `PR-API-01`) would not be recognized as an ID at all, and rules
+ * 5–7 would go **vacuously green** — they would stop checking anything.
  */
 const KNOWN_CASE_PREFIXES = ['AL', 'HD', 'SM', 'SEC', 'LG', 'PR'];
 
-/** ID кейса: `<ФИЧА>-<ТИП>-<NN>` (тест-план §2). Номер — два или три знака. */
+/** Case ID: `<FEATURE>-<TYPE>-<NN>`. The number is two or three digits. */
 const CASE_ID_SOURCE = `(?:${KNOWN_CASE_PREFIXES.join('|')})-(?:API|FN|UT)-\\d{2,3}`;
 
-/** Форма ID с ЛЮБЫМ префиксом — только чтобы поймать незарегистрированный. */
+/** The ID shape with ANY prefix — only to catch an unregistered one. */
 const ANY_PREFIX_CASE_ID = /\b([A-Z]{2,5})-(?:API|FN|UT)-\d{2,3}\b/g;
 const CASE_ID_ANYWHERE = new RegExp(CASE_ID_SOURCE, 'g');
 const CASE_ID_HEADING = new RegExp(`^#{2,6}\\s+(${CASE_ID_SOURCE})\\b`);
 const CASE_ID_TABLE_ROW = new RegExp(`^\\|\\s*(${CASE_ID_SOURCE})\\s*\\|`);
 
 /**
- * Пометка «кейс сознательно не автоматизирован». Распознаётся ТОЛЬКО этот синтаксис
- * (тест-план §1.6 правило 5): свободная формулировка в прозе означала бы, что любой абзац
- * со словом «не автоматизирован» отключает проверку.
+ * The "deliberately not automated" marker. ONLY this syntax is recognized (rule 5): free prose
+ * would mean any paragraph containing the words could switch the check off.
  */
-const NOT_AUTOMATED_MARKER = /^\s*-\s*\*\*Не автоматизирован:\*\*/;
+const NOT_AUTOMATED_MARKER = /^\s*-\s*\*\*Not automated:\*\*/;
 
-/** Путь к юнит-спеку внутри `apps/**`, как он пишется в `*.unit.cases.md`. */
+/** Path to a unit spec inside `apps/**`, as written in `*.unit.cases.md`. */
 const APPS_SPEC_PATH = /apps\/[A-Za-z0-9._-]+(?:\/[A-Za-z0-9._-]+)*\.spec\.ts/g;
 
 const SKIP_DIRS = new Set([
@@ -74,15 +72,14 @@ const SKIP_DIRS = new Set([
 ]);
 
 /**
- * Корень монорепозитория. `test.info().config.rootDir` для этого НЕ подходит: он равен
- * разрешённому `testDir`, то есть `<repo>/e2e`, а не каталогу конфига (проверено пробой:
- * `ROOTDIR=C:\GIT\PurpleSchool\e2e`). Мета-тест, посчитавший корнем `e2e/`, искал бы файлы
- * в `e2e/e2e`, находил бы ноль штук и проходил ВСЕ восемь правил вакуумно — то есть зеленел бы
- * при любом нарушении конвенции. Именно это поймал контрольный опыт при написании файла,
- * поэтому ниже стоит ещё и самопроверка обхода.
+ * The monorepo root. `test.info().config.rootDir` will NOT do: it equals the resolved `testDir`,
+ * that is `<repo>/e2e`, rather than the config directory (verified by probe). A meta-test treating
+ * `e2e/` as the root would look for files in `e2e/e2e`, find zero and pass ALL rules vacuously —
+ * green under any violation of the convention. That is exactly what the control experiment caught
+ * while this file was being written, which is why a self-check of the walk sits below too.
  *
- * `process.cwd()` тоже ненадёжен: зависит от того, откуда запущен `playwright test`.
- * Поэтому идём вверх до маркера рабочего пространства.
+ * `process.cwd()` is unreliable as well: it depends on where `playwright test` was started. So we
+ * walk up to the workspace marker.
  */
 function findRepoRoot(startDir: string): string {
   let dir = startDir;
@@ -93,20 +90,18 @@ function findRepoRoot(startDir: string): string {
     }
     const parent = path.dirname(dir);
     if (parent === dir) {
-      throw new Error(
-        `Не найден корень монорепозитория (pnpm-workspace.yaml) ни в ${startDir}, ни выше`,
-      );
+      throw new Error(`Monorepo root (pnpm-workspace.yaml) not found in ${startDir} or above`);
     }
     dir = parent;
   }
 }
 
-/** Корень репозитория для текущего прогона. */
+/** Repository root for the current run. */
 function repoRoot(): string {
   return findRepoRoot(test.info().config.rootDir);
 }
 
-/** Рекурсивный обход без `node_modules` и сборочных каталогов: иначе обход `apps/` неподъёмен. */
+/** Recursive walk skipping `node_modules` and build directories, or `apps/` is unwalkable. */
 function walk(rootDir: string, relDir: string, acc: string[] = []): string[] {
   const abs = path.join(rootDir, relDir);
   if (!fs.existsSync(abs)) {
@@ -135,7 +130,7 @@ function e2eCaseDocs(root: string): string[] {
   return walk(root, 'e2e').filter((file) => file.endsWith('.cases.md'));
 }
 
-/** Юнит-спеки приложений. `apps/api/test/app.e2e-spec.ts` сюда не попадает — он не в `src/`. */
+/** Application unit specs. `apps/api/test/app.e2e-spec.ts` is excluded — it is not in `src/`. */
 function appsUnitSpecs(root: string): string[] {
   return walk(root, 'apps').filter((file) =>
     /^apps\/[^/]+\/src\/.*(?<!\.e2e)\.spec\.ts$/.test(file),
@@ -189,7 +184,7 @@ function matchLines(content: string, pattern: RegExp): string[] {
   return found;
 }
 
-/** ID, у которых в их подразделе стоит пометка «Не автоматизирован». */
+/** IDs whose subsection carries the "Not automated" marker. */
 function notAutomatedIds(content: string): string[] {
   const exempt: string[] = [];
   let currentId = '';
@@ -202,7 +197,7 @@ function notAutomatedIds(content: string): string[] {
     if (!NOT_AUTOMATED_MARKER.test(line)) {
       continue;
     }
-    // ID может стоять и в самой строке пометки — тогда таблица-сводка тоже может её нести.
+    // The ID may sit on the marker line itself — then the summary table can carry it too.
     exempt.push(...unique(line.match(CASE_ID_ANYWHERE) ?? []), currentId);
   }
 
@@ -210,11 +205,11 @@ function notAutomatedIds(content: string): string[] {
 }
 
 /**
- * ID в файлах кейсов, чей префикс не зарегистрирован в `KNOWN_CASE_PREFIXES`.
+ * IDs in case docs whose prefix is not registered in `KNOWN_CASE_PREFIXES`.
  *
- * Обход вынесен из теста: ветвление внутри `test` запрещено правилом
- * `playwright/no-conditional-in-test` — оно поднято до `error` осознанно, потому что условие в
- * тесте прячет непройденную ветку.
+ * The walk is outside the test: branching inside `test` is forbidden by
+ * `playwright/no-conditional-in-test`, raised to `error` deliberately because a condition in a
+ * test hides an unexercised branch.
  */
 function unregisteredPrefixes(root: string): string[] {
   const found: string[] = [];
@@ -222,7 +217,7 @@ function unregisteredPrefixes(root: string): string[] {
   for (const doc of e2eCaseDocs(root)) {
     for (const match of read(root, doc).matchAll(ANY_PREFIX_CASE_ID)) {
       if (!KNOWN_CASE_PREFIXES.includes(match[1])) {
-        found.push(`${doc}: префикс ${match[1]} (в ID ${match[0]}) не зарегистрирован`);
+        found.push(`${doc}: prefix ${match[1]} (in ID ${match[0]}) is not registered`);
       }
     }
   }
@@ -236,10 +231,10 @@ interface UnitCaseRef {
 }
 
 /**
- * Сопоставляет ID юнит-кейсов со спеком, под чьим заголовком они перечислены (правило 7).
- * Правило маркировки: любая строка, упоминающая путь `apps/**\/*.spec.ts`, задаёт «текущий спек»
- * для себя и всех последующих строк — до следующего такого упоминания. ID, встреченные до первого
- * упоминания пути, относятся к шапке и сводной таблице файла и правилом 7 не проверяются.
+ * Maps unit case IDs to the spec they are listed under (rule 7). The marking rule: any line
+ * mentioning an `apps/**\/*.spec.ts` path sets the "current spec" for itself and every following
+ * line, until the next such mention. IDs seen before the first path belong to the file header and
+ * summary table and are not checked by rule 7.
  */
 function collectUnitCaseRefs(content: string): UnitCaseRef[] {
   const refs: UnitCaseRef[] = [];
@@ -261,7 +256,7 @@ function collectUnitCaseRefs(content: string): UnitCaseRef[] {
   return refs;
 }
 
-// --- Правила ---------------------------------------------------------------------------------
+// --- Rules -----------------------------------------------------------------------------------
 
 function violationsRule1(root: string): string[] {
   return e2eSpecs(root)
@@ -269,8 +264,8 @@ function violationsRule1(root: string): string[] {
     .filter((file) => !file.endsWith('.api.spec.ts') && !file.endsWith('.functional.spec.ts'))
     .map(
       (file) =>
-        `${file} — правило 1: имя не заканчивается ни на .api.spec.ts, ни на .functional.spec.ts, ` +
-        `поэтому файл не попадёт ни в один проект playwright.config.ts и молча не запустится`,
+        `${file} — rule 1: the name ends in neither .api.spec.ts nor .functional.spec.ts, so the ` +
+        `file joins no playwright.config.ts project and silently never runs`,
     );
 }
 
@@ -280,8 +275,8 @@ function violationsRule2(root: string): string[] {
     .filter((file) => !fs.existsSync(path.join(root, pairedCaseDoc(file))))
     .map(
       (file) =>
-        `${file} — правило 2: нет парного файла кейсов ${pairedCaseDoc(file)}. ` +
-        `Спек без описания кейсов — блокер (тест-план §1.3)`,
+        `${file} — rule 2: no paired case doc ${pairedCaseDoc(file)}. ` +
+        `A spec without described cases is a blocker`,
     );
 }
 
@@ -291,8 +286,8 @@ function violationsRule3(root: string): string[] {
     .filter((file) => !fs.existsSync(path.join(root, pairedSpec(file))))
     .map(
       (file) =>
-        `${file} — правило 3: нет парного спека ${pairedSpec(file)}. ` +
-        `Описанные кейсы никто не исполняет (исключение — только *.unit.cases.md)`,
+        `${file} — rule 3: no paired spec ${pairedSpec(file)}. ` +
+        `Nobody executes the described cases (the only exception is *.unit.cases.md)`,
     );
 }
 
@@ -305,8 +300,8 @@ function violationsRule4(root: string): string[] {
         continue;
       }
       violations.push(
-        `${doc} — правило 4: упомянут путь ${specPath}, которого нет на диске. ` +
-          `Либо спек переименован, либо путь в документации опечатан`,
+        `${doc} — rule 4: it mentions the path ${specPath}, which is not on disk. ` +
+          `Either the spec was renamed or the path in the docs has a typo`,
       );
     }
   }
@@ -320,7 +315,7 @@ function violationsRule5(root: string): string[] {
   for (const doc of e2eCaseDocs(root).filter((file) => !isUnitCaseDoc(file))) {
     const spec = pairedSpec(doc);
     if (!fs.existsSync(path.join(root, spec))) {
-      continue; // отсутствие спека — это правило 3, не надо дублировать падение
+      continue; // a missing spec is rule 3; no need to duplicate the failure
     }
 
     const content = read(root, doc);
@@ -328,14 +323,12 @@ function violationsRule5(root: string): string[] {
     const exempt = new Set(notAutomatedIds(content));
 
     /*
-     * Считаются только ID, ОБЪЯВЛЕННЫЕ в этом файле как кейсы: заголовком раздела или строкой
-     * сводной таблицы. Любое упоминание брать нельзя — тогда ссылка в прозе на соседний кейс
-     * («дублирует HD-API-06 намеренно») трактуется как объявление и роняет правило.
+     * Only IDs DECLARED in this file as cases count: a section heading or a summary table row.
+     * Counting any mention would treat a prose cross-reference to a neighbouring case
+     * ("duplicates HD-API-06 on purpose") as a declaration and break the rule.
      *
-     * Так и случилось при добавлении `e2e/security/`: правило требовало автоматизировать
-     * `HD-API-06` внутри security-спека. Обходной приём «писать номер без префикса» в
-     * `auth-login.api.cases.md` появился ровно из-за этого ограничения — с сужением он больше
-     * не нужен, а перекрёстные ссылки читаются нормально.
+     * That is exactly what happened when `e2e/security/` was added: the rule demanded that
+     * `HD-API-06` be automated inside the security spec.
      */
     const declared = unique([
       ...matchLines(content, CASE_ID_HEADING),
@@ -347,9 +340,9 @@ function violationsRule5(root: string): string[] {
         continue;
       }
       violations.push(
-        `${doc} — правило 5: кейс ${id} описан, но ID не встречается в ${spec}. ` +
-          `Либо заголовок теста не начинается с ID, либо кейс не автоматизирован — тогда ` +
-          `пометь его строкой "- **Не автоматизирован:** <причина + ссылка на задачу>"`,
+        `${doc} — rule 5: case ${id} is described, but the ID does not appear in ${spec}. ` +
+          `Either the test title does not start with the ID, or the case is not automated — ` +
+          `then mark it with "- **Not automated:** <reason + task link>"`,
       );
     }
   }
@@ -365,12 +358,12 @@ function violationsRule6(root: string): string[] {
 
     for (const id of findDuplicates(matchLines(content, CASE_ID_HEADING))) {
       violations.push(
-        `${doc} — правило 6: ID ${id} использован в двух подразделах кейсов. ` +
-          `Номера не переиспользуются даже после удаления кейса (тест-план §2)`,
+        `${doc} — rule 6: ID ${id} is used in two case subsections. ` +
+          `Numbers are never reused, not even after a case is deleted`,
       );
     }
     for (const id of findDuplicates(matchLines(content, CASE_ID_TABLE_ROW))) {
-      violations.push(`${doc} — правило 6: ID ${id} встречается в двух строках таблицы-сводки`);
+      violations.push(`${doc} — rule 6: ID ${id} appears in two summary table rows`);
     }
   }
 
@@ -384,15 +377,15 @@ function violationsRule7(root: string): string[] {
     for (const ref of collectUnitCaseRefs(read(root, doc))) {
       const existing = ref.specPaths.filter((specPath) => fs.existsSync(path.join(root, specPath)));
       if (existing.length === 0) {
-        continue; // несуществующий путь — это правило 4
+        continue; // a non-existent path is rule 4
       }
       if (existing.some((specPath) => read(root, specPath).includes(ref.id))) {
         continue;
       }
       violations.push(
-        `${doc} — правило 7: кейс ${ref.id} перечислен под ${existing.join(', ')}, ` +
-          `но его ID там не встречается. Заголовок юнит-теста обязан начинаться с ID кейса — ` +
-          `иначе ни pnpm test:<feature> не отфильтрует его, ни проверить автоматизацию нельзя`,
+        `${doc} — rule 7: case ${ref.id} is listed under ${existing.join(', ')}, ` +
+          `but its ID does not appear there. A unit test title must start with the case ID — ` +
+          `otherwise pnpm test:<feature> cannot filter it and automation cannot be verified`,
       );
     }
   }
@@ -411,32 +404,32 @@ function violationsRule8(root: string): string[] {
     .filter((file) => !documentedSet.has(file))
     .map(
       (file) =>
-        `${file} — правило 8: юнит-спек не упомянут ни в одном *.unit.cases.md. ` +
-        `Добавь его кейсы в e2e/regression/<feature>/<feature>.unit.cases.md ` +
-        `(в UNIT_SPEC_EXEMPT новые спеки не вносятся)`,
+        `${file} — rule 8: this unit spec is mentioned in no *.unit.cases.md. ` +
+        `Add its cases to e2e/regression/<feature>/<feature>.unit.cases.md ` +
+        `(new specs do not go into UNIT_SPEC_EXEMPT)`,
     );
 }
 
 /**
- * Правило 9: адрес сервера задаётся в `playwright.config.ts` и приезжает в тест фикстурой или
- * опцией — но не пересчитывается в самом сьюте.
+ * Rule 9: the server address is set in `playwright.config.ts` and reaches a test through a fixture
+ * or an option — it is never recomputed inside the suite.
  *
- * Зачем правило: формула адреса Nest жила в трёх файлах, а адрес web — ещё в одном, и держалось
- * это комментарием «при правке порта в конфиге правится и здесь» (FX-023). Копии тогда
- * совпадали — все читали одну переменную окружения, — но обещание не инвариант, а расхождение
- * здесь не роняет прогон: тест начнёт сравнивать трафик с адресом, на котором сервер не
- * поднимали, и проверки BFF станут вакуумно зелёными.
+ * Why: the Nest address formula lived in three files and the web address in a fourth, held
+ * together by a comment promising they would be kept in sync (FX-023). The copies agreed then —
+ * all read one environment variable — but a promise is not an invariant, and drift here does not
+ * fail the run: the test starts comparing traffic against an address where no server was started,
+ * and the BFF checks go vacuously green.
  *
- * Ищется механизм, а не упоминание: чтение переменной порта и адрес в кавычках. Прозу
- * («`baseURL = http://127.0.0.1:3101`» в шапках спеков) правило не трогает — она документирует
- * конфиг, а не подменяет его.
+ * It looks for the mechanism, not the mention: reading the port variable, and a quoted address.
+ * Prose (`baseURL = http://127.0.0.1:3101` in spec headers) is untouched — it documents the
+ * config rather than replacing it.
  *
- * Известный пробел: адрес, собранный шаблонной строкой без переменной окружения, не ловится.
- * Закрывать его регуляркой по обратным кавычкам нельзя — под неё попала бы вся проза.
+ * Known gap: an address assembled by a template string without an environment variable is not
+ * caught. Closing it with a backtick regex is impossible — it would swallow all the prose.
  */
 const ADDRESS_IN_SUITE = [
-  { pattern: /process\.env\.E2E_/, what: 'чтение переменной порта прогона' },
-  { pattern: /['"]https?:\/\/127\.0\.0\.1/, what: 'литерал адреса в кавычках' },
+  { pattern: /process\.env\.E2E_/, what: 'reading the run port variable' },
+  { pattern: /['"]https?:\/\/127\.0\.0\.1/, what: 'a quoted address literal' },
 ];
 
 function violationsRule9(root: string): string[] {
@@ -447,118 +440,113 @@ function violationsRule9(root: string): string[] {
 
       return ADDRESS_IN_SUITE.filter(({ pattern }) => pattern.test(content)).map(
         ({ what }) =>
-          `${file} — правило 9: ${what}. Адрес сервера задаётся только в playwright.config.ts ` +
-          `и приходит в тест как baseURL проекта или опция apiBaseURL. Копия формулы разойдётся ` +
-          `с конфигом молча`,
+          `${file} — rule 9: ${what}. The server address is set only in playwright.config.ts ` +
+          `and reaches the test as the project baseURL or the apiBaseURL option. A copy of the ` +
+          `formula will drift from the config silently`,
       );
     });
 }
 
-// --- Тесты -----------------------------------------------------------------------------------
+// --- Tests -----------------------------------------------------------------------------------
 
-// Тега у этого describe нет намеренно: `@smoke` по §1.9 тест-плана означает `e2e/smoke/**`,
-// а мета-тест — отдельный шаг 1 пайплайна и запускается по пути.
-test.describe('Конвенция регрессионного сьюта', () => {
-  // Не «правило», а страховка от вакуумного прохода: если обход файлов вернёт пустые списки
-  // (сменился способ вычисления корня, переехал каталог), все восемь правил станут зелёными
-  // при любом нарушении конвенции. Такой мета-тест хуже отсутствующего — он даёт ложную
-  // уверенность. Поэтому сначала убеждаемся, что сканер вообще что-то нашёл.
-  test('самопроверка обхода — сканер находит и сьют, и юнит-спеки приложений', () => {
+// This describe deliberately carries no tag: `@smoke` means `e2e/smoke/**`, and the meta-test is
+// its own acceptance step, launched by path.
+test.describe('Regression suite convention', () => {
+  // Not a "rule" but a guard against a vacuous pass: if the file walk returns empty lists (the
+  // root calculation changed, a directory moved), all nine rules go green under any violation.
+  // Such a meta-test is worse than none — it gives false confidence. So first make sure the
+  // scanner found anything at all.
+  test('walk self-check — the scanner finds both the suite and the app unit specs', () => {
     const root = repoRoot();
 
-    expect(e2eSpecs(root), `Обход e2e/ от корня ${root} не нашёл ни одного спека`).toContain(
+    expect(e2eSpecs(root), `Walking e2e/ from root ${root} found no specs`).toContain(
       'e2e/suite-integrity.api.spec.ts',
     );
-    expect(
-      e2eCaseDocs(root),
-      `Обход e2e/ от корня ${root} не нашёл ни одного файла кейсов`,
-    ).toContain('e2e/smoke/health.api.cases.md');
-    expect(
-      appsUnitSpecs(root),
-      `Обход apps/ от корня ${root} не нашёл ни одного юнит-спека`,
-    ).toContain(UNIT_SPEC_EXEMPT[0]);
+    expect(e2eCaseDocs(root), `Walking e2e/ from root ${root} found no case docs`).toContain(
+      'e2e/smoke/health.api.cases.md',
+    );
+    expect(appsUnitSpecs(root), `Walking apps/ from root ${root} found no unit specs`).toContain(
+      UNIT_SPEC_EXEMPT[0],
+    );
   });
 
-  test('префиксы ID зарегистрированы — иначе правила 5–7 вакуумно зелёные', () => {
+  test('ID prefixes are registered — otherwise rules 5–7 are vacuously green', () => {
     const unregistered = unregisteredPrefixes(repoRoot());
 
     /*
-     * Почему это отдельный тест, а не просто «любые заглавные буквы» в CASE_ID_SOURCE.
+     * Why a separate test rather than just "any capitals" in CASE_ID_SOURCE.
      *
-     * Пока список префиксов захардкожен, ID новой фичи (`PR-API-01`) не распознаётся вообще —
-     * и правила 5, 6, 7 находят ноль ID, то есть проходят, ничего не проверив. Это худший вид
-     * отказа: сьют зеленеет, а покрытие исчезает молча. Здесь незнакомый префикс роняет прогон
-     * с инструкцией, куда его дописать.
+     * While the prefix list is hard-coded, a new feature's ID (`PR-API-01`) is not recognized at
+     * all — and rules 5, 6 and 7 find zero IDs, so they pass having checked nothing. That is the
+     * worst kind of failure: the suite goes green while coverage disappears silently. Here an
+     * unknown prefix fails the run with instructions on where to add it.
      */
     expect(
       unique(unregistered),
-      `Допиши префикс в KNOWN_CASE_PREFIXES (${KNOWN_CASE_PREFIXES.join(', ')}) ` +
-        'в e2e/suite-integrity.api.spec.ts — иначе ID новой фичи не распознаются и правила ' +
-        '5–7 перестанут проверять что-либо',
+      `Add the prefix to KNOWN_CASE_PREFIXES (${KNOWN_CASE_PREFIXES.join(', ')}) ` +
+        'in e2e/suite-integrity.api.spec.ts — otherwise the new feature IDs are not recognized ' +
+        'and rules 5–7 stop checking anything',
     ).toEqual([]);
   });
 
-  test('правило 1 — каждый спек в e2e/ имеет суффикс .api. или .functional.', () => {
+  test('rule 1 — every spec in e2e/ carries the .api. or .functional. suffix', () => {
     expect(
       violationsRule1(repoRoot()),
-      'Файл без суффикса не попадает ни в один проект Playwright и не запускается вовсе',
+      'A file without the suffix joins no Playwright project and never runs at all',
     ).toEqual([]);
   });
 
-  test('правило 2 — у каждого спека есть парный .cases.md', () => {
-    expect(
-      violationsRule2(repoRoot()),
-      'Спек без описания кейсов — блокер по тест-плану §1.3',
-    ).toEqual([]);
+  test('rule 2 — every spec has a paired .cases.md', () => {
+    expect(violationsRule2(repoRoot()), 'A spec without described cases is a blocker').toEqual([]);
   });
 
-  test('правило 3 — у каждого .cases.md есть парный спек (кроме *.unit.cases.md)', () => {
+  test('rule 3 — every .cases.md has a paired spec (except *.unit.cases.md)', () => {
     expect(
       violationsRule3(repoRoot()),
-      'Описание без спека означает, что кейсы никто не исполняет',
+      'A description without a spec means nobody executes the cases',
     ).toEqual([]);
   });
 
-  test('правило 4 — пути юнит-спеков из *.unit.cases.md существуют на диске', () => {
+  test('rule 4 — unit spec paths from *.unit.cases.md exist on disk', () => {
     expect(
       violationsRule4(repoRoot()),
-      'Ссылка на несуществующий файл делает документацию фичи ложной',
+      'A reference to a missing file makes the feature documentation a lie',
     ).toEqual([]);
   });
 
-  test('правило 5 — каждый ID из .cases.md встречается в парном спеке', () => {
+  test('rule 5 — every ID from a .cases.md appears in the paired spec', () => {
     expect(
       violationsRule5(repoRoot()),
-      'Кейс, описанный но не автоматизированный, обязан быть помечен явной строкой',
+      'A case described but not automated must carry an explicit marker line',
     ).toEqual([]);
   });
 
-  test('правило 6 — в .cases.md нет дублирующихся ID', () => {
+  test('rule 6 — no duplicate IDs in a .cases.md', () => {
     expect(
       violationsRule6(repoRoot()),
-      'Переиспользованный номер делает историю отчётов нечитаемой',
+      'A reused number makes the history of reports unreadable',
     ).toEqual([]);
   });
 
-  test('правило 7 — ID юнит-кейса встречается в том спеке, под которым он перечислен', () => {
+  test('rule 7 — a unit case ID appears in the spec it is listed under', () => {
     expect(
       violationsRule7(repoRoot()),
-      'Без этого ID юнит-кейсов живут только в markdown: ни отфильтровать, ни проверить',
+      'Without this, unit case IDs live only in markdown: unfilterable and unverifiable',
     ).toEqual([]);
   });
 
-  test('правило 8 — каждый юнит-спек в apps/**/src/** упомянут в *.unit.cases.md', () => {
+  test('rule 8 — every unit spec in apps/**/src/** is mentioned in a *.unit.cases.md', () => {
     expect(
       violationsRule8(repoRoot()),
-      'Правила 4 и 7 односторонние: без правила 8 новый юнит-спек выпадет из документации молча',
+      'Rules 4 and 7 are one-way: without rule 8 a new unit spec drops out of the docs silently',
     ).toEqual([]);
   });
 
-  test('правило 9 — адрес сервера не пересчитывается в сьюте, а приходит из конфига', () => {
+  test('rule 9 — the server address is not recomputed in the suite but comes from the config', () => {
     expect(
       violationsRule9(repoRoot()),
-      'Копия формулы адреса разойдётся с playwright.config.ts молча, и проверки BFF станут ' +
-        'вакуумно зелёными',
+      'A copy of the address formula will drift from playwright.config.ts silently, and the BFF ' +
+        'checks will go vacuously green',
     ).toEqual([]);
   });
 });

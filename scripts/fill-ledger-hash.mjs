@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 /**
- * Подставляет хеш последнего коммита вместо `pending` в реестре: `pnpm ledger:fill`.
+ * Substitutes the introducing commit hash for `pending` in the ledger: `pnpm ledger:fill`.
  *
- * Зачем отдельная команда вместо ручной замены: я дважды заменил слово `pending` в **тексте
- * правил** вместо ячейки таблицы, потому что глобальная замена не различает их. Скрипт правит
- * только строки таблиц — те, что начинаются с `| <ID> |`.
+ * Why a command rather than a manual replace: the word `pending` also appears in the **rules
+ * text**, and a global replace does not tell them apart — it was replaced there twice by hand.
+ * This script only edits table rows, the ones starting with `| <ID> |`.
  */
 
 import { execFileSync } from 'node:child_process';
@@ -23,20 +23,21 @@ function repoRoot() {
     }
     const parent = dirname(dir);
     if (parent === dir) {
-      throw new Error('Не найден корень монорепозитория (pnpm-workspace.yaml)');
+      throw new Error('Monorepo root not found (pnpm-workspace.yaml)');
     }
     dir = parent;
   }
 }
 
 /**
- * Коммит, добавивший упоминание ID в реестр. Тот же приём, что в кейсе `LG-API-03`: `-S` находит
- * изменение числа вхождений строки, то есть именно вводящий коммит, а не тот, что заменил
- * `pending` на хеш.
+ * The commit that added the ID to the ledger. Same trick as in `LG-API-03`: `-S` finds a change in
+ * the number of occurrences, so it is the introducing commit rather than the one that replaced
+ * `pending` with a hash.
  *
- * Почему не хеш `HEAD` для всех записей: запись могла быть введена **предыдущим** коммитом, а её
- * `pending` заполняется этим. Первая редакция скрипта ставила всем `HEAD` и приписала бы `CH-008`
- * чужой коммит — поймано первым прогоном CI, где `LG-API-03` назвал точную запись.
+ * Why not `HEAD` for every entry: an entry may have been introduced by the **previous** commit
+ * while its `pending` is filled by this one. The first version of this script stamped `HEAD` on
+ * everything and would have attributed a foreign commit to `CH-008` — caught by the first CI run,
+ * where `LG-API-03` named the exact entry.
  */
 function introducingHash(root, id) {
   const found = execFileSync('git', ['log', '-1', '--format=%h', `-S${id}`, '--', CHANGELOG], {
@@ -59,15 +60,16 @@ const updated = lines.map((line) => {
   }
 
   /*
-   * Заполняется только та ГРАФА, которая целиком равна `pending`, а не первое вхождение строки.
+   * Only the COLUMN whose whole content is `pending` gets filled, not the first occurrence in the
+   * line.
    *
-   * Слепая замена первого вхождения испортила описание записи FX-019: там слово `pending` стоит
-   * в тексте («Инвариант `pending` делал…»), и оно превратилось в хеш. Это третий случай одной и
-   * той же ошибки — дважды я допустил её руками, потом в этом же скрипте (FX-021). Поэтому
-   * адресуем графу, а не подстроку.
+   * Blindly replacing the first occurrence corrupted the description of entry FX-019, where the
+   * word `pending` appears in the prose and turned into a hash. That was the third instance of the
+   * same mistake — twice by hand, then in this very script (FX-021). So we address the column, not
+   * a substring.
    *
-   * Поиск графы идёт ПЕРВЫМ: строка, где `pending` встречается только в описании, уже заполнена,
-   * и сообщать про неё нечего.
+   * The column lookup comes FIRST: a row where `pending` only appears in the description is
+   * already filled, and there is nothing to report about it.
    */
   const cells = line.split('|');
   const targetIndex = cells.findIndex((cell) => cell.trim() === '`pending`');
@@ -93,16 +95,16 @@ const updated = lines.map((line) => {
 
 if (unresolved.length > 0) {
   console.error(
-    `Вводящий коммит не определён для: ${unresolved.join(', ')}. Запись ещё не закоммичена — ` +
-      'заполни её хеш следующим коммитом.',
+    `Introducing commit not found for: ${unresolved.join(', ')}. The entry is not committed yet — ` +
+      'fill its hash with the next commit.',
   );
 }
 
 if (filled.length === 0) {
-  console.log(`В ${CHANGELOG} нет записей «pending» — подставлять нечего.`);
+  console.log(`No "pending" entries in ${CHANGELOG} — nothing to substitute.`);
   process.exit(0);
 }
 
 writeFileSync(path, updated.join('\n'), { encoding: 'utf8' });
-console.log(`Подставлено: ${filled.join(', ')}`);
-console.log('Закоммить эту правку следующим коммитом — она сама записи в реестре не требует.');
+console.log(`Filled: ${filled.join(', ')}`);
+console.log('Commit this edit next — it needs no ledger entry of its own.');

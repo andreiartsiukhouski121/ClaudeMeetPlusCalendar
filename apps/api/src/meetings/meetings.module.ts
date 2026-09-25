@@ -5,9 +5,8 @@ import { MeetingsController } from './meetings.controller.js';
 import { MeetingsService } from './meetings.service.js';
 
 /**
- * `AuthModule` импортируется ради `JwtAuthGuard` (он экспортирован оттуда вместе с
- * `TokenService`): guard навешивается декоратором на контроллер, поэтому его провайдер
- * должен быть доступен в этом модуле.
+ * `AuthModule` is imported for `JwtAuthGuard`: the guard is attached by decorator on the
+ * controller, so its provider must be visible in this module.
  */
 @Module({
   imports: [AuthModule],

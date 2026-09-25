@@ -12,11 +12,9 @@ import { MeetingsModule } from './meetings/meetings.module.js';
   providers: [
     AppService,
     /**
-     * ValidationPipe регистрируется провайдером APP_PIPE, а НЕ через `app.useGlobalPipes`
-     * в `main.ts` (план имплементации §2.2 п.6, §8 п.4): иначе
-     * `Test.createTestingModule({ imports: [AppModule] })` — в частности
-     * `apps/api/test/app.e2e-spec.ts` — поднимает приложение без валидации, и проверки 400
-     * в supertest-наборе расходятся с реальным сервером.
+     * Invariant 3: registered as an `APP_PIPE` provider, not via `app.useGlobalPipes` in
+     * `main.ts`. Otherwise `Test.createTestingModule({ imports: [AppModule] })` boots the app
+     * without validation and the 400 checks disagree with the real server.
      */
     {
       provide: APP_PIPE,

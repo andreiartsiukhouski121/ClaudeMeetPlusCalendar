@@ -5,7 +5,7 @@ import { defineConfig, globalIgnores } from 'eslint/config';
 
 import { baseConfig } from './base.js';
 
-/** Конфиг для Next.js-приложений. */
+/** Config for Next.js apps. */
 export const nextConfig = defineConfig([
   ...baseConfig,
   ...nextVitals,

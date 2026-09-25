@@ -1,132 +1,139 @@
 ---
 name: bugfix-pipeline
-description: Порядок работ для дефекта в этом монорепозитории — воспроизведение, причина, влияние, красный тест до фикса, фикс, приёмка, запись FX-. Use when something is broken, when the user says "баг", "не работает", "почини", "разберись почему", "упал тест", "regression", or when a defect is found during acceptance. Для новой функциональности — скил feature-pipeline.
+description: Order of work for a defect — reproduction, cause, impact, a red test before the fix, the fix, acceptance, an FX- entry. Use when something is broken, when the user says "bug", "it does not work", "fix it", "figure out why", "a test failed", "regression", or when a defect is found during acceptance. For new functionality, use the feature-pipeline skill.
 ---
 
-Поток для дефекта. Отличается от `feature-pipeline` тем, что **ничего не проектирует**: заявленное
-поведение уже описано кейсом, инвариантом или спецификацией, и задача — вернуть код к нему. Поэтому
-разделы «Контракт» и «Данные» здесь не заполняются, а появляются четыре других: воспроизведение,
-причина, влияние и «почему не поймали раньше».
+The flow for a defect. It differs from `feature-pipeline` in that it **designs nothing**: the
+promised behaviour is already described by a case, an invariant or a specification, and the job is
+to bring the code back to it. That is why there are no Contract and Data sections here, and four
+other ones instead: reproduction, cause, impact, and why it was not caught earlier.
 
-Инварианты, порты и «кто что гоняет» — в `CLAUDE.md`; конвенция сьюта — в `e2e/README.md`; правила
-приёмки — в `regression-verify`. Здесь только порядок шагов.
+Invariants, ports and "who runs what" live in `CLAUDE.md`; the suite convention in `e2e/README.md`;
+the acceptance rules in `regression-verify`. This file holds only the order of steps.
 
-## Семь шагов
+## Seven steps
 
-| #   | Шаг              | Вход                   | Выход                                               |
-| --- | ---------------- | ---------------------- | --------------------------------------------------- |
-| 1   | Ориентация       | сообщение о дефекте    | ответ: новый, известный (`BL-`) или регресс (`FX-`) |
-| 2   | Воспроизведение  | ориентация пройдена    | команда, которая краснеет **сейчас**                |
-| 3   | Причина          | дефект воспроизводится | причина + чем доказана                              |
-| 4   | Влияние          | причина найдена        | что ещё на ней стоит, срочность, нужен ли план      |
-| 5   | Красный тест     | решение чинить         | кейс в сьюте, красный на текущем коде               |
-| 6   | Фикс             | красный тест           | минимальная правка в причине, тест зеленеет         |
-| 7   | Приёмка и запись | фикс готов             | зелёный `pnpm verify`, запись `FX-`                 |
+| #   | Step               | Input                 | Output                                           |
+| --- | ------------------ | --------------------- | ------------------------------------------------ |
+| 1   | Orientation        | a defect report       | new, known (`BL-`) or a regression (`FX-`)       |
+| 2   | Reproduction       | orientation done      | a command that goes red **now**                  |
+| 3   | Cause              | the defect reproduces | the cause plus what proved it                    |
+| 4   | Impact             | the cause found       | what else rests on it, urgency, is a plan needed |
+| 5   | Red test           | a decision to fix     | a case in the suite, red on current code         |
+| 6   | Fix                | the red test          | a minimal edit at the cause; the test goes green |
+| 7   | Acceptance + entry | the fix is ready      | a green `pnpm verify`, an `FX-` entry            |
 
-Порядок не переставляется. Самая частая и самая дорогая перестановка — фикс раньше шага 5: тогда
-нечем доказать, что починили именно то, и нечем удержать от возврата.
+The order never changes. The most common and most expensive swap is fixing before step 5: then
+there is nothing to prove you fixed the right thing and nothing to stop it coming back.
 
-## 1. Ориентация — как у фичи, но короче
+## 1. Orientation — like a feature, only shorter
 
-Прочитай [`docs/CHANGELOG.md`](../../../docs/CHANGELOG.md) и
-[`docs/BACKLOG.md`](../../../docs/BACKLOG.md). Три возможных ответа, и все три меняют дальнейшее:
+Read [`docs/CHANGELOG.md`](../../../docs/CHANGELOG.md) and
+[`docs/BACKLOG.md`](../../../docs/BACKLOG.md). Three possible answers, and all three change what
+happens next:
 
-- **дефект уже чинили** (`FX-` есть) — это **регресс**, и первый вопрос не «как починить», а
-  «почему не удержал тест прошлого фикса». Чинить, не ответив на него, значит готовить третий
-  заход;
-- **дефект известен как `BL-`** — он уже взвешен и отложен с причиной. Либо появилось новое
-  основание (назови его), либо его чинят по очереди, а не потому, что о нём вспомнили;
-- **новый** — дальше по шагам.
+- **the defect was fixed before** (an `FX-` exists) — this is a **regression**, and the first
+  question is not "how do I fix it" but "why did the previous fix's test not hold". Fixing without
+  answering that is preparing a third round;
+- **the defect is known as a `BL-` item** — it was already weighed and deferred with a reason.
+  Either there is a new reason (name it), or it gets fixed in turn rather than because someone
+  remembered it;
+- **new** — continue with the steps.
 
-Если дело дошло до письменного плана (§4), эти ответы идут в раздел 0 — форма та же, что у фичи,
-её читает `pnpm check:orientation`.
+If it reaches a written plan (§4), those answers go into section 0 — the same form as a feature,
+read by `pnpm check:orientation`.
 
-## 2. Воспроизведение — до всего остального
+## 2. Reproduction — before anything else
 
-**Пока дефект не воспроизведён, чинить нечего.** Гипотеза без красного прогона — это пункт `BL-`,
-а не багфикс, и так её и надо оформить.
+**Until the defect is reproduced there is nothing to fix.** A hypothesis without a red run is a
+`BL-` item, not a bugfix, and should be filed as one.
 
-Нужны: точная команда или сценарий, ожидаемое (со ссылкой на кейс или инвариант), фактическое
-дословно, стабильность и окружение. Формы — в `docs/plans/TEMPLATE-BUGFIX.md` §1.
+You need: the exact command or scenario, the expected result (with a reference to a case or an
+invariant), the actual result verbatim, stability, and the environment. The forms are in
+`docs/plans/TEMPLATE-BUGFIX.md` §1.
 
-Две ловушки этого репозитория, обе уже срабатывали:
+Two traps specific to this repository, both of which have fired:
 
-- **«красный тест» ≠ «дефект».** Прогон краснеет и от осиротевшего сервера, и от зависшего
-  `@playwright/test` (`FX-030`), и от `pnpm dev`, запущенного параллельно. Прежде чем искать
-  причину в коде, исключи это — `playwright-verify`, раздел 6;
-- **плавающий дефект.** «Иногда красный» — не характеристика дефекта, а отсутствие знания, от чего
-  он зависит. `SEC-API-05` падал в двух прогонах из четырёх, и причина была в порядке замеров, а не
-  в коде. Пока не найдено **от чего**, фикс будет попаданием наугад.
+- **"a red test" ≠ "a defect".** A run goes red from an orphaned server, from a hung
+  `@playwright/test` (`FX-030`), and from a `pnpm dev` running in parallel. Rule those out before
+  looking for a cause in the code — `playwright-verify`, section 6;
+- **a flickering defect.** "Sometimes red" is not a property of the defect but an absence of
+  knowledge about what it depends on. `SEC-API-05` failed in two runs out of four, and the cause
+  was the order of the measurements rather than the code. Until you know **what it depends on**, a
+  fix is a guess.
 
-## 3. Причина, а не симптом
+## 3. Cause, not symptom
 
-Причина — то, из-за чего поведение отличается от заявленного, а не место, где упало. Локализация —
-опытами, а не чтением: сузить вход, выключить слой, `git log -S '<строка>'` по коммиту-виновнику,
-трейс из `pnpm e2e:report`.
+The cause is why the behaviour differs from what was promised, not the place where it crashed.
+Localize by experiment rather than by reading: narrow the input, disable a layer,
+`git log -S '<string>'` to find the offending commit, read the trace from `pnpm e2e:report`.
 
-Симптом лечится **только** если причина вне нашего кода, и тогда это сказано прямо, с обоснованием.
-Половина записей `FX-` в реестре — про дефекты, невидимые в диффе (вакуумно проходящий мета-тест,
-правила линта в `warn`, тайминговый оракул): там место падения и причина были в разных файлах.
+A symptom is treated **only** when the cause is outside our code, and then it is said outright,
+with reasoning. Half the `FX-` entries in the ledger are defects invisible in a diff (a vacuously
+passing meta-test, lint rules at `warn`, a timing oracle): in each, the crash site and the cause
+were in different files.
 
-## 4. Влияние — и решение, нужен ли план
+## 4. Impact — and the decision whether a plan is needed
 
-Что ещё стоит на этой причине: соседние фичи, кейсы, инварианты, данные. Видно ли пользователю и
-есть ли обходной путь. Затронута ли безопасность — тогда фикс идёт по инвариантам 16–19 и
-проверяется `pnpm e2e:security`.
+What else rests on this cause: neighbouring features, cases, invariants, data. Whether the user can
+see it and whether there is a workaround. Whether security is involved — then the fix follows
+invariants 16–19 and is checked by `pnpm e2e:security`.
 
-**Письменный план (`pnpm plan:new <slug> --bug`) нужен, если верно хотя бы одно:**
+**A written plan (`pnpm plan:new <slug> --bug`) is needed if any of these hold:**
 
-1. причина не найдена за ~15 минут;
-2. фикс меняет контракт, инвариант или поведение, на которое опираются кейсы другой фичи;
-3. дефект связан с безопасностью;
-4. затронут больше чем один модуль или оба приложения.
+1. the cause was not found in about 15 minutes;
+2. the fix changes a contract, an invariant, or behaviour that another feature's cases rely on;
+3. the defect involves security;
+4. more than one module or both applications are affected.
 
-Иначе плана **не надо**: хватит красного теста, фикса и записи `FX-`. Этот порог — не послабление,
-а защита от того, от чего ушли в `CH-004`: 100 минут планирования против 85 минут кода. Документ на
-однострочный фикс стоит дороже самого фикса.
+Otherwise **no plan is needed**: a red test, the fix and an `FX-` entry are enough. The threshold
+is not a loophole but protection from what `CH-004` moved away from — 100 minutes of planning
+against 85 of code. A document for a one-line fix costs more than the fix.
 
-## 5. Красный тест — до фикса, а не после
+## 5. The red test — before the fix, not after
 
-Тест пишется **первым** и обязан краснеть на текущем коде. Это тот же контрольный опыт, что в
-приёмке, только в обратном порядке: там ломают код, чтобы проверить тест, здесь код уже сломан, и
-тест проверяется им.
+The test is written **first** and must fail on current code. It is the same control experiment as
+in acceptance, only reversed: there the code is broken to check the test, here the code is already
+broken and the test is checked by it.
 
-Куда он ложится — по `e2e/README.md`: поведение через HTTP — в
-`e2e/regression/<фича>/<фича>.api.spec.ts`, UI — в `*.functional.spec.ts`, чистая функция — юнитом
-рядом с кодом. Новому кейсу нужен ID, строка в парном `.cases.md` и заголовок, начинающийся с этого
-ID, иначе мета-тест конвенции уронит прогон.
+Where it goes is decided by `e2e/README.md`: behaviour over HTTP → `<feature>.api.spec.ts`, UI →
+`*.functional.spec.ts`, a pure function → a unit next to the code. A new case needs an ID, a row in
+the paired `.cases.md`, and a title starting with that ID, or the convention meta-test fails the
+run.
 
-Если дефект межфичевой — не «эта страница», а «любая закрытая страница» — ему место в
-`e2e/security/**` или в списках `PROTECTED_ROUTES` / `PROTECTED_PAGES`, а не в каталоге одной фичи.
+If the defect is cross-feature — not "this page" but "any protected page" — it belongs in
+`e2e/security/**` or in the `PROTECTED_ROUTES` / `PROTECTED_PAGES` lists rather than in one
+feature's directory.
 
-**Тест, зелёный на сломанном коде, — это не тест.** Увидел зелёный до фикса — значит проверяешь не
-то место; вернись к шагу 3.
+**A test that is green on broken code is not a test.** Seeing green before the fix means you are
+checking the wrong place; go back to step 3.
 
-## 6. Фикс — минимальный и в причине
+## 6. The fix — minimal and at the cause
 
-- Правится причина, а не симптом, и ничего кроме. **«Заодно починил» запрещено**: соседний дефект —
-  отдельный пункт `BL-` или отдельный проход по этому же скилу, а не строка в том же диффе.
-- Рефакторинг вокруг фикса не входит в фикс. Дифф багфикса должен читаться за минуту — иначе на
-  ревью нельзя отличить исправление от переделки.
-- Если правильное поведение противоречит существующему кейсу — **прав кейс**, пока не доказано
-  обратное. Доказано — кейс и `.cases.md` правятся одним коммитом, а в отчёте появляется отдельная
-  строка «изменён ассерт, причина» (`regression-verify` §5).
+- Fix the cause, not the symptom, and nothing else. **"While I was there" is forbidden**: a
+  neighbouring defect is a separate `BL-` item or a separate pass through this skill, not another
+  line in the same diff.
+- Refactoring around the fix is not part of the fix. A bugfix diff should read in a minute —
+  otherwise a reviewer cannot tell a correction from a rewrite.
+- If the correct behaviour contradicts an existing case, **the case is right** until proven
+  otherwise. Once proven, the case and its `.cases.md` are edited in one commit and the report
+  gains a line saying "assertion changed, and why" (`regression-verify` §5).
 
-## 7. Приёмка и запись
+## 7. Acceptance and the entry
 
-- **Контрольный опыт:** откатить фикс, убедиться, что новый тест снова краснеет, вернуть. Без этого
-  неизвестно, держит ли тест именно этот дефект.
-- **Один `pnpm verify` целиком**, а не только новый кейс: фикс мог сломать соседнее.
-- **Запись `FX-`** в `docs/CHANGELOG.md` с заполненной графой «Чем найдено». Эта графа — не
-  формальность: по ней видно, какие проверки работают, и сегодня из неё следует, что контрольные
-  опыты и security-сьют нашли по три дефекта каждый, а ревью диффа — ни одного.
-- **Пункт `BL-`** на недостающую проверку, если шаг «почему не поймали раньше» показал, что поймать
-  было нечем. Один фикс закрывает один дефект; починенная проверка закрывает класс.
-- Если дефект был известен как `BL-` — пункт помечается закрытым со ссылкой на запись `FX-` и
-  **не удаляется**.
+- **Control experiment:** revert the fix, confirm the new test goes red again, restore it. Without
+  that there is no knowing whether the test holds this particular defect.
+- **One full `pnpm verify`**, not just the new case: the fix may have broken something next door.
+- **An `FX-` entry** in `docs/CHANGELOG.md` with the "Found by" column filled. That column is not a
+  formality: it shows which checks work, and today it says the control experiments and the security
+  suite found three defects each while diff review found none.
+- **A `BL-` item** for the missing check, if "why it was not caught earlier" showed there was
+  nothing to catch it with. One fix closes one defect; a repaired check closes a class.
+- If the defect was known as a `BL-` item, that item is marked closed with a reference to the `FX-`
+  entry and is **not deleted**.
 
-## Чего в этом потоке нет намеренно
+## What this flow deliberately lacks
 
-- **Своей шкалы severity.** Срочность — это `P1`/`P2`/`P3` бэклога, те же, что у всего остального.
-- **Отдельного типа записи в реестре.** `FX-` уже означает дефект.
-- **Обязательного плана на каждый баг** — см. порог в §4.
+- **Its own severity scale.** Urgency is the backlog's `P1`/`P2`/`P3`, the same as everything else.
+- **A separate ledger entry type.** `FX-` already means defect.
+- **A mandatory plan for every bug** — see the threshold in §4.

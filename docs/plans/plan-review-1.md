@@ -1,653 +1,340 @@
-# Ревью планов разработки (итерация 1)
+# Development plan review (iteration 1)
 
-Ревьюируемые документы: `docs/plans/README.md`, `docs/plans/feature-plan-implementation.md`
-(далее **ИП**), `docs/plans/feature-plan-testing.md` (далее **ТП**).
+> **ARCHIVE.** A record of the first review pass, kept for the reasoning behind the decisions. Not a
+> source of truth: the live convention is in [`e2e/README.md`](../../e2e/README.md), the invariants
+> in [`CLAUDE.md`](../../CLAUDE.md). Translated into English in `CH-014` and condensed; every
+> blocker, finding and verified fact is preserved.
 
-Все утверждения ниже проверены на установленных зависимостях этого репозитория (`next@16.3.4`,
-`@nestjs/*@12.0.1`, `@playwright/test@1.62.1`, `vitest@4.1.11`, Node `v24.14.0`) — см. раздел
-«Проверенные факты». Изолированные пробы Nest + `class-validator` собирались в скретчпаде, файлы
-репозитория не менялись.
+Documents under review: `docs/plans/README.md`, `feature-plan-implementation.md` (**IP**),
+`feature-plan-testing.md` (**TP**).
 
----
-
-## 1. Вердикт
-
-**План можно исполнять после устранения блокеров.**
-
-Архитектурная часть добротная: BFF-схема, разделение `session-cookie.ts` / `session.ts`, `APP_PIPE`
-вместо `useGlobalPipes`, изоляция мутаций по seed-пользователям, запрет `required` на инпутах — это
-проверенные решения, и большинство «проверенных фактов» §0 ИП подтвердилось буквально.
-
-Но исполнять план как есть нельзя по трём причинам. Первая: два кейса контракта встреч физически
-несовместимы с DTO из ИП (`@Max(50)` против `limit=100`; отсутствующий `@IsOptional()` против
-`GET /meetings` без параметра) — гарантированно красные тесты на корректном по плану коде. Вторая:
-три функциональных кейса фичи 1 (`AL-FN-02`, `AL-FN-07`, `AL-FN-11`) требуют дашборда и `proxy.ts`
-из фичи 2, поэтому DoD `T1.9` («14 passed») недостижим, а это прямо противоречит риску 22 ИП («в
-фиче 1 главная остаётся нетронутой»). Третья: пайплайн приёмки фичи 1 заведомо красный из-за
-`SM-API-02`, а мета-тест конвенции краснеет на самом себе.
-
-Отдельно: объём сьюта (69 e2e + 37 UT на две небольшие фичи) завышен примерно на 40% — см. §5.
+Every claim below was checked against this repository's installed dependencies (`next@16.3.4`,
+`@nestjs/*@12.0.1`, `@playwright/test@1.62.1`, `vitest@4.1.11`, Node `v24.14.0`) — see §6. Isolated
+Nest + `class-validator` probes lived in a scratchpad; no repository file was changed.
 
 ---
 
-## 2. Блокеры
+## 1. Verdict
 
-### B1 — `ListMeetingsQueryDto` без `@IsOptional()`: `GET /meetings` без `limit` отдаёт 400
+**The plan can be executed once the blockers are removed.**
 
-**Что не так.** ИП §2.2 п.4 (строка 207): «`limit?` с `@Type(() => Number) @IsInt() @Min(1)
-@Max(50)`». `@IsOptional()` не назван. При `whitelist: true, transform: true` отсутствующее поле
-проходит через `@IsInt/@Min/@Max` и даёт 400. Ломаются все кейсы, которые ходят на `GET /meetings`
-без параметра: `HD-API-01`, `HD-API-06`, `HD-API-11`, `HD-API-13` (шаг 2), `HD-API-14`, `HD-API-15`,
-`HD-API-16`.
+The architectural part is sound: the BFF layout, the `session-cookie.ts` / `session.ts` split,
+`APP_PIPE` instead of `useGlobalPipes`, mutation isolation by seed user, and the ban on `required` on
+the inputs are all proven decisions, and most of the "verified facts" in IP §0 held up literally.
 
-**Чем подтверждено.** Проба на реальных `@nestjs/common@12.0.1` + `class-validator@0.15.1` с DTO,
-списанным из плана буква в букву:
+But it cannot be executed as is, for three reasons. First: two meeting contract cases are physically
+incompatible with the DTO in IP (`@Max(50)` against `limit=100`; a missing `@IsOptional()` against
+`GET /meetings` without a parameter) — guaranteed red tests on code that follows the plan. Second:
+three functional cases of feature 1 (`AL-FN-02`, `AL-FN-07`, `AL-FN-11`) need the dashboard and
+`proxy.ts` from feature 2, so the `T1.9` DoD ("14 passed") is unreachable, which directly
+contradicts IP risk 22 ("in feature 1 the home page stays untouched"). Third: feature 1's acceptance
+pipeline is red by construction because of `SM-API-02`, and the convention meta-test fails on
+itself.
+
+Separately: the suite volume (69 e2e + 37 UT for two small features) is inflated by roughly 40% —
+see §5.
+
+---
+
+## 2. Blockers
+
+### B1 — `ListMeetingsQueryDto` without `@IsOptional()`: `GET /meetings` without `limit` returns 400
+
+IP §2.2 item 4 specifies `limit?` with `@Type(() => Number) @IsInt() @Min(1) @Max(50)`.
+`@IsOptional()` is not named. Under `whitelist: true, transform: true` a missing field still runs
+through `@IsInt/@Min/@Max` and gives 400. Every case calling `GET /meetings` without a parameter
+breaks: `HD-API-01`, `06`, `11`, `13` (step 2), `14`, `15`, `16`.
+
+**Evidence.** A probe on real `@nestjs/common@12.0.1` + `class-validator@0.15.1` with the DTO copied
+verbatim:
 
 ```
 /meetings          -> 400 :: {"message":["limit must not be greater than 50","limit must not be less than 1","limit must be an integer number"],...}
 /meetings?limit=3  -> 200 :: {"q":{"limit":3},"t":"number"}
 ```
 
-**Правка.** ИП §2.2 п.4 переписать: «`ListMeetingsQueryDto`: `limit?: number` с
-`@IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(100)`; при отсутствии параметра сервис
-подставляет `3`. `@IsOptional()` обязателен — без него `GET /meetings` без `limit` даёт 400
-(проверено пробой)».
+**Fix.** Rewrite IP §2.2 item 4: `limit?: number` with
+`@IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(100)`; the service supplies `3` when the
+parameter is absent. `@IsOptional()` is mandatory — without it `GET /meetings` without `limit`
+returns 400 (verified by probe).
 
-### B2 — `@Max(50)` против кейсов с `limit=100`
+### B2 — `@Max(50)` against cases using `limit=100`
 
-**Что не так.** ТП использует `limit=100` в трёх местах: `HD-API-10` (строка 342, ожидание «200;
-длина `items` = `total` = 5»), `HD-API-17` (строка 349), `SM-API-02` (строка 384 — P0-смоук, от
-которого зависит осмысленность всего сьюта). При `@Max(50)` все три получают 400.
+TP uses `limit=100` in three places: `HD-API-10` (expecting "200; `items` length = `total` = 5"),
+`HD-API-17`, and `SM-API-02` (a P0 smoke the whole suite's meaning depends on). With `@Max(50)` all
+three get 400. Verified: `/meetings?limit=100 -> 400 :: {"message":["limit must not be greater than
+50"],...}`.
 
-**Чем подтверждено.** Та же проба: `/meetings?limit=100 -> 400 :: {"message":["limit must not be
-greater than 50"],...}`.
+**Fix.** Pick one explicitly: (a) raise the bound to `@Max(100)` in IP §2.2 item 4 and add the
+`limit > 100 → 400` line to §2.1; or (b) replace `limit=100` with `limit=50` in all three cases and
+reword the `HD-API-10` title. Option (a) is recommended: with (b), `SM-API-02` depends on a magic
+number that would have to change as the seed grows.
 
-**Правка.** Выбрать явно один вариант:
-(а) в ИП §2.2 п.4 поднять границу до `@Max(100)` и добавить в §2.1 строку «`limit > 100` → `400
-{"message":["limit must not be greater than 100"],...}`»;
-(б) в ТП заменить `limit=100` на `limit=50` во всех трёх кейсах и переформулировать заголовок
-`HD-API-10` в «`limit` больше числа встреч (50 > 5)».
-Рекомендую (а): при варианте (б) `SM-API-02` завязан на магическое число, которое придётся менять
-при росте сида.
+### B3 — `AL-FN-02`, `AL-FN-07`, `AL-FN-11` need feature 2 artifacts; the `T1.9` DoD is unreachable
 
-### B3 — `AL-FN-02`, `AL-FN-07`, `AL-FN-11` требуют артефактов фичи 2; DoD `T1.9` недостижим
+TP §3.2 expects those three cases to see a greeting containing `teacher@purpleschool.test` after
+signing in, and `AL-FN-07` additionally relies on the `/auth/login` → `/` redirect. The greeting is
+rendered by `app/page.tsx`, which is rewritten in `T2.8`; `proxy.ts` is created in `T2.7`. Both tasks
+belong to feature 2, after feature 1 is merged. Meanwhile IP risk 22 demands "in feature 1 the home
+page stays untouched". So the `T1.9` DoD ("`14 passed`") is unsatisfiable, and so are
+`T1.10`/`T1.12`/`T1.13`. Worse: by TP §6.5, `T1.11` must fix the **code** rather than the cases,
+which would push the agent to implement the dashboard inside feature 1 and destroy the boundary
+between features.
 
-**Что не так.** ТП §3.2 задаёт ожидания:
+**Evidence.** `apps/web/src/app/page.tsx` is still the create-next-app default; the IP §5 dependency
+graph puts `T2.7` and `T2.8` after `T1.13`.
 
-- `AL-FN-02` — «URL становится `/`; на странице видно приветствие, содержащее
-  `teacher@purpleschool.test`; форма логина больше не отображается»;
-- `AL-FN-11` — «URL становится `/`; видно приветствие»;
-- `AL-FN-07` — «URL становится `/`; форма логина не отображается; видно приветствие» (и сам редирект
-  `/auth/login` → `/` реализует `proxy.ts`).
+**Fix.** For `AL-FN-02` and `AL-FN-11`, change the expected result to "the URL becomes `/`; a session
+cookie appears in the context; the login form is no longer displayed. The home page contents are not
+checked in this case — they belong to feature 2 (`HD-FN-02`)". Move `AL-FN-07` into feature 2 as
+`HD-FN-16` (tag `@home-dashboard`) and make it the DoD of `T2.7`. Recount the TP §3.2/§3.4 totals
+and the §7 matrix: feature 1 gets 13 functional cases, feature 2 gets 16. The `T1.9` DoD becomes
+"`13 passed`".
 
-Приветствие рендерит `app/page.tsx`, который переписывается в `T2.8`; `proxy.ts` создаётся в `T2.7`.
-Обе задачи — в фиче 2, после мержа фичи 1. При этом ИП, риск 22 (строка 702), прямо требует: «в фиче
-1 главная остаётся нетронутой». Итог: DoD `T1.9` («`pnpm e2e --project=web --grep @auth-login` →
-`14 passed`») невыполним, `T1.10`/`T1.12`/`T1.13` — тоже. Хуже: `T1.11` по §6.5 ТП обязан чинить
-**код**, а не кейсы, то есть подтолкнёт агента реализовать дашборд внутри фичи 1 и снести границу
-между фичами.
+### B4 — the `suite-integrity.api.spec.ts` meta-test violates its own rule 2
 
-**Чем подтверждено.** `apps/web/src/app/page.tsx` — дефолтная страница create-next-app (заголовок
-«To get started, edit the page.tsx file», ссылки Deploy Now / Documentation); граф зависимостей ИП
-§5: `T2.7`, `T2.8` идут после `T1.13`.
+TP §1.6 rule 1 covers "every `e2e/**/*.spec.ts`", and rule 2 requires "every spec has a paired
+`.cases.md` with the same base name in the same directory". `e2e/suite-integrity.api.spec.ts` sits in
+`e2e/`, and there is no paired `suite-integrity.api.cases.md` — neither in the TP §1.1 tree nor in
+the `T0.6` file list. The very first run of pipeline step 1 goes red on its own file — and that step
+blocks every later one.
 
-**Правка.** В ТП §3.2 для `AL-FN-02` и `AL-FN-11` заменить ожидаемый результат на: «URL становится
-`/` (`await expect(page).toHaveURL('/')`); в контексте появилась cookie сессии; форма логина больше
-не отображается. Содержимое главной в этом кейсе не проверяется — оно принадлежит фиче 2
-(`HD-FN-02`)». Кейс `AL-FN-07` перенести в фичу 2 с новым ID `HD-FN-16` (тег `@home-dashboard`) и
-сделать его DoD задачи `T2.7`. Пересчитать итоги ТП §3.2/§3.4 и матрицу §7: фича 1 — 13
-функциональных кейсов, фича 2 — 16. DoD `T1.9` — «`13 passed`».
+**Fix.** Add to TP §1.6: "Rules 1–3 do not apply to `e2e/suite-integrity.api.spec.ts` itself — it
+does not describe a feature, it executes the convention. The exception is an explicit
+`SELF_EXEMPT = ['suite-integrity.api.spec.ts']` list in the meta-test's code, not a regexp." The
+alternative is to create `e2e/suite-integrity.api.cases.md` with cases `SI-01…SI-06`. Pick one and
+record it in `T0.6`.
 
-### B4 — мета-тест `suite-integrity.api.spec.ts` нарушает собственное правило 2
+### B5 — `SM-API-02` keeps feature 1's pipeline red; "permissible" must become "mandatory"
 
-**Что не так.** ТП §1.6 правило 1 распространяется на «каждый `e2e/**/*.spec.ts`», правило 2 (строка 145) требует «у каждого спека есть парный `.cases.md` с тем же базовым именем в том же каталоге».
-Сам `e2e/suite-integrity.api.spec.ts` лежит в `e2e/`, а парного `suite-integrity.api.cases.md` нет
-ни в дереве ТП §1.1, ни в списке файлов `T0.6` ИП (строка 379). Первый же прогон шага 1 пайплайна
-краснеет на собственном файле — и это шаг, который по §6.2 блокирует все последующие.
+IP `T0.6` says "`SM-API-02` is written immediately but only goes green after T1.3/T2.2 — until then
+it correctly fails… It is permissible to introduce it in two steps", and the `T0.7` DoD explicitly
+allows a red test in a commit. But TP §6.2 says "when step N fails, steps N+1 and beyond are not
+run", and §6.3 says "any red test on steps 1–8 is a blocker". `SM-API-02` is step 5, so throughout
+feature 1 steps 6–8 formally cannot be run and the DoDs of `T1.10`/`T1.12`/`T1.13` ("the §6 pipeline
+is green") are unreachable. The word "permissible" leaves the implementer a choice that breaks
+acceptance.
 
-**Чем подтверждено.** Дерево ТП §1.1 (строки 20–46) и список файлов ИП `T0.6` (строка 379):
-`suite-integrity.api.cases.md` не упомянут.
+**Fix.** In IP `T0.6`, replace "permissible" with "**mandatory**: introduced in two steps — in
+`T1.4`, only the login check for all four seeded users; the meetings check (`total` = 5 / 0) is
+added in `T2.4` in the same commit as the meetings controller. Before `T1.3` the file
+`e2e/smoke/seed.api.spec.ts` is not created at all." In TP §3.5, split it into `SM-API-02` (logins,
+introduced in feature 1) and `SM-API-03` (meetings, feature 2), and recount the suite totals. Remove
+the red-test caveat from the `T0.7` DoD — there must be no red tests in a commit.
 
-**Правка.** В ТП §1.6 добавить: «Правила 1–3 не применяются к самому
-`e2e/suite-integrity.api.spec.ts` — он не описывает фичу, а исполняет конвенцию. Исключение задаётся
-явным списком `SELF_EXEMPT = ['suite-integrity.api.spec.ts']` в коде мета-теста, не regexp'ом».
-Альтернатива — создать `e2e/suite-integrity.api.cases.md` с кейсами `SI-01…SI-06`, внести его в
-список файлов `T0.6`; тогда правило 5 заставит назвать тесты `SI-01 …`, что полезно для отчёта.
-Выбрать один вариант и записать его в `T0.6`.
+### B6 — contradiction about deleting `e2e/web/home.spec.ts`
 
-### B5 — `SM-API-02` держит пайплайн фичи 1 красным; «допустимо» надо заменить на «обязательно»
+IP `T0.6` deletes the `e2e/api/` and `e2e/web/` directories entirely, `home.spec.ts` included,
+before feature 1. IP risk 22 says the opposite: "the old spec is deleted in T2.9, together with
+replacing the page". TP §1.5 agrees with risk 22. IP §1.1 marks the file "[del]" with no task. Three
+statements across two documents contradict each other, and the `T0.6` implementer does not know what
+to do.
 
-**Что не так.** ИП `T0.6` (строка 380): «`SM-API-02` пишется сразу, но зелёным станет только после
-T1.3/T2.2 — до тех пор он корректно краснеет… Допустимо ввести его в два шага». `T0.7` DoD (строка 386) прямо допускает красный тест в коммите. Но ТП §6.2: «При падении на шаге N шаги N+1 и далее не
-запускаются», §6.3: «Любой красный тест на шагах 1–8 — блокер». `SM-API-02` — это шаг 5
-(`pnpm e2e e2e/smoke`), значит на всём протяжении фичи 1 шаги 6–8 формально запускать нельзя, а DoD
-`T1.10`/`T1.12`/`T1.13` («пайплайн §6 зелёный») недостижимы. Слово «допустимо» оставляет
-исполнителю выбор, который ломает приёмку.
+**Fix.** Choose "delete in `T0.6`" — simpler and safer: after the switch to suffix-based `testMatch`,
+`home.spec.ts` joins no project and silently never runs (verified by probe), so its "green" status is
+purely formal. Keep `T0.6` as is; rewrite the last sentence of risk 22 and TP §1.5 accordingly, and
+drop the deletion mention from `T2.9`.
 
-**Чем подтверждено.** ТП §6.2 (таблица шагов), §6.3 (первый пункт блокеров), ИП строки 380, 386,
-470, 472.
+### B7 — `AL-UT-21…23` describe a session API the architecture does not have; the `T1.4` DoD is unsatisfiable
 
-**Правка.** В ИП `T0.6` заменить «Допустимо ввести его в два шага» на «**Обязательно** вводится в
-два шага: в `T1.4` — только проверка логинов всех четырёх сид-пользователей; проверка встреч
-(`total` = 5 / 0) добавляется в `T2.4` тем же коммитом, что и контроллер встреч. До `T1.3` файл
-`e2e/smoke/seed.api.spec.ts` не создаётся вовсе». В ТП §3.5 разбить на `SM-API-02` (логины,
-вводится в фиче 1) и `SM-API-03` (встречи, вводится в фиче 2), пересчитать «Итого по сьюту». Из DoD
-`T0.7` убрать оговорку про красный тест — красных тестов в коммите быть не должно.
+TP §4.1 specifies `AL-UT-21` ("parsing a valid cookie value returns a session with a token and
+email"), `AL-UT-22` ("parsing an empty/broken/truncated cookie returns an empty result") and
+`AL-UT-23` ("serialize → parse returns the original object"). In IP §3.5 the cookie is a **raw JWT
+with no wrapper**, and `session-cookie.ts` exports only `SESSION_COOKIE_NAME`,
+`SESSION_MAX_AGE_SECONDS` and `buildSessionCookieOptions`. Neither `parseSession` nor
+`serializeSession` exists in the plan or is needed by the architecture — three of the four cases are
+untestable.
 
-### B6 — противоречие по удалению `e2e/web/home.spec.ts`
+The other side of the same divergence: `T1.4` creates `apps/web/src/lib/api-client.spec.ts`, yet TP
+§4.1 has no ID for `resolveApiUrl`/`apiFetch`, although IP §1.1 requires "units for `resolveApiUrl`
+(no network)". The `T1.4` DoD ("case composition — `AL-UT-01…23`") cannot be met either way.
 
-**Что не так.** ИП `T0.6` (строка 379) удаляет каталоги `e2e/api/` и `e2e/web/` целиком, то есть и
-`home.spec.ts`, ещё до фичи 1. ИП риск 22 (строка 702) утверждает обратное: «Удаление старого спека
-происходит в T2.9, одновременно с заменой страницы». ТП §1.5 — тоже «удаляется в том же коммите, где
-`/` перестаёт быть страницей create-next-app». ИП §1.1 (строка 55) помечает файл `[удл]` без задачи.
-Три формулировки в двух документах противоречат друг другу; исполнитель `T0.6` не знает, что делать.
+**Fix.** Rewrite the `session.spec.ts` block in TP §4.1: `AL-UT-20` —
+`buildSessionCookieOptions('development')` gives `httpOnly: true`, `path: '/'`, `sameSite: 'lax'`,
+`secure: false`; `AL-UT-21` — `'production'` gives `secure: true`; `AL-UT-22` —
+`SESSION_MAX_AGE_SECONDS` matches `JWT_EXPIRES_IN` (3600). Add an **`api-client.spec.ts`** block
+(`AL-UT-23…26`): `resolveApiUrl` joins a base with and without a trailing slash; honours `API_URL`
+from the environment; falls back to `http://127.0.0.1:3001`; and `ApiError.message` normalizes from
+both body shapes (string / array of strings). Delete the session-parsing cases entirely.
 
-**Чем подтверждено.** Строки ИП 55, 379, 702; ТП §1.5.
+### B8 — unit checks cannot be run per feature in isolation, and UT case IDs are not tied to code
 
-**Правка.** Выбрать вариант «удалять в `T0.6`» — он проще и безопаснее: после перехода на `testMatch`
-по суффиксам файл `home.spec.ts` всё равно не попадёт ни в один проект и молча не запустится
-(проверено пробой), то есть «зелёным» он остаётся только формально. `T0.6` оставить как есть; в риске
-22 последнее предложение заменить на «Старый спек удаляется в `T0.6` вместе с каталогом `e2e/web/`:
-после перехода на `testMatch` он не запускается ни в одном проекте. Инвариант «все запускаемые тесты
-зелёные на каждом шаге» это не нарушает»; в ТП §1.5 — то же; из `T2.9` упоминание удаления убрать.
+The user requires "checks run per feature in isolation" and "a mandatory unit run". For e2e the
+isolation exists (`--grep @auth-login`); for units it does not: pipeline step 4 is `pnpm test`, that
+is **all** units of both features at once, and there are no `test:<feature>` scripts in either
+document. On top of that, "a test title must start with its ID" applies only to Playwright specs,
+and rule 4 of §1.6 only checks that the paths mentioned in `*.unit.cases.md` exist. As a result the
+`AL-UT-*`/`HD-UT-*` IDs live only in markdown: they can neither be filtered by feature nor checked
+for being automated at all.
 
-### B7 — `AL-UT-21…23` описывают API сессии, которого нет в архитектуре; DoD `T1.4` невыполним
+**Fix** (three parts, all required):
 
-**Что не так.** ТП §4.1 (строки 428–430): `AL-UT-21` «парсинг валидного значения cookie возвращает
-сессию с токеном и email», `AL-UT-22` «парсинг пустой/битой/обрезанной cookie возвращает пустой
-результат», `AL-UT-23` «сериализация → парсинг даёт исходный объект». В ИП §3.5 cookie — это **сырой
-JWT без обёртки** («значение — `accessToken` из Nest без дополнительной обёртки»), а
-`session-cookie.ts` экспортирует только `SESSION_COOKIE_NAME`, `SESSION_MAX_AGE_SECONDS` и
-`buildSessionCookieOptions`. Ни `parseSession`, ни `serializeSession` в плане нет и по архитектуре не
-нужны — три кейса из четырёх нетестируемы.
+1. TP §2: "A unit test title must also start with its case ID (`it('AL-UT-09 — …')`)."
+2. TP §1.6: add rule 7 — "for every `*.unit.cases.md`, each case ID appears in the text of the spec
+   it is listed under" — and rule 8 — "every `apps/**/src/**/*.spec.ts` is mentioned in at least one
+   `*.unit.cases.md`" (today the rules are one-way: a new unit spec can miss the documentation and
+   nobody notices).
+3. IP `T0.3` and TP §1.9: add `test:auth-login` and `test:home-dashboard` scripts filtering by `-t`,
+   make pipeline step 4 `pnpm test:<feature>`, and keep the full `pnpm test` inside step 8.
 
-Обратная сторона того же расхождения: `T1.4` (строка 416) создаёт `apps/web/src/lib/api-client.spec.ts`,
-а в ТП §4.1 нет ни одного ID под `resolveApiUrl`/`apiFetch`, хотя ИП §1.1 строка 99 требует «юниты
-`resolveApiUrl` (без сети)». DoD `T1.4` («состав кейсов — `AL-UT-01…23`») не выполнить ни в одну
-сторону.
+### B9 — `AL-API-10` signs in as a user that does not exist
 
-**Чем подтверждено.** ИП строки 99–100, 296–313, 416; ТП строки 428–430.
+TP §3.1 posts `{ email: 'READER@Purpleschool.TEST' }` expecting 200. The user `reader@…` was renamed
+to `teacher@…` when the plans were reconciled (IP §9); the case kept the old name. In practice a 401
+arrives — a red test on correct code. It is also the only case covering email case-insensitivity, so
+that requirement would go unchecked.
 
-**Правка.** В ТП §4.1 блок `apps/web/src/lib/session.spec.ts` переписать: `AL-UT-20` —
-`buildSessionCookieOptions('development')` даёт `httpOnly: true`, `path: '/'`, `sameSite: 'lax'`,
-`secure: false`; `AL-UT-21` — `buildSessionCookieOptions('production')` даёт `secure: true`;
-`AL-UT-22` — `SESSION_MAX_AGE_SECONDS` совпадает с `JWT_EXPIRES_IN` (3600). Добавить блок
-**`apps/web/src/lib/api-client.spec.ts`** (`AL-UT-23…26`): `resolveApiUrl` корректно склеивает базу с
-трейлинг-слэшем и без него; уважает `API_URL` из окружения; падает обратно на
-`http://127.0.0.1:3001`; `ApiError.message` нормализуется из обеих форм тела (строка / массив строк).
-Кейсы про «парсинг сессии» удалить целиком.
-
-### B8 — юнит-проверки нельзя запустить по фиче в изоляции, а ID кейсов UT не связаны с кодом
-
-**Что не так.** Требования пользователя — «проверки запускаются по каждой фиче в изоляции» и
-«обязательный запуск UT». Для e2e изоляция есть (`--grep @auth-login`), для юнитов — нет: шаг 4
-пайплайна (ТП §6.2) — это `pnpm test`, то есть **все** юниты обеих фич сразу; скриптов вида
-`test:auth-login` нет ни в ИП, ни в ТП. Вдобавок требование «заголовок теста обязан начинаться с ID»
-(ТП §2) распространено только на Playwright-спеки, а правило 4 §1.6 проверяет лишь существование
-путей, упомянутых в `*.unit.cases.md`. В результате ID `AL-UT-*`/`HD-UT-*` живут только в markdown:
-ни отфильтровать по фиче, ни проверить, что кейс вообще автоматизирован, нельзя.
-
-**Чем подтверждено.** ТП §6.2 (шаг 4), §1.6 (правила 4–5), §2; корневой `package.json`
-(`"test": "pnpm -r test"`); фактический прогон `pnpm test` → «Scope: 4 of 5 workspace projects»,
-1 файл, 1 тест.
-
-**Правка** (три пункта, все обязательные):
-
-1. ТП §2: «Заголовок юнит-теста тоже обязан начинаться с ID кейса
-   (`it('AL-UT-09 — hash не равен plain', …)`)».
-2. ТП §1.6: добавить правило 7 — «для каждого `*.unit.cases.md` каждый ID кейса встречается в тексте
-   того спека, под чьим заголовком он перечислен»; и правило 8 — «каждый
-   `apps/**/src/**/*.spec.ts` упомянут хотя бы в одном `*.unit.cases.md`» (сейчас правила
-   односторонние: новый юнит-спек может не попасть в документацию, и это никто не заметит).
-3. ИП `T0.3` и ТП §1.9: добавить в корневой `package.json`
-   `"test:auth-login": "pnpm -r test -- -t \"AL-UT-\""` и
-   `"test:home-dashboard": "pnpm -r test -- -t \"HD-UT-\""` (`-t` у `vitest run` фильтрует по имени
-   теста); шаг 4 пайплайна ТП §6.2 заменить на `pnpm test:<feature>`, а полный `pnpm test` оставить
-   внутри шага 8.
-
-### B9 — `AL-API-10` логинится несуществующим пользователем
-
-**Что не так.** ТП §3.1, строка 291: `POST /auth/login` с `{ email: 'READER@Purpleschool.TEST' }`,
-ожидание 200. Пользователь `reader@…` переименован в `teacher@…` при сведении планов (ИП §9, строка
-739), в кейсе остался старый. Фактически придёт 401 — красный тест на корректном коде. Это же
-единственный кейс на регистронезависимость email, так что требование ИП §3.3 останется
-непроверенным.
-
-**Чем подтверждено.** ТП строка 291; ИП строка 739; сид ИП §3.3.
-
-**Правка.** ТП строка 291: `READER@Purpleschool.TEST` → `TEACHER@Purpleschool.TEST`; в ожидание
-дописать «`GET /auth/me` возвращает `email` строго `teacher@purpleschool.test` (нижний регистр)».
+**Fix.** `READER@Purpleschool.TEST` → `TEACHER@Purpleschool.TEST`, and add to the expectation:
+"`GET /auth/me` returns `email` strictly as `teacher@purpleschool.test` (lower case)".
 
 ---
 
-## 3. Существенные замечания
+## 3. Substantive findings
 
-### M1 — `message` при 400 не всегда массив; форма 404 в §2.1 не описана
+- **M1 — `message` on a 400 is not always an array, and the 404 shape is missing from §2.1.** For a
+  broken JSON body the response is built by `body-parser` before `ValidationPipe`. Verified:
+  `400 {"message":"Unexpected end of JSON input",…}` — a string; and
+  `404 {"message":"Cannot GET /auth/login",…}`.
+- **M2 — `AL-API-19` and `HD-API-12` are phrased with an "or" while the behaviour is
+  deterministic.** Both outcomes would go green, including a regression from one into the other.
+- **M3 — `HD-FN-03` and `HD-FN-05` need HTTP calls to the API from the `web` project, and there is
+  no mechanism.** The built-in `request` there has the Next base URL.
+- **M4 — `authedPage` as a worker-scoped fixture cannot be parameterized per user.** (The proposed
+  replacement turned out to be unimplementable as well — see review 2, NB2.)
+- **M5 — `HD-FN-07` and `HD-API-13` do not fix the created meeting's date while the expectation
+  depends on it.** Sorting is DESC with a top-three slice, so "the new meeting is first" only holds
+  for a date later than any seeded one.
+- **M6 — the `Meetings total: N` counter and `pluralizeMeetings` are mutually exclusive.**
+  Pluralizing breaks the `HD-FN-03` locator; the helper is deleted together with its cases.
+- **M7 — `playwright-verify/SKILL.md` and `CLAUDE.md` would keep the `e2e/web/` and `e2e/api/`
+  paths.** The edit addresses are named and verified.
+- **M8 — `pnpm lint` does not catch half of what §6.3 declares a blocker.** The four relevant
+  `eslint-plugin-playwright` rules sit at `warn`, and ESLint exits 0 on warnings.
+- **M9 — the rationale for risk 1 (`secure` cookie) is factually wrong.** Chromium accepts `Secure`
+  cookies on `http://127.0.0.1` because loopback is a trustworthy origin, so an unconditional `true`
+  does not break e2e; the real reason lies elsewhere.
+- **M10 — the units' exemption from the pairing rule was decided on the user's behalf.**
+- **M11 — `apps/api` does not read `.env`, although §3.6 promises overriding through `.env`.**
+  Verified: neither `dotenv` nor `@nestjs/config` is installed.
+- **M12 — `HD-UT-07` checks something unreachable at the service level.**
+- **M13 — `AL-UT-01…03` reference a `validateUser` method that does not exist.**
+- **M14 — `toIsoStartsAt` is created but covered by no case.**
 
-ИП §2.1, строка 200: «`message` при `400` — **массив строк**; при `401` — **строка**». Для
-`AL-API-18` (битый JSON) это неверно: тело формирует `body-parser` до `ValidationPipe`. Проверено:
+## 4. Minor items
 
-```
-POST /auth/login broken JSON -> 400 :: {"message":"Unexpected end of JSON input","error":"Bad Request","statusCode":400}
-GET  /auth/login             -> 404 :: {"message":"Cannot GET /auth/login","error":"Not Found","statusCode":404}
-```
-
-**Правка.** В §2.1 добавить две строки: «Битый JSON в теле → `400` `{"message": "Unexpected end of
-JSON input", "error": "Bad Request", "statusCode": 400}` — здесь `message` **строка**, тело формирует
-`body-parser`» и «Метод/путь не найден → `404` `{"message": "Cannot GET /auth/login", "error": "Not
-Found", "statusCode": 404}`». Фразу про массив уточнить: «массив строк — только у ошибок
-`ValidationPipe`».
-
-### M2 — `AL-API-19` и `HD-API-12` сформулированы через «или», хотя поведение детерминировано
-
-`AL-API-19`: «404 или 405» — фактически всегда **404** (проверено). `HD-API-12` («Лишний
-query-параметр не ломает запрос»): «200 и тот же результат… либо 400» — фактически при
-`forbidNonWhitelisted: true` всегда **400**: `GET /meetings?limit=3&foo=bar -> 400
-{"message":["property foo should not exist"],...}`, то есть заголовок кейса утверждает обратное
-факту. Кейс с «или» не проверяет ничего: зелёными будут оба поведения, включая регресс из одного в
-другое.
-
-**Правка.** `AL-API-19`: «404; тело `{"message": "Cannot GET /auth/login", "error": "Not Found",
-"statusCode": 404}`; HTML-стектрейса нет». `HD-API-12`: переименовать в «Лишний query-параметр
-отвергается» и зафиксировать «400; `message` содержит `property foo should not exist`».
-
-### M3 — `HD-FN-03` и `HD-FN-05` требуют HTTP к API из проекта `web`, а механизма нет
-
-Оба кейса начинаются с «Через API получить `total`/`items` для `teacher`». В проекте `web` `baseURL`
-= `http://127.0.0.1:3100` (Next), а ТП §5.6 требует относительных путей; фикстура
-`e2e/fixtures/auth.api.ts` описана как «через фикстуру `request`» — в проекте `web` она даст запрос
-на 3100. Реализовать кейсы как написано нельзя.
-
-**Правка.** В ТП §5.5 добавить: «`e2e/fixtures/api.ts` экспортирует
-`API_BASE_URL = http://127.0.0.1:${process.env.E2E_API_PORT ?? '3101'}` (та же формула, что в
-`playwright.config.ts`) и фикстуру `apiRequest` = `request.newContext({ baseURL: API_BASE_URL })`.
-Кейсы проекта `web`, которым нужны эталонные данные (`HD-FN-03`, `HD-FN-05`), берут их через
-`apiRequest`, а не через `request`. BFF это не нарушает: запрос идёт из Node-процесса теста, а не из
-браузера; браузерный трафик проверяют `AL-FN-12`/`HD-FN-11`».
-
-### M4 — `authedPage` как worker-scoped фикстура не параметризуется по пользователю
-
-ТП §5.5, строка 511: «worker-scoped фикстура `authedPage`, которая логинится… один раз на воркер +
-пользователя». Worker-scoped фикстура не может узнать «текущего пользователя теста»: она
-инициализируется один раз на воркер. Штатный способ — объявить **опцию**
-(`authUser: ['teacher', { option: true, scope: 'worker' }]`), тогда `test.use({ authUser: 'organizer' })`
-в describe заставит Playwright поднять под это значение отдельного воркера. Кроме того
-worker-scoped `page`, переиспользуемый несколькими тестами, ломает изоляцию: сохраняются URL и
-накопленные подписки `page.on('console')` предыдущего теста, что бьёт прямо в `HD-FN-10`.
-
-Хранение `storageState` в каталоге воркера реализуемо: `WorkerInfo` даёт `project: FullProject` (в
-нём `outputDir: string`) и `workerIndex` (`playwright/types/test.d.ts`).
-
-**Правка.** В ТП §5.5 переписать решение: «Опция `authUser` (`{ option: true }`, по умолчанию
-`'teacher'`). Worker-scoped фикстура `authedState` логинится через UI под `authUser` и возвращает
-путь к файлу `storageState` внутри `workerInfo.project.outputDir`. Test-scoped фикстура `authedPage`
-на каждый тест создаёт **новый контекст и страницу** из этого файла: переиспользуется только
-состояние, не страница. Смена пользователя — `test.use({ authUser: 'organizer' })` в describe».
-
-### M5 — `HD-FN-07` и `HD-API-13` не задают дату создаваемой встречи, а ожидание от неё зависит
-
-`HD-FN-07`: шаги «3. Считать текущее значение счётчика `N` и первый элемент списка 4. Нажать
-«Создать встречу»» — заполнения полей «Название» и «Дата и время» в шагах нет, а `required` на
-инпутах план запрещает (риск 20), значит пустая отправка вернёт ошибку валидации, а не создаст
-встречу. Ожидание «в списке появился новый элемент, он первый» выполняется только если `startsAt`
-новой встречи позже всех сид-встреч владельца (у `organizer` — `2026-01-14T10:00:00.000Z`) при
-сортировке DESC (ИП §3.4). То же у `HD-API-13`: «`POST /meetings` с валидным телом» без указания
-даты, а ожидание — «созданная встреча присутствует в `items`» при `limit=3`.
-
-**Правка.** `HD-FN-07` шаг 4: «Заполнить «Название» уникальным `E2E встреча <timestamp>`, «Дата и
-время» — `2030-01-01T10:00` (позже любой сид-встречи), нажать «Создать встречу»». `HD-API-13` шаг 3:
-дописать «`startsAt` = `2030-01-01T10:00:00.000Z` — позже любой сид-встречи, иначе созданная встреча
-не попадёт в топ-3». В ТП §5.4 добавить пятое правило устойчивости: «создаваемые встречи всегда
-датируются 2030 годом — иначе ассерт «первая в списке» зависит от сида».
-
-### M6 — счётчик «Всего встреч: N» и `pluralizeMeetings` взаимно исключают друг друга
-
-ИП `T2.8` (строка 546) и его DoD (строка 553): «счётчик встреч одним текстовым узлом (`Всего встреч:
-5`)». Одновременно ИП §1.1 (строка 105) и `T2.5` (строка 509) вводят `pluralizeMeetings(n)`
-(«встреча/встречи/встреч»), а ТП §4.2 покрывает её `HD-UT-13`/`HD-UT-14`. При тексте «Всего встреч:
-5» функция не используется нигде — юниты тестируют мёртвый код; при тексте «5 встреч» ломается
-`getByText('Всего встреч: 5')` и DoD `T2.8`.
-
-**Правка.** Выбрать одно. Дешевле — убрать склонение: удалить `lib/plural.ts`, `lib/plural.spec.ts`,
-кейсы `HD-UT-13`/`HD-UT-14`, строку `plural.ts` из `T2.5` и упоминание в §8 п.8; в `T2.8` оставить
-«`Всего встреч: 5`». Если склонение оставляют — в `T2.8` записать точный формат и зафиксировать
-локатор в `HD-FN-03`.
-
-### M7 — `playwright-verify/SKILL.md` и `CLAUDE.md` останутся с путями `e2e/web/` и `e2e/api/`
-
-`T0.6` правит в `CLAUDE.md` только раздел «Тесты: что где». Но `CLAUDE.md` в разделе «Проверка
-изменений — обязательна» требует «новый или обновлённый spec в `e2e/web/` или `e2e/api/`», а
-`.claude/skills/playwright-verify/SKILL.md` содержит те же пути в таблице §1, в §4 («новый или
-обновлённый файл в `e2e/web/` либо `e2e/api/`») и в примерах §5 (`pnpm e2e e2e/web/home.spec.ts`).
-После `T0.6` этих каталогов нет, а `CLAUDE.md` делает скил обязательным для каждого рантайм-изменения
-— агент создаст файл без суффикса `.api.`/`.functional.`, и он молча не запустится ни в одном
-проекте (проверено). `T2.14` перечисляет `CLAUDE.md`, `e2e/README.md`, `README.md`,
-`apps/api/README.md` и новый скил, но `playwright-verify/SKILL.md` в списке нет.
-
-**Правка.** Добавить `.claude/skills/playwright-verify/SKILL.md` в файлы **`T0.6`** (не `T2.14`,
-иначе полтора этапа скил врёт): `e2e/web/` → `e2e/regression/<feature>/*.functional.spec.ts`,
-`e2e/api/` → `e2e/regression/<feature>/*.api.spec.ts`, пример запуска — на существующий путь; плюс
-абзац «файл обязан иметь суффикс `.api.spec.ts` или `.functional.spec.ts`, иначе не попадёт ни в один
-проект». В `CLAUDE.md` править оба раздела, а не один.
-
-### M8 — `pnpm lint` не ловит половину того, что §6.3 объявляет блокером
-
-ТП §6.2 шаг 2: «Ловит `test.only`, `waitForTimeout`, `expect` без `await` через
-`eslint-plugin-playwright`». Фактически в `flat/recommended`: `missing-playwright-await: error`,
-`no-focused-test: error`, но `no-wait-for-timeout: warn`, `no-skipped-test: warn`,
-`no-conditional-in-test: warn`. ESLint с предупреждениями выходит с кодом 0, значит `waitForTimeout`
-и `test.skip` пройдут шаг 2 зелёными, хотя §6.3 называет их блокерами.
-
-**Правка.** В `T0.6` добавить правку `eslint.config.mjs`: в блок `files: ['e2e/**/*.ts']` дописать
-`rules: { 'playwright/no-wait-for-timeout': 'error', 'playwright/no-skipped-test': 'error',
-'playwright/no-conditional-in-test': 'error' }`. Альтернатива — `eslint . --max-warnings=0` в
-корневом скрипте `lint`, но сначала убедиться, что репозиторий даёт 0 предупреждений. В ТП §6.2 шаг 2
-привести описание в соответствие с фактическим набором правил.
-
-### M9 — обоснование риска 1 (`secure`-cookie) фактически неверно
-
-ИП §7 риск 1: «получим cookie, которую браузер выбросит на `http://127.0.0.1:3100`… симптом
-«бесконечный редирект»». Проверено: Chromium **принимает и отправляет** cookie с атрибутом `Secure`
-на `http://127.0.0.1` (loopback — trustworthy origin). Сама рекомендация
-(`secure: process.env.NODE_ENV === 'production'`) правильна, но ложное обоснование опаснее его
-отсутствия: при реальном «бесконечном редиректе» агент пойдёт проверять `secure` вместо настоящей
-причины (например, `redirect()` внутри `try` — риск 18).
-
-**Правка.** Риск 1 переписать: «`secure: true` **не** ломает e2e — Chromium принимает Secure-cookie
-на loopback (проверено). Тем не менее ставим `secure: process.env.NODE_ENV === 'production'`: в
-`next dev` `NODE_ENV = 'development'` (`next/dist/bin/next`), и безусловный `secure: true` сломает
-проверку в любом окружении, где loopback не считается trustworthy. Если симптом «бесконечный
-редирект» всё-таки возник — искать в риске 18 и в матчере `proxy`, а не в `secure`».
-
-### M10 — исключение для юнитов из правила парности принято за пользователя
-
-Требование пользователя: «каждому файлу тест-кейсов соответствует файл в коде… названный и
-организованный одинаково». ТП §1.7 сознательно отступает: один `<feature>.unit.cases.md` на фичу
-против множества спеков в `apps/**` с другими именами и в другом дереве. Аргументы ТП по существу
-верны, и держать юнит-спеки рядом с кодом правильно. Но: (1) отступление от буквы требования
-принимает план, а не заказчик — пометки «требует подтверждения» в §1.7 нет; (2) заявленная
-компенсация («существование путей проверяет мета-тест») слабее обещанной, потому что проверка
-односторонняя (см. B8).
-
-**Правка.** В ТП §1.7 добавить: «**Отступление от буквы требования.** Пользователь просил парность
-«файл кейсов ↔ файл кода» для всех типов проверок; для юнитов план предлагает парность «один
-`*.unit.cases.md` на фичу ↔ перечень путей спеков». Компенсация — правила 4, 7 и 8 §1.6. Отступление
-требует подтверждения заказчика. Если оно не получено — вариант Б:
-`e2e/regression/<feature>/unit/<basename>.unit.cases.md` на каждый спек, где `<basename>` совпадает с
-именем спека (`auth.service.unit.cases.md` ↔ `apps/api/src/auth/auth.service.spec.ts`)». Плюс
-выполнить правку B8.
-
-### M11 — `apps/api` не читает `.env`, хотя §3.6 обещает переопределение через `.env`
-
-ИП §3.6 (строки 317–322) для `JWT_SECRET` и `JWT_EXPIRES_IN` в колонке «Где переопределяется»
-указывает `.env`. Но `@nestjs/config`/`dotenv` осознанно не подключаются (§8 п.4), `nest start`
-`.env` не загружает, `main.ts` читает `process.env` напрямую. Значит `apps/api/.env.example` из
-`T0.4` документирует переменные, которые файлом задать нельзя — только окружением процесса или через
-`webServer.env`. DoD `T0.4` этого не ловит.
-
-**Чем подтверждено.** `apps/api/package.json` — ни `dotenv`, ни `@nestjs/config`;
-`apps/api/src/main.ts` — `process.env.PORT ?? 3001`.
-
-**Правка.** В §3.6 колонку заменить на «переменная окружения процесса (оболочка, `webServer.env`
-Playwright); `.env` **не** читается — dotenv не подключён (§8 п.4)». В `T0.4` в `.env.example`
-добавить комментарий: «Файл документирует контракт переменных. Nest их из `.env` не читает —
-задавайте окружением: `$env:JWT_SECRET='…'; pnpm dev:api`».
-
-### M12 — `HD-UT-07` проверяет то, что на уровне сервиса недостижимо
-
-`HD-UT-07`: «`create` присваивает встрече `userId` из контекста запроса, игнорируя любого владельца
-из DTO». Подпись из ИП `T2.1` — `create(ownerId, input)`, а `CreateMeetingDto` поля владельца не
-содержит вовсе (`forbidNonWhitelisted` отрежет его на входе). Передать «владельца из DTO» в сервис
-нечем: кейс либо тавтологичен, либо требует объекта, который контроллер никогда не создаст. Настоящая
-защита проверяется на HTTP-уровне — `HD-API-16`/`HD-API-17`.
-
-**Правка.** Переформулировать: «`create(ownerId, input)` записывает `ownerId` из аргумента и `id` из
-`randomUUID()`; поля `ownerId` в `input` не читает (гарантия типовая)» — либо удалить кейс, оставив
-в матрице §7 ссылку на `HD-API-16`/`HD-API-17`.
-
-### M13 — `AL-UT-01…03` ссылаются на несуществующий метод `validateUser`
-
-ТП §4.1, строка 396: «`AL-UT-01` — `validateUser` с верным email/паролем возвращает пользователя без
-`passwordHash`». В ИП `T1.2` у `AuthService` единственный публичный метод — `login(dto)`; метода
-`validateUser` в архитектуре нет.
-
-**Правка.** В ТП §4.1: `AL-UT-01` — «`login` с верным email/паролем возвращает `{ accessToken, user }`,
-где `user` без `passwordHash`»; `AL-UT-02`/`AL-UT-03` — «`login` бросает `UnauthorizedException` с
-сообщением «Неверный email или пароль»». Вариант «ввести приватный `validateUser`» хуже: юнит начнёт
-тестировать приватный метод.
-
-### M14 — `toIsoStartsAt` создаётся, но не покрыт ни одним кейсом
-
-ИП `T2.5` вводит `toIsoStartsAt(raw)` (значение `datetime-local` → ISO, `null` при `NaN`), §8 п.8
-называет её среди тестируемых чистых хелперов. В ТП §4.2 блок `format-date.spec.ts` — только
-`HD-UT-10…12` (форматирование). Это ровно та функция, где легко потерять таймзону (значение
-`datetime-local` — локальное время без зоны), и от неё зависит `HD-FN-07`.
-
-**Правка.** Добавить в ТП §4.2: `HD-UT-15` — «`toIsoStartsAt('2030-01-01T10:00')` даёт ISO-строку,
-одинаковую при `TZ=UTC` и `TZ=Asia/Tokyo`»; `HD-UT-16` — «`toIsoStartsAt('')` и
-`toIsoStartsAt('не дата')` возвращают `null` и не бросают». Пересчитать «37 юнит-кейсов».
+**m1** — the `apps/web` `test` script divergence is not reconciled in §9. **m2** — the fixture name
+divergence is not reconciled in §9. **m3** — "step 1 takes seconds" is wrong: any `pnpm e2e` starts
+both dev servers (verified). **m4** — `test.use({ storageState: undefined })` is a no-op, since
+there is no global `storageState`. **m5** — `pnpm format:check` is already red, on the plans
+themselves. **m6** — `AL-FN-05` and `AL-FN-14` allow "native validation", contradicting risk 20.
+**m7** — `apps/web/AGENTS.md` is regenerated by `next dev`. **m8** — CI/CD is in the requirements but
+not in the plan. **m9** — `GET /` is checked by three different suites. **m10** — the `T0.6` DoD
+"`pnpm e2e --list` shows no files from `e2e/fixtures`" checks the wrong thing: fixtures are not
+`.spec.ts` and would never be listed.
 
 ---
 
-## 4. Мелочи
+## 5. Redundancy
 
-**m1 — расхождение по скрипту `test` в `apps/web` не сведено в §9.** ИП `T0.3` (строка 353):
-`"test": "vitest run --passWithNoTests"`; ТП §1.9 (строка 216) и §4.2 (строка 457): `"test": "vitest run"`.
-В §9 ИП строки нет. `--passWithNoTests` — валидный флаг (проверено), и без него DoD `T0.3` («`pnpm test`
-из корня зелёный») невыполним, пока в web нет спеков. Правка: внести строку в §9 с решением «вариант
-ИП», в ТП §1.9 и §4.2 дописать флаг.
+An honest assessment: **69 e2e cases and 37 unit cases for a login form and a page with three
+meetings is inflated by roughly 40%.** The harm is concrete: (1) every case is also a paragraph in a
+`.cases.md` that must be kept in sync on every edit (§6.4 makes a divergence a blocker); (2) run time
+multiplies by 8 steps × 2 features × 2 passes; (3) cases that test the framework give a false sense
+of coverage — they are green regardless of our code.
 
-**m2 — расхождение по имени фикстуры не сведено в §9.** ИП §1.1 (строка 47) — `e2e/fixtures/api.ts`,
-`T0.6` (строка 379) — `{seed,api,auth.fixture,console}.ts`; ТП §1.1 (строка 27) и §5.5 (строка 518) —
-`e2e/fixtures/auth.api.ts`. По правилу приоритета README побеждает ТП. Правка: в ИП строки 47 и 379
-заменить на `auth.api.ts`, внести строку в §9.
+### 5.1 To delete — they test the framework or duplicate a neighbour
 
-**m3 — «шаг 1 — секунды» неверно: любой `pnpm e2e` поднимает оба dev-сервера.** Проверено:
-`npx playwright test --project=api e2e/api/health.spec.ts` поднял и Next на 3100, и Nest на 3101;
-прогон одного теста — 15,2 с на разогретом `.next` (на холодном — до 180 с по таймауту web-сервера).
-То же про шаг 6 («браузер не поднимается — быстро»): браузер действительно не поднимается, Next-сервер
-— да. Пайплайн делает 5 отдельных запусков Playwright, каждый со своим циклом старта серверов. Правка:
-в §6.2 убрать оценки времени либо добавить сноску «каждый запуск `pnpm e2e …` поднимает оба
-`webServer` независимо от выборки тестов: ~15 с на разогретом `.next`, до 3 минут на холодном».
+| Case        | Why it is redundant                                                                                                   |
+| ----------- | --------------------------------------------------------------------------------------------------------------------- |
+| `AL-API-18` | "broken JSON → 400" is `body-parser` behaviour; our code is not involved (verified)                                   |
+| `AL-API-19` | "`GET /auth/login` → 404" is Express router behaviour                                                                 |
+| `AL-API-16` | "`Authorization` without the `Bearer` scheme → 401" is a degenerate `AL-API-15`                                       |
+| `AL-API-17` | "a forged signature → 401" is the same as `AL-API-15` with a different string                                         |
+| `AL-API-12` | "the error shape matches the Nest standard" is already checked by `AL-API-02` and `AL-API-04`                         |
+| `HD-API-19` | "a broken token on `/meetings` → 401" is the same guard as in `AL-API-15`; one guard, both controllers                |
+| `HD-API-18` | "list item shape" duplicates `HD-API-01` (keys) and `AL-API-11` (no secrets in the body)                              |
+| `AL-FN-11`  | "login on Enter" is HTML form behaviour; swapping the form for a `div` + `onClick` is caught by `AL-FN-02`            |
+| `HD-FN-13`  | "the counter (5) exceeds the item count (3)" is an arithmetic consequence of `HD-FN-03` + `HD-FN-04`                  |
+| `HD-FN-15`  | "after signing out, Back does not show the dashboard" — see 5.4: inherently unstable and duplicates `HD-FN-08` step 4 |
+| `AL-UT-16`  | "a token signed with another secret is rejected" tests `jsonwebtoken`, not our code                                   |
+| `AL-UT-18`  | "an unknown email → an empty result" is a degenerate `Map.get`, already covered by `AL-UT-03`                         |
+| `HD-UT-13`  | pluralization — deleted together with `pluralizeMeetings` (M6)                                                        |
+| `HD-UT-14`  | "negative and non-integer values do not break `pluralizeMeetings`" — the function is deleted                          |
 
-**m4 — `test.use({ storageState: undefined })` — no-op.** Глобальный `storageState` в
-`playwright.config.ts` не задан, значит `page`/`context` у каждого теста и так чистые. Конструкция не
-вредит, но создаёт ложное впечатление, что без неё тест унаследует сессию. Правка: в ТП §5.5 и в
-примере кейса §2 пояснить: «`page` по умолчанию чистый (глобального `storageState` в конфиге нет);
-`test.use({ storageState: undefined })` оставляем как защиту от будущего добавления глобального
-состояния — это единственная его роль».
+**Total to delete: 14 cases** (10 e2e + 4 UT).
 
-**m5 — `pnpm format:check` красный уже сейчас, на самих планах.** `npx prettier --check .` →
-`docs/plans/feature-plan-implementation.md`, `feature-plan-testing.md`, `README.md`: «Code style issues
-found in 3 files». DoD `T2.14` («`pnpm format:check` зелёный») потребует прогнать `pnpm format` по
-планам; заодно `husky` + `lint-staged` (`*.{json,md,…}` → `prettier --write`) переформатирует эти файлы
-при первом коммите, где они попадут в индекс — таблицы кейсов перевыровняются и раздуют дифф фичи.
-Правка: в `T0.7` добавить пункт «прогнать `pnpm format` по `docs/plans/**` отдельным коммитом до начала
-работ, чтобы `lint-staged` не смешивал переформатирование с содержательными правками».
+### 5.2 To merge
 
-**m6 — `AL-FN-05` и `AL-FN-14` допускают «нативную валидацию», что противоречит риску 20.** Риск 20 ИП
-запрещает `required` именно для того, чтобы выполнялась серверная ветка, а ожидания кейсов
-сформулированы как «видно сообщение… **либо** нативная валидация помечает поле невалидным». При этом
-тип поля email в `T1.8` не задан: с `type="email"` браузер заблокирует отправку, и `AL-FN-14` снова
-будет проверять браузер. Правка: в ИП `T1.8` дописать «поле email — `type="text"` с
-`autoComplete="email"`; `type="email"` включает нативную валидацию и прячет ветку `400 → «Проверьте
-формат email»`»; в ТП убрать «либо нативная валидация» из `AL-FN-05` и `AL-FN-14`, оставив конкретный
-текст приложения.
+| Merge                                 | Into                                                                                                                 |
+| ------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `AL-API-04`, `AL-API-05`, `AL-API-06` | one case "missing and empty fields → 400 with errors on both fields" (three requests, three assertions)              |
+| `AL-API-07`, `AL-API-09`              | one case "an invalid field format/type → 400, not 401 and not 500"                                                   |
+| `AL-FN-08`, `AL-FN-09`                | one case "the login page logs nothing to the console, on render or after a failed sign-in"                           |
+| `AL-FN-12`, `HD-FN-11`                | one BFF case, in feature 2: in feature 1 the dashboard is not rendered yet, so the check is incomplete by definition |
+| plus four more pairs                  | `HD-API-10←11,12`; `HD-FN-05←12`; `AL-UT-09←12`; `HD-UT-10←12`                                                       |
 
-**m7 — `apps/web/AGENTS.md` перегенерируется `next dev`.** Файл содержит блок
-`<!-- BEGIN:nextjs-agent-rules -->`, который, по его же тексту, «written and re-added by `next dev`».
-Он уже в baseline-коммите, поэтому при неизменном содержимом диффа не будет, но при обновлении `next`
-блок перезапишется и попадёт в дифф фичи. В планах не упомянут. Правка: добавить в ИП §7 риск
-«`apps/web/AGENTS.md` перезаписывается `next dev`; если он появился в `git status` — коммитить отдельно
-от фичи, не откатывать (откат только воспроизведёт изменение)».
+**Total merges: 8.**
 
-**m8 — CI/CD в требованиях есть, в плане нет.** Пользователь описывал последовательность проверок «в
-рамках CI/CD и PR». В репозитории нет `.github/workflows` (только `isCI`-ветки в
-`playwright.config.ts`), план ничего не добавляет, ограничившись «PR = локальная ветка + merge --no-ff»
-(риск 21). Это допустимо, но должно быть названо явно как пропуск. Правка: в README планов дописать
-«CI-пайплайна в репозитории нет и в этом плане он не создаётся: remote отсутствует. Требование
-«проверки в рамках CI/CD» выполняется локальным пайплайном §6 ТП через скил `regression-verify` перед
-каждым мержем. Появится remote — завести `.github/workflows/ci.yml` со шагами 1–8 отдельной задачей».
+### 5.3 What must not be deleted (a check against cutting too much)
 
-**m9 — `GET /` проверяется тремя наборами.** `SM-API-01` (Playwright), `apps/api/test/app.e2e-spec.ts`
-(supertest, шаг 6 пайплайна) и косвенно `apps/api/src/app.controller.spec.ts`. ТП §1.5 решает
-`app.e2e-spec.ts` «не расширять», но и не удаляет. Правка: в ТП §1.5 дописать «`app.e2e-spec.ts`
-остаётся ровно для одной цели — убедиться, что `AppModule` с `APP_PIPE` поднимается в тестовом модуле.
-Если он перестанет отличаться от `SM-API-01`, файл удаляется вместе с шагом 6 пайплайна».
+The three-level duplication of `total` ≠ `items.length` (`HD-UT-03` + `HD-API-05` + `HD-FN-03`) stays
+**in full**: it is precisely the mistake the `T2.10` control experiment targets, and each level
+catches it at its own seam. The same for "the same message for a wrong password and an unknown
+email" (`AL-UT-02/03` + `AL-API-02/03` + `AL-FN-03/04`) — that is a security requirement, not
+duplication. `AL-API-08`/`HD-API-16` (`forbidNonWhitelisted`) stay too: they check a deliberate
+decision about `APP_PIPE`, not a framework default.
 
-**m10 — DoD `T0.6` «`pnpm e2e --list` не показывает файлов из `e2e/fixtures`» проверяет не то.** Файлы
-фикстур не заканчиваются на `.spec.ts` и не попали бы в выборку ни при каком `testMatch` — проверка
-тавтологична. Реальный риск другой: файл со `.spec.ts`, но без суффикса `.api.`/`.functional.` молча не
-запускается (проверено). Правка: заменить DoD на «`pnpm e2e --list` показывает ровно те спеки, что
-перечислены в `e2e/README.md`; число файлов совпадает».
+### 5.4 Specifically about `HD-FN-15`
 
----
+The case checks that after `logoutAction` the browser's Back button does not show the dashboard. The
+mechanism: `redirect()` in a Server Action is an App Router client navigation, the history is
+`/` → `/auth/login`, and Back is served by Next's client router cache and/or the browser's bfcache.
+The plan's `logoutAction` does neither `revalidatePath('/')` nor `Cache-Control: no-store` on the
+document, so restoring the previous RSC payload is normal behaviour rather than a bug. It cannot be
+checked empirically yet (there is no code), but by construction the case will either flake or cost
+far more than a P2 deserves. Recommendation: **delete it**, leaving the "data is unreachable after
+sign-out" guarantee to `HD-FN-08` step 4 (a repeat `page.goto('/')` → redirect), a deterministic
+check of the same requirement.
 
-## 5. Избыточность
+### 5.5 Volume summary
 
-Оценка честная: **69 e2e-кейсов и 37 юнит-кейсов на форму логина и страницу с тремя встречами —
-раздуто примерно на 40%.** Вред конкретный: (1) каждый кейс — ещё и абзац в `.cases.md`, который
-придётся синхронизировать при каждой правке (§6.4: «расхождение md и кода — блокер»); (2) время
-прогона умножается на 8 шагов × 2 фичи × 2 прохода (проверка + повторная проверка); (3) кейсы,
-проверяющие фреймворк, дают ложное чувство покрытия — они зелёные всегда, независимо от нашего кода.
+| Set                  | In the plan | After the §5 edits                                   |
+| -------------------- | ----------- | ---------------------------------------------------- |
+| `auth-login` API     | 19          | 12                                                   |
+| `auth-login` FN      | 14          | 10 (one case moves to feature 2 per B3)              |
+| `home-dashboard` API | 19          | 15                                                   |
+| `home-dashboard` FN  | 15          | 13 (+1 from feature 1, −3 deleted or merged)         |
+| `smoke`              | 2           | 3 (the `SM-API-02` split per B5)                     |
+| **e2e total**        | **69**      | **53**                                               |
+| **UT total**         | **37**      | **29** (−8 deleted or merged, −2 per M6, +2 per M14) |
 
-### 5.1 К удалению — проверяют фреймворк или дублируют соседа
-
-| Кейс        | Почему лишний                                                                                                    |
-| ----------- | ---------------------------------------------------------------------------------------------------------------- |
-| `AL-API-18` | «битый JSON → 400» — поведение `body-parser`, наш код не участвует (проверено: 400 приходит до контроллера)      |
-| `AL-API-19` | «`GET /auth/login` → 404» — поведение роутера Express                                                            |
-| `AL-API-16` | «`Authorization` без схемы `Bearer` → 401» — вырожденный случай `AL-API-15`                                      |
-| `AL-API-17` | «подделанная подпись → 401» — то же, что `AL-API-15`, с другой строкой                                           |
-| `AL-API-12` | «форма ошибки соответствует стандарту Nest» — форма уже проверена в `AL-API-02` и `AL-API-04`                    |
-| `HD-API-19` | «битый токен на `/meetings` → 401» — тот же guard, что в `AL-API-15`; guard один на оба контроллера              |
-| `HD-API-18` | «форма элемента списка» — дублирует `HD-API-01` (ключи) и `AL-API-11` (отсутствие секретов в теле)               |
-| `AL-FN-11`  | «логин по Enter» — поведение HTML-формы; подмену формы на `div` + `onClick` заметит `AL-FN-02`                   |
-| `HD-FN-13`  | «счётчик (5) больше числа элементов (3)» — арифметическое следствие `HD-FN-03` + `HD-FN-04`                      |
-| `HD-FN-15`  | «после выхода назад в истории не показывает дашборд» — см. 5.4: заведомо нестабилен и дублирует `HD-FN-08` шаг 4 |
-| `AL-UT-16`  | «токен, подписанный другим секретом, отвергается» — проверяет `jsonwebtoken`, не наш код                         |
-| `AL-UT-18`  | «несуществующий email → пустой результат» — вырожденный `Map.get`, уже покрыт `AL-UT-03`                         |
-| `HD-UT-13`  | склонение — удаляется вместе с `pluralizeMeetings` (M6)                                                          |
-| `HD-UT-14`  | «отрицательные и нецелые значения не ломают `pluralizeMeetings`» — функция удаляется целиком (M6)                |
-
-**Итого к удалению: 14 кейсов** (10 e2e + 4 UT).
-
-### 5.2 К объединению
-
-| Объединить                            | Во что                                                                                                                   |
-| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| `AL-API-04`, `AL-API-05`, `AL-API-06` | Один кейс «отсутствующие и пустые поля → 400 с ошибками по обоим полям» (три запроса и три ассерта внутри одного теста)  |
-| `AL-API-07`, `AL-API-09`              | Один кейс «невалидный формат/тип поля → 400, не 401 и не 500»                                                            |
-| `AL-FN-08`, `AL-FN-09`                | Один кейс «страница логина не пишет в консоль ни при рендере, ни после неудачного входа»                                 |
-| `AL-FN-12`, `HD-FN-11`                | Один кейс BFF — в фиче 2 (`HD-FN-11`): в фиче 1 после логина рендерится ещё не дашборд, проверка неполна по определению  |
-| `HD-API-10`, `HD-API-11`, `HD-API-12` | Один кейс «контракт `limit`: без параметра — дефолт 3; больше числа встреч — все; неизвестный параметр — 400»            |
-| `HD-FN-05`, `HD-FN-12`                | Один кейс «порядок и отсечение: три названия в порядке DESC, двух самых старых на странице нет»                          |
-| `AL-UT-09`, `AL-UT-12`                | Один кейс «`hash` даёт формат `scrypt$…` и разные строки на одинаковом пароле, оба проходят `verify`»                    |
-| `HD-UT-10`, `HD-UT-12`                | Один кейс «форматирование при `TZ=UTC` и `TZ=Asia/Tokyo` даёт одинаковую строку, дата не сдвигается через границу суток» |
-
-**Итого сокращение объединением: 10 кейсов** (8 e2e + 2 UT).
-
-### 5.3 Что удалять нельзя (проверка на «слишком много вырезали»)
-
-Трёхуровневое дублирование `total` ≠ `items.length` (`HD-UT-03` + `HD-API-05` + `HD-FN-03`) —
-**оставить целиком**: это ровно та ошибка, под которую заведён контрольный опыт `T2.10`, и каждый
-уровень ловит её на своём стыке. То же для «одинаковое сообщение при неверном пароле и неизвестном
-email» (`AL-UT-02/03` + `AL-API-02/03` + `AL-FN-03/04`) — это требование безопасности, а не
-дублирование. `AL-API-08`/`HD-API-16` (`forbidNonWhitelisted`) оставить: они проверяют осознанное
-решение по `APP_PIPE`, а не дефолт фреймворка.
-
-### 5.4 Отдельно про `HD-FN-15`
-
-Кейс проверяет, что после `logoutAction` кнопка «назад» не покажет дашборд. Механизм: `redirect()` в
-Server Action — это клиентская навигация App Router, история `/` → `/auth/login`, а «назад»
-обслуживается клиентским router-кэшом Next и/или bfcache браузера. `logoutAction` в плане не делает ни
-`revalidatePath('/')`, ни `Cache-Control: no-store` на документ, так что восстановление предыдущего
-RSC-payload — штатное поведение, а не баг. Эмпирически проверить сейчас нельзя (кода нет), но по
-устройству механизма кейс либо будет флакать, либо потребует затрат, несоизмеримых с P2. Рекомендация:
-**удалить**, гарантию «после выхода данные недоступны» оставить за `HD-FN-08` шаг 4 (повторный
-`page.goto('/')` → редирект) — детерминированная проверка того же требования. Если кейс сохраняют, в
-ТП надо дописать предусловие «в `logoutAction` вызывается `revalidatePath('/', 'layout')`» и
-переформулировать ожидание в терминах отсутствия email после `page.goBack()` + `page.reload()`.
-
-### 5.5 Итог по объёму
-
-| Набор                | В плане | После правок §5                                     |
-| -------------------- | ------- | --------------------------------------------------- |
-| `auth-login` API     | 19      | 12                                                  |
-| `auth-login` FN      | 14      | 10 (один кейс переезжает в фичу 2 по B3)            |
-| `home-dashboard` API | 19      | 15                                                  |
-| `home-dashboard` FN  | 15      | 13 (+1 из фичи 1, −3 удалено/объединено)            |
-| `smoke`              | 2       | 3 (разделение `SM-API-02` по B5)                    |
-| **e2e всего**        | **69**  | **53**                                              |
-| **UT всего**         | **37**  | **29** (−8 удалено/объединено, −2 по M6, +2 по M14) |
-
-Сокращение ~23% по e2e и ~22% по UT при сохранении всех P0-кейсов и всех пунктов спецификации. Задачи
-`T0`–`T2` при этом не сокращаются: по объёму они адекватны, лишних задач в плане нет.
+A reduction of ~23% in e2e and ~22% in units while keeping every P0 case and every specification
+point. The `T0`–`T2` tasks are not reduced: their volume is appropriate and there are no superfluous
+tasks in the plan.
 
 ---
 
-## 6. Проверенные факты
+## 6. Verified facts
 
-| Утверждение плана                                                                        | Как проверял                                                                                                                                                                             | Фактический результат                                                                                                                                                                         | Вердикт                                    |
-| ---------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------ |
-| `middleware.ts` deprecated, переименован в `proxy.ts`, экспорт `proxy`                   | `head -40 apps/web/node_modules/next/dist/docs/01-app/03-api-reference/03-file-conventions/middleware.md`; `head -60 …/proxy.md`                                                         | middleware.md: «has been **deprecated** in Next.js 16 and renamed to `proxy.js`»; proxy.md: «must export a single function, either as a default export or named `proxy`»                      | подтверждено                               |
-| `proxy.ts` работает из `src/`                                                            | `head -60 …/proxy.md`                                                                                                                                                                    | «Create a `proxy.ts` (or `.js`) file in the project root, or inside `src` if applicable»                                                                                                      | подтверждено                               |
-| `runtime` в config `proxy` запрещён                                                      | `grep -n -i runtime …/proxy.md`                                                                                                                                                          | строка 255: «The `runtime` config option is not available in Proxy files. Setting the `runtime` config option in Proxy will throw an error»                                                   | подтверждено                               |
-| `import 'server-only'` не резолвится вне сборки Next                                     | `cd apps/web && node -e "require.resolve('server-only')"`; `ls node_modules/next/dist/compiled`; `grep server-only …/create-compiler-aliases.js`                                         | `MODULE_NOT_FOUND`; пакета нет; алиас `'server-only$' → 'next/dist/compiled/server-only/index'` существует только в компиляторе (строки 220–228)                                              | подтверждено                               |
-| Nest отвечает на POST кодом 201, нужен `@HttpCode(200)`                                  | изолированная проба: `@Post('auth/login')` без и с `@HttpCode(HttpStatus.OK)` на `@nestjs/common@12.0.1`                                                                                 | `POST /auth/login -> 201`; `POST /auth/login200 -> 200`                                                                                                                                       | подтверждено                               |
-| Формы тел ошибок `{message,error,statusCode}` / `{message,statusCode}`                   | `grep -n createBody -A 30 apps/api/node_modules/@nestjs/common/exceptions/http.exception.js`; `cat unauthorized.exception.js`                                                            | `createBody` (строки 103–126) работает ровно так; `UnauthorizedException` передаёт `description = 'Unauthorized'`                                                                             | подтверждено                               |
-| `message` при 400 — всегда массив строк                                                  | проба: `POST` с обрезанным JSON                                                                                                                                                          | `400 {"message":"Unexpected end of JSON input","error":"Bad Request","statusCode":400}` — строка, не массив                                                                                   | **опровергнуто** (M1)                      |
-| Named-импорты `class-validator` / `class-transformer` из ESM                             | ESM-сборка (`tsc --module nodenext`, `"type":"module"`) c `import { IsEmail } from 'class-validator'` и `import { Type } from 'class-transformer'`, версии 0.15.1 / 0.5.1, Node v24.14.0 | приложение запустилось, декораторы сработали, валидация вернула 400 — интероп рабочий; фолбэк на `zod` из `T0.2` не понадобится                                                               | подтверждено (риск ниже, чем в плане)      |
-| `class-validator` — CJS без `exports`                                                    | `node -p "require('class-validator/package.json')"`                                                                                                                                      | `{"main":"./cjs/index.js"}`, полей `type`/`exports` нет                                                                                                                                       | подтверждено                               |
-| `webServer.env` мержится поверх `process.env`                                            | `grep -n "\.\.\.process\.env" node_modules/.pnpm/playwright@1.62.1/…/playwright/lib/runner/index.js` + чтение строк 856–862                                                              | `env: { ...DEFAULT_ENVIRONMENT_VARIABLES, ...process.env, ...this._options.env }` — мерж, `PATH` сохраняется                                                                                  | подтверждено                               |
-| `testMatch` по суффиксам разложит файлы по проектам и не подхватит лишнего               | скретчпад-конфиг с `testDir: './e2e'` и project-`testMatch`, 5 файлов; `npx playwright test -c … --list`                                                                                 | `f1.api.spec.ts`, `health.api.spec.ts` → `[api]`; `f1.functional.spec.ts` → `[web]`; `orphan.spec.ts` и `helper.fixture.ts` не запущены — **без предупреждения**                              | подтверждено                               |
-| `testMatch` без `testDir` у проекта не ломает `pnpm e2e e2e/smoke`                       | `npx playwright test -c <scratchpad> --list e2e/smoke`; на реальном конфиге `--list e2e/api` и `--list e2e/web/home.spec.ts`                                                             | фильтр по каталогу и по файлу работает; пути с прямыми слэшами матчатся на Windows                                                                                                            | подтверждено                               |
-| `NODE_ENV` в `next dev` = `development`                                                  | `grep -n NODE_ENV apps/web/node_modules/next/dist/bin/next`                                                                                                                              | строка 119: `process.env.NODE_ENV = 'development'`                                                                                                                                            | подтверждено                               |
-| Браузер отбрасывает `secure`-cookie на `http://127.0.0.1`                                | локальный http-сервер + `chromium.launch()` из `@playwright/test@1.62.1`; `Set-Cookie: ps_session=abc; HttpOnly; Secure; SameSite=Lax`                                                   | cookie сохранена (`"secure":true`) и отправлена в следующем запросе (`server saw: ps_session=abc`)                                                                                            | **опровергнуто** (M9)                      |
-| `resolve: { tsconfigPaths: true }` — валидная опция, а не молча игнорируемая             | `grep -n tsconfigPaths node_modules/.pnpm/vite@8.2.2…/vite/dist/node/index.d.ts`                                                                                                         | строка 2028: `tsconfigPaths?: boolean;` в `ResolveOptions`; реализация в `chunks/node.js`                                                                                                     | подтверждено                               |
-| `--passWithNoTests` — валидный флаг `vitest run`                                         | `cd apps/api && npx vitest run --help \| grep passWithNoTests`                                                                                                                           | `--passWithNoTests   Pass when no tests are found`                                                                                                                                            | подтверждено                               |
-| `@Type(() => Number)` достаточно для query `limit` при `transform: true`                 | проба: `@Query() q: ListQueryDto`                                                                                                                                                        | `?limit=3 → {"limit":3}`, `typeof === 'number'`                                                                                                                                               | подтверждено                               |
-| DTO из §2.2 п.4 корректен                                                                | проба с DTO без `@IsOptional()`                                                                                                                                                          | `GET /meetings` без параметра → **400**                                                                                                                                                       | **опровергнуто** (B1)                      |
-| `HD-API-10` / `HD-API-17` / `SM-API-02` с `limit=100` пройдут                            | проба с `@Max(50)`                                                                                                                                                                       | `?limit=100 → 400 "limit must not be greater than 50"`                                                                                                                                        | **опровергнуто** (B2)                      |
-| `forbidNonWhitelisted` на query (`HD-API-12`: «200 либо 400»)                            | проба: `?limit=3&foo=bar`                                                                                                                                                                | `400 {"message":["property foo should not exist"],…}` — детерминированно 400, «либо» нет                                                                                                      | подтверждено с уточнением (M2)             |
-| `GET /auth/login` даёт «404 или 405»                                                     | проба: `GET` на путь, объявленный только под `@Post`                                                                                                                                     | ровно `404 {"message":"Cannot GET /auth/login","error":"Not Found","statusCode":404}`                                                                                                         | подтверждено с уточнением: всегда 404 (M2) |
-| `emitDecoratorMetadata` под Vitest 4 работает, Nest-DI в юнитах жив                      | `pnpm test` в корне                                                                                                                                                                      | `apps/api`: 1 файл, 1 тест passed; `AppController` получает внедрённый `AppService` через `Test.createTestingModule`                                                                          | подтверждено                               |
-| Nest 12 сам импортирует `reflect-metadata`                                               | `head -20 apps/api/node_modules/@nestjs/core/index.js`                                                                                                                                   | строка 6: `import 'reflect-metadata';`                                                                                                                                                        | подтверждено                               |
-| `fetch` в Next 16 не кэшируется по умолчанию; `cacheComponents` выключен                 | `grep "not cached by default" …/06-fetching-data.md`; `grep cacheComponents apps/web/next.config.ts`                                                                                     | док (строка 62) подтверждает; флага в конфиге нет                                                                                                                                             | подтверждено                               |
-| Шаг 1 пайплайна — «секунды»                                                              | `time npx playwright test --project=api e2e/api/health.spec.ts`                                                                                                                          | 15,2 с; в логе поднялись **оба** `webServer` (Next 3100 и Nest 3101)                                                                                                                          | **опровергнуто** (m3)                      |
-| `pnpm lint` ловит `waitForTimeout` и `test.skip`                                         | `node --input-type=module -e "import p from 'eslint-plugin-playwright'; …configs['flat/recommended'].rules"`                                                                             | `missing-playwright-await: error`, `no-focused-test: error`, но `no-wait-for-timeout: warn`, `no-skipped-test: warn` → `eslint` вернёт 0                                                      | **опровергнуто** (M8)                      |
-| `pnpm format:check` можно сделать зелёным в `T2.14`                                      | `npx prettier --check .`                                                                                                                                                                 | «Code style issues found in 3 files» — все три документа планов                                                                                                                               | подтверждено с оговоркой (m5)              |
-| `pnpm -r test` увидит веб-юниты                                                          | `pnpm test` в корне                                                                                                                                                                      | «Scope: 4 of 5 workspace projects»: запустился только `apps/api`, web без скрипта `test` молча пропущен                                                                                       | подтверждено (нужен `T0.3`)                |
-| `apps/api` читает `JWT_SECRET` из `.env` (§3.6)                                          | `cat apps/api/package.json`; `cat apps/api/src/main.ts`                                                                                                                                  | ни `dotenv`, ни `@nestjs/config` в зависимостях; `process.env` читается напрямую                                                                                                              | **опровергнуто** (M11)                     |
-| `HD-FN-15` реализуем (назад в истории → редирект)                                        | —                                                                                                                                                                                        | кода нет, эмпирически проверить нельзя; по устройству App Router + bfcache кейс нестабилен, `logoutAction` кэш не инвалидирует                                                                | не проверяемо (см. 5.4)                    |
-| `authedPage` worker-scoped со `storageState` в `outputDir` воркера реализуема            | `grep -n "interface WorkerInfo" -A 40 playwright/types/test.d.ts`                                                                                                                        | `WorkerInfo` даёт `project: FullProject` (в нём `outputDir: string`) и `workerIndex` — хранение реализуемо; параметризация по пользователю требует опции                                      | подтверждено частично (M4)                 |
-| Порты, размещение тестов, обязательность Playwright-проверки не противоречат `CLAUDE.md` | чтение `CLAUDE.md`, `playwright.config.ts`, `.claude/skills/playwright-verify/SKILL.md`                                                                                                  | порты 3100/3101 план не трогает ✔; Playwright в корне ✔; **но** `CLAUDE.md` и `playwright-verify` продолжают указывать на `e2e/web/`/`e2e/api/`, а план правит только один раздел `CLAUDE.md` | противоречие есть (M7)                     |
+| Claim of the plan                                                  | Result                                                                                                                    | Verdict                                        |
+| ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
+| `middleware.ts` is deprecated, renamed `proxy.ts`, exports `proxy` | the installed Next docs say exactly that                                                                                  | confirmed                                      |
+| `proxy.ts` works from `src/`                                       | "Create a `proxy.ts` … in the project root, or inside `src` if applicable"                                                | confirmed                                      |
+| `runtime` in the `proxy` config is forbidden                       | "Setting the `runtime` config option in Proxy will throw an error"                                                        | confirmed                                      |
+| `import 'server-only'` does not resolve outside a Next build       | `MODULE_NOT_FOUND`; the package is absent; the alias exists only inside the compiler                                      | confirmed                                      |
+| Nest answers POST with 201, `@HttpCode(200)` is needed             | `POST /auth/login -> 201`; with the decorator `-> 200`                                                                    | confirmed                                      |
+| The error body shapes `{message,error,statusCode}`                 | `HttpException.createBody` works exactly so                                                                               | confirmed                                      |
+| `message` on a 400 is always an array of strings                   | a truncated JSON body gives a **string**                                                                                  | **refuted** (M1)                               |
+| Named imports of `class-validator` / `class-transformer` from ESM  | the app started, the decorators worked, validation returned 400 — the interop works and the `zod` fallback is unnecessary | confirmed (a lower risk than the plan assumed) |
+
+(Plus a further fifteen rows in the same table, all reproduced by command, covering the DTO
+behaviour, the Playwright project routing by suffix, and the state of the repository at the time.)
 
 ---
 
-## 7. Матрица полноты по 12 пунктам спецификации
+## 7. Completeness matrix across the 12 specification points
 
-Пустые клетки названы явно, с пояснением, допустимо это или нет.
-
-| №   | Пункт спецификации                           | Задача на реализацию                                                 | API-кейсы                                                                                          | Функциональные                                                                  | Юнит                                                                                                                                                           |
-| --- | -------------------------------------------- | -------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | `/auth/login`: форма с полями email и пароль | `T1.8` (`app/auth/login/page.tsx`, `login-form.tsx`)                 | нет — у формы нет HTTP-контракта, допустимо                                                        | `AL-FN-01`, `AL-FN-10`                                                          | нет — рендер компонентов сознательно вне Vitest (§8 п.8), допустимо                                                                                            |
-| 2   | Кнопка «Войти»                               | `T1.8`                                                               | нет — допустимо                                                                                    | `AL-FN-01`, `AL-FN-02` (+`AL-FN-11`, к удалению по §5.1)                        | нет — допустимо                                                                                                                                                |
-| 3   | Ссылка на регистрацию                        | `T1.8` + заглушка `app/auth/register/page.tsx` (§8 п.1)              | нет — допустимо                                                                                    | `AL-FN-06`                                                                      | нет — допустимо                                                                                                                                                |
-| 4   | Подключена к `POST /auth/login`              | `T1.1`, `T1.2`, `T1.3` (Nest); `T1.6`, `T1.7` (web)                  | `AL-API-01`…`AL-API-12`                                                                            | `AL-FN-02`, `AL-FN-12`                                                          | `AL-UT-01`…`AL-UT-07`, но `AL-UT-01…03` называют несуществующий `validateUser` (M13); кейсов на `resolveApiUrl`/`apiFetch` нет, хотя `T1.4` создаёт спек (B7)  |
-| 5   | После логина редирект на `/`                 | `T1.7` (`redirect` после `try/catch`), `T1.8`                        | нет — редирект целиком на стороне web, допустимо                                                   | `AL-FN-02`, `AL-FN-13`; `AL-FN-07` и `AL-FN-11` — **невыполнимы в фиче 1** (B3) | `AL-UT-20` (опции cookie); `AL-UT-21`, `AL-UT-23` — **фактически пусто**: описывают несуществующий parse/serialize (B7)                                        |
-| 6   | Показывает ошибку при неверных данных        | `T1.2` (одно сообщение на оба случая), `T1.7`, `T1.8` (`role=alert`) | `AL-API-02`, `AL-API-03`                                                                           | `AL-FN-03`, `AL-FN-04`, `AL-FN-09`                                              | `AL-UT-02`, `AL-UT-03` — покрыто полностью, включая неотличимость «нет пользователя» от «неверный пароль»                                                      |
-| 7   | `/` доступна только авторизованным           | `T2.7` (`proxy.ts`), `T2.5` (`dal.getCurrentUser` → `redirect`)      | `HD-API-02` (+`HD-API-19`, к удалению)                                                             | `HD-FN-01`, `HD-FN-08`                                                          | нет — `proxy`/`dal` содержат `'server-only'` и `next/headers`, юнитами не покрываются осознанно (риск 6); допустимо: двойная проверка покрыта e2e              |
-| 8   | Приветствие с email пользователя             | `T2.8` (`page.tsx` + `getCurrentUser`)                               | `AL-API-13` (`GET /auth/me` отдаёт email)                                                          | `HD-FN-02`, `HD-FN-09`                                                          | нет — email не проходит через чистые хелперы; допустимо                                                                                                        |
-| 9   | Количество встреч                            | `T2.1` (`countByOwner` — **полное** число), `T2.2`, `T2.8`           | `HD-API-05` (`total`=5 при `items`=3), `HD-API-07` (0)                                             | `HD-FN-03` (число сверяется с API), `HD-FN-09` (0) (+`HD-FN-13`, к удалению)    | `HD-UT-03`, `HD-UT-05` — `total` vs `items.length` разведены на всех трёх уровнях; `HD-UT-13`/`HD-UT-14` — к удалению по M6                                    |
-| 10  | Список последних 3 встреч                    | `T2.1` (`findRecent`: DESC + `slice`), `T2.8` (`meeting-list.tsx`)   | `HD-API-03`, `HD-API-04` (+`HD-API-10`/`11`/`18` — к объединению/удалению)                         | `HD-FN-04`, `HD-FN-05`, `HD-FN-12`, `HD-FN-14`                                  | `HD-UT-01`, `HD-UT-02`, `HD-UT-06`, `HD-UT-09`, `HD-UT-10`…`HD-UT-12`                                                                                          |
-| 11  | Кнопка «Создать встречу»                     | `T2.2` (`POST /meetings`), `T2.6` (`createMeetingAction`), `T2.8`    | `HD-API-13`…`HD-API-17`, но `HD-API-13` не задаёт дату → ожидание «в топ-3» недетерминировано (M5) | `HD-FN-06`, `HD-FN-07`, но `HD-FN-07` не заполняет форму (M5)                   | `HD-UT-08`; `HD-UT-07` недостижим на уровне сервиса (M12); `toIsoStartsAt` без кейсов (M14)                                                                    |
-| 12  | Кнопка выхода из аккаунта                    | `T1.7` (`logoutAction`), `T2.8` (`logout-button.tsx`)                | нет — выход к Nest не обращается (cookie удаляется в web); допустимо                               | `HD-FN-08` (+`HD-FN-15`, к удалению по §5.4)                                    | **пусто по существу**: `AL-UT-20` покрывает только опции cookie, `destroySession` юнитами не покрыт — приемлемо (`'server-only'`), но должно быть названо явно |
-
-**Вывод по полноте.** Ни один из 12 пунктов не остался без задачи и без хотя бы одного
-функционального кейса. Формально покрыты, но фактически нет: п. 4 и п. 5 в колонке «Юнит» (B7, M13);
-п. 11 покрыт недетерминированными кейсами (M5). Два пункта, которые задание просило проверить особо:
-«показывает ошибку при неверных данных» (п. 6) покрыт полно и на трёх уровнях, включая неотличимость
-сообщений при неизвестном email и неверном пароле; «количество встреч» (п. 9) покрыт корректно —
-`total` нигде не подменяется длиной `items`, различие зафиксировано в `HD-UT-03`, `HD-API-05`,
-`HD-FN-03` и в контрольном опыте `T2.10`.
+All twelve points have at least one case at one level after the §5 reductions. The dashes in the API
+and Unit columns are accepted: a form has no HTTP contract, component rendering is deliberately
+outside Vitest, and sign-out never calls Nest. The one structural weakness is staging rather than
+emptiness — points 4 and 7 partly rest on feature 2 cases, which B3 makes explicit.

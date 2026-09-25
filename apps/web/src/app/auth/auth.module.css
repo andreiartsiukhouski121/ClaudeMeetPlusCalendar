@@ -1,7 +1,7 @@
 /*
- * CSS-модули: в проекте нет Tailwind (план имплементации §1.2 — новых зависимостей не ставим).
- * Классы хешируются сборкой, поэтому тесты адресуют элементы только по роли и метке —
- * селектор по классу умер бы на следующем билде (тест-план §5.1).
+ * CSS modules, no Tailwind: the project adds no new dependencies. Class names are hashed by the
+ * build, so tests address elements by role and label only — a class selector would die on the
+ * next build.
  */
 
 .screen {
@@ -15,8 +15,8 @@
 .card {
   display: flex;
   flex-direction: column;
-  /* Глобальный ресет сбрасывает margin у всех элементов, поэтому вертикальные отступы
-     задаются gap-ом контейнера, а не полями заголовков. */
+  /* The global reset clears margins everywhere, so vertical rhythm comes from the container
+     gap rather than from heading margins. */
   gap: 16px;
   width: 100%;
   max-width: 400px;

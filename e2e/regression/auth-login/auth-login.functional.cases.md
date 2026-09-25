@@ -1,240 +1,119 @@
-# Логин: UI-кейсы страницы `/auth/login`
+# Login: UI (`/auth/login`)
 
-- **Парный спек:** `e2e/regression/auth-login/auth-login.functional.spec.ts`
-- **Проект Playwright:** `web` (Desktop Chrome, `baseURL = http://127.0.0.1:3100`)
-- **Теги:** `@regression`, `@auth-login`, плюс `@p0` у критичных кейсов
-- **Запуск:** `pnpm e2e --project=web --grep @auth-login`
-- **Общие предусловия:**
-  - Playwright сам поднял Next на 3100 и Nest на 3101; Next ходит в Nest по `API_URL`
-    (`webServer.env`), браузер к `:3101` не обращается вовсе.
-  - Сид пользователей применён при старте `apps/api` — проверяет смоук `e2e/smoke/seed.api.cases.md`.
-  - Логины и пароли берутся из `e2e/fixtures/seed.ts` (`SEED_USERS.teacher`); хардкод в спеке —
-    блокер (тест-план §5.6).
-  - **Весь файл выполняется в чистом контексте без сессии:** `test.use({ storageState: undefined })`
-    стоит на верхнем `describe`. Фикстура `authedPage` в фиче 1 не берётся ни одним кейсом —
-    авторизованных сценариев здесь нет. Само по себе `storageState: undefined` — no-op
-    (глобального `storageState` в конфиге нет); конструкция остаётся защитой от его появления.
-  - Локаторы — только по роли и метке: поля адресуются `getByLabel('Email')` и
-    `getByLabel('Пароль')`, ошибка — `getByRole('alert')`, кнопка —
-    `getByRole('button', { name: 'Войти' })`. CSS-модули хешируют классы, поэтому селектор по
-    классу умирает на следующем билде.
-  - `getByRole('alert')` в спеке сужен областью `getByRole('main')`. Причина найдена прогоном:
-    App Router держит на странице собственный пустой анонсер маршрутизации с `role="alert"`
-    (`#__next-route-announcer__`) вне `<main>`, и голый `getByRole('alert')` даёт strict mode
-    violation «resolved to 2 elements» в каждом кейсе с ошибкой. Сужение — по роли, а не
-    CSS-цепочкой; `.filter({ hasText })` отвергнут: он скрыл бы падение «alert не отрендерился
-    вовсе».
-  - Имя cookie сессии (`ps_session`) объявлено константой в спеке по плану имплементации §3.5:
-    импорт прод-константы из `apps/web` сделал бы ассерт сравнением значения с самим собой.
+- **Paired spec:** `e2e/regression/auth-login/auth-login.functional.spec.ts`
+- **Playwright project:** `web` (Desktop Chrome, `baseURL = http://127.0.0.1:3100`)
+- **Tags:** `@regression`, `@auth-login`, plus `@p0` on the critical cases
+- **Run:** `pnpm e2e --project=web --grep @auth-login`
+- **Preconditions:**
+  - Playwright starts both servers; the user seed is applied.
+  - Logins and passwords come from `e2e/fixtures/seed.ts`. Hard-coded data is a blocker.
+  - Locators go by role and label only: `apps/web` uses CSS modules with hashed class names, so a
+    class selector dies on the next build.
 
-**Ни один кейс этого файла не проверяет содержимое главной страницы.** В фиче 1 `/` — ещё
-дефолтная страница create-next-app, и это нормально: приветствие с email и дашборд встреч
-принадлежат фиче 2. Факт успешного входа подтверждается сменой URL на `/`, появлением cookie
-сессии в контексте и исчезновением формы логина.
+No case here checks the home page contents — in feature 1 `/` was still the create-next-app
+default. A successful login is confirmed by the URL change and the session cookie.
 
-Итого 10 кейсов: P0 — 5, P1 — 4, P2 — 1. Номера `07`, `09`, `11`, `12` в фиче 1 отсутствуют и
-**не переиспользуются**: `07` (авторизованный на `/auth/login` → редирект на `/`) переехал в фичу
-2, потому что редирект реализует `proxy.ts`, которого в фиче 1 нет; `09` объединён с `08` (та же
-подписка на консоль, разница в одном шаге); `11` («логин по Enter») удалён как поведение
-HTML-формы, подмену `form` на `div` заметит `AL-FN-02`; `12` объединён с кейсом BFF в фиче 2 — до
-появления дашборда проверка «браузер не ходит на `:3101`» неполна по определению. Полные ID этих
-номеров здесь намеренно не пишутся: мета-тест посчитал бы их описанными и неавтоматизированными.
+**The form error is located as `getByRole('main').getByRole('alert')`**, never as a bare
+`getByRole('alert')`: App Router keeps its own empty `role="alert"` route announcer outside
+`<main>`, which causes a strict mode violation in every error case. Verified by a run.
 
-## Сводка
+10 cases: 5 P0, 5 P1/P2. Numbers `07`, `09`, `11`, `12` are **never reused**.
 
-| ID       | Заголовок                                                          | Приоритет | Теги                          | Имя теста в спеке                                                                         |
-| -------- | ------------------------------------------------------------------ | --------- | ----------------------------- | ----------------------------------------------------------------------------------------- |
-| AL-FN-01 | Форма логина отрендерена                                           | P0        | `@regression @auth-login @p0` | `AL-FN-01 — форма логина отрендерена`                                                     |
-| AL-FN-02 | Успешный логин уводит с формы на `/`                               | P0        | `@regression @auth-login @p0` | `AL-FN-02 — успешный логин уводит с формы на /`                                           |
-| AL-FN-03 | Неверный пароль → видимая ошибка, остаёмся на логине               | P0        | `@regression @auth-login @p0` | `AL-FN-03 — неверный пароль: видимая ошибка, пользователь остаётся на странице логина`    |
-| AL-FN-04 | Неизвестный email → та же ошибка                                   | P0        | `@regression @auth-login @p0` | `AL-FN-04 — неизвестный email даёт ту же ошибку`                                          |
-| AL-FN-05 | Пустая форма не отправляется                                       | P1        | `@regression @auth-login`     | `AL-FN-05 — пустая форма не отправляется`                                                 |
-| AL-FN-06 | Ссылка на регистрацию ведёт на существующую страницу               | P1        | `@regression @auth-login`     | `AL-FN-06 — ссылка на регистрацию ведёт на существующую страницу`                         |
-| AL-FN-08 | Страница логина не пишет в консоль ни при рендере, ни после ошибки | P1        | `@regression @auth-login`     | `AL-FN-08 — страница логина не пишет в консоль ни при рендере, ни после неудачного входа` |
-| AL-FN-10 | Пароль скрыт при вводе                                             | P1        | `@regression @auth-login`     | `AL-FN-10 — пароль скрыт при вводе`                                                       |
-| AL-FN-13 | Cookie сессии — httpOnly и недоступна из JS                        | P0        | `@regression @auth-login @p0` | `AL-FN-13 — cookie сессии httpOnly и недоступна из JS`                                    |
-| AL-FN-14 | Невалидный формат email в UI                                       | P2        | `@regression @auth-login`     | `AL-FN-14 — невалидный формат email в UI`                                                 |
+## Summary
 
-## Кейсы
+| ID       | Title                                                       | Priority | Tags                          |
+| -------- | ----------------------------------------------------------- | -------- | ----------------------------- |
+| AL-FN-01 | the login form renders                                      | P0       | `@regression @auth-login @p0` |
+| AL-FN-02 | a successful login leaves the form for /                    | P0       | `@regression @auth-login @p0` |
+| AL-FN-03 | a wrong password shows an error and keeps the user on login | P0       | `@regression @auth-login @p0` |
+| AL-FN-04 | an unknown email gives the same error                       | P0       | `@regression @auth-login @p0` |
+| AL-FN-05 | an empty form does not submit                               | P1       | `@regression @auth-login`     |
+| AL-FN-06 | the sign-up link leads to a page that exists                | P1       | `@regression @auth-login`     |
+| AL-FN-08 | the login page logs nothing to the console                  | P1       | `@regression @auth-login`     |
+| AL-FN-10 | the password is masked while typing                         | P1       | `@regression @auth-login`     |
+| AL-FN-13 | the session cookie is httpOnly and unreachable from JS      | P0       | `@regression @auth-login @p0` |
+| AL-FN-14 | an invalid email format in the UI                           | P2       | `@regression @auth-login`     |
 
-### AL-FN-01 — форма логина отрендерена
+## Cases
 
-- **Приоритет:** P0
-- **Тип:** UI-функциональный
-- **Теги:** `@p0`
-- **Предусловия:** чистый контекст (общие предусловия файла).
-- **Шаги:**
-  1. Открыть `/auth/login`.
-- **Ожидаемый результат:**
-  - Виден заголовок с ролью `heading` уровня 1.
-  - Видно текстовое поле по метке «Email» и поле по метке «Пароль» — то есть у полей есть
-    связанные `<label>`, иначе `getByLabel` их не найдёт.
-  - Видна кнопка с ролью `button` и именем «Войти».
-- **Имя теста в спеке:** `AL-FN-01 — форма логина отрендерена`
+### AL-FN-01 — the login form renders
 
-### AL-FN-02 — успешный логин уводит с формы на /
+- **Priority:** P0
+- **Steps:** open `/auth/login`.
+- **Expected:** a level 1 heading is visible; the `Email` and `Password` fields are found **by
+  label** (which also proves they have associated `<label>` elements); the `Sign in` button is
+  visible.
 
-- **Приоритет:** P0
-- **Тип:** UI-функциональный
-- **Теги:** `@p0`
-- **Предусловия:** пользователь `SEED_USERS.teacher` есть в сиде.
-- **Шаги:**
-  1. Открыть `/auth/login`.
-  2. В поле «Email» ввести email пользователя `teacher`.
-  3. В поле «Пароль» ввести его пароль.
-  4. Нажать кнопку «Войти».
-- **Ожидаемый результат:**
-  - `await expect(page).toHaveURL('/')` — смена URL ждётся web-first ассертом, не
-    `waitForNavigation`: переход выполняет `redirect('/')` внутри Server Action.
-  - В контексте появилась ровно одна cookie сессии `ps_session`.
-  - Форма логина больше не отображается (кнопка «Войти» скрыта).
-  - Содержимое главной страницы **не** проверяется — оно принадлежит фиче 2.
-  - Ценность кейса: если `redirect('/')` уедет внутрь блока `try/catch`, `catch` перехватит
-    `NEXT_REDIRECT`, cookie выставится, а перехода не произойдёт — этот ассерт покраснеет.
-- **Имя теста в спеке:** `AL-FN-02 — успешный логин уводит с формы на /`
+### AL-FN-02 — a successful login leaves the form for /
 
-### AL-FN-03 — неверный пароль: видимая ошибка, пользователь остаётся на странице логина
+- **Priority:** P0
+- **Steps:** fill in the seeded `teacher` credentials and submit.
+- **Expected:** the URL becomes `/`; exactly one `ps_session` cookie appears; the `Sign in` button
+  is gone. The URL change is awaited by a web-first assertion because the transition is done by
+  `redirect('/')` inside the Server Action — if that redirect ever moves inside a `try/catch`
+  (invariant 11), the cookie is set and this case goes red.
 
-- **Приоритет:** P0
-- **Тип:** UI-функциональный
-- **Теги:** `@p0`
-- **Предусловия:** пользователь `teacher` есть в сиде; контекст чистый.
-- **Шаги:**
-  1. Открыть `/auth/login`.
-  2. В поле «Email» ввести email пользователя `teacher`.
-  3. В поле «Пароль» ввести `wrong-password`.
-  4. Нажать кнопку «Войти».
-- **Ожидаемый результат:**
-  - Виден элемент с ролью `alert`, содержащий «Неверный email или пароль».
-  - URL остаётся `/auth/login`, форма на месте (редиректа на `/` не произошло).
-  - Cookie сессии в контексте не появилась.
-  - Текст ошибки не содержит служебных деталей: ни `passwordHash`, ни `scrypt`, ни путей
-    проекта — ожидаемая 401 обработана приложением, а не протекла наружу.
-- **Имя теста в спеке:** `AL-FN-03 — неверный пароль: видимая ошибка, пользователь остаётся на странице логина`
+### AL-FN-03 — a wrong password shows a visible error and keeps the user on the login page
 
-### AL-FN-04 — неизвестный email даёт ту же ошибку
+- **Priority:** P0
+- **Steps:** submit a valid email with a wrong password.
+- **Expected:** the alert is visible and contains `Invalid email or password`; the URL is still
+  `/auth/login` and the form is still there; the alert contains no `passwordHash`, `scrypt` or
+  `apps/api`; no session cookie was set.
 
-- **Приоритет:** P0
-- **Тип:** UI-функциональный (безопасность)
-- **Теги:** `@p0`
-- **Предусловия:** email `nobody@purpleschool.test` в сиде отсутствует.
-- **Шаги:**
-  1. Открыть `/auth/login`, ввести `nobody@purpleschool.test` и пароль из сида, нажать «Войти».
-  2. Запомнить текст `alert`.
-  3. Снова открыть `/auth/login`, ввести email пользователя `teacher` и `wrong-password`,
-     нажать «Войти».
-  4. Сравнить текст `alert` с запомненным.
-- **Ожидаемый результат:**
-  - Оба раза виден `alert`, и тексты **совпадают** друг с другом: UI не подсказывает,
-    существует ли такой пользователь.
-  - Сравнение идёт между двумя ответами приложения, а не с константой по отдельности — именно
-    так кейс доказывает неразличимость двух ветвей отказа.
-  - URL после первой попытки остаётся `/auth/login`.
-- **Имя теста в спеке:** `AL-FN-04 — неизвестный email даёт ту же ошибку`
+### AL-FN-04 — an unknown email gives the same error
 
-### AL-FN-05 — пустая форма не отправляется
+- **Priority:** P0
+- **Steps:** submit an unknown email, record the alert text, then submit a known email with a wrong
+  password.
+- **Expected:** the second alert text equals the first. The expected value is the **first
+  response's text** rather than a constant, so the case proves the two rejection branches are
+  indistinguishable.
 
-- **Приоритет:** P1
-- **Тип:** UI-функциональный (валидация)
-- **Теги:** —
-- **Предусловия:** на инпутах **нет** атрибута `required` (риск 20 плана имплементации).
-- **Шаги:**
-  1. Открыть `/auth/login`.
-  2. Не заполняя поля, нажать кнопку «Войти».
-- **Ожидаемый результат:**
-  - Виден `alert` с текстом приложения «Введите email и пароль» — именно текст приложения,
-    а не нативная подсказка браузера.
-  - URL остаётся `/auth/login`, редиректа на `/` нет.
-  - Ценность кейса теряется, если на инпуты поставить `required`: тогда отправку заблокирует
-    браузер и серверная ветка валидации никогда не выполнится.
-- **Имя теста в спеке:** `AL-FN-05 — пустая форма не отправляется`
+### AL-FN-05 — an empty form does not submit
 
-### AL-FN-06 — ссылка на регистрацию ведёт на существующую страницу
+- **Priority:** P1
+- **Steps:** submit the form with both fields empty.
+- **Expected:** the alert shows `Enter your email and password` — the app's text, not the
+  browser's. Invariant 15 forbids `required` on the inputs, otherwise the browser would block
+  submission and the server branch would never run.
 
-- **Приоритет:** P1
-- **Тип:** UI-функциональный
-- **Теги:** —
-- **Предусловия:** `/auth/register` — заглушка с заголовком «Регистрация» (§8 п.1 плана).
-- **Шаги:**
-  1. Открыть `/auth/login`.
-  2. Найти ссылку с именем «Зарегистрироваться», проверить `href`.
-  3. Кликнуть по ней.
-  4. Отдельно перейти на `/auth/register` прямой навигацией и посмотреть статус ответа.
-- **Ожидаемый результат:**
-  - Ссылка видна, `href` = `/auth/register`; после клика URL = `/auth/register`.
-  - На странице есть `h1` с текстом «Регистрация»; текста `This page could not be found` нет.
-  - Прямая навигация отдаёт статус 200. Шаг 4 нужен именно отдельным: клик по `Link` — это
-    клиентский переход, у него нет HTTP-статуса, и без прямой навигации кейс не отличил бы
-    страницу от отрендеренного клиентом 404.
-- **Имя теста в спеке:** `AL-FN-06 — ссылка на регистрацию ведёт на существующую страницу`
+### AL-FN-06 — the sign-up link leads to a page that exists
 
-### AL-FN-08 — страница логина не пишет в консоль ни при рендере, ни после неудачного входа
+- **Priority:** P1
+- **Steps:** check the `Sign up` link and its `href`, click it, then navigate to `/auth/register`
+  directly.
+- **Expected:** the URL is `/auth/register`, the level 1 heading reads `Sign up`, there is no
+  "This page could not be found", and the direct navigation returns HTTP 200. The direct step
+  matters because clicking a `Link` is a client transition with no status code.
 
-- **Приоритет:** P1
-- **Тип:** UI-функциональный (диагностика)
-- **Теги:** —
-- **Предусловия:** сбор проблем — через `e2e/fixtures/console.ts`; собственные регулярки в спеке
-  не дублируются, шум HMR dev-сервера отфильтрован там.
-- **Шаги:**
-  1. Подписаться на `console` и `pageerror` **до** `page.goto` — иначе ошибки первого рендера
-     потеряются.
-  2. Открыть `/auth/login`.
-  3. Дождаться видимости кнопки «Войти».
-  4. Войти с неверным паролем.
-  5. Дождаться `alert`.
-- **Ожидаемый результат:**
-  - На шаге 3 список собранных проблем пуст.
-  - На шаге 5 `alert` виден, а список по-прежнему пуст: ожидаемая 401 обработана приложением,
-    а не всплыла необработанным исключением.
-- **Имя теста в спеке:** `AL-FN-08 — страница логина не пишет в консоль ни при рендере, ни после неудачного входа`
+### AL-FN-08 — the login page logs nothing to the console, on render or after a failed sign-in
 
-### AL-FN-10 — пароль скрыт при вводе
+- **Priority:** P1
+- **Steps:** subscribe to console and page errors **before** navigating, open the page, then submit
+  a wrong password.
+- **Expected:** the problem list is empty both times — the expected 401 was handled by the app
+  rather than surfacing as an unhandled exception.
 
-- **Приоритет:** P1
-- **Тип:** UI-функциональный (безопасность)
-- **Теги:** —
-- **Предусловия:** —
-- **Шаги:**
-  1. Открыть `/auth/login`.
-  2. Ввести пароль в поле «Пароль».
-- **Ожидаемый результат:**
-  - У поля пароля атрибут `type` = `password` — это единственное, что скрывает значение.
-  - Введённое значение доступно форме (`toHaveValue`), но не отображается как текст страницы:
-    ассерт про атрибут, а не про отсутствие подстроки в DOM, потому что в DOM значение остаётся.
-- **Имя теста в спеке:** `AL-FN-10 — пароль скрыт при вводе`
+### AL-FN-10 — the password is masked while typing
 
-### AL-FN-13 — cookie сессии httpOnly и недоступна из JS
+- **Priority:** P1
+- **Steps:** fill the password field and inspect it.
+- **Expected:** the field has `type="password"` and holds the typed value, and the value is not
+  visible as page text. The assertion is about the attribute because the value stays in the DOM.
 
-- **Приоритет:** P0
-- **Тип:** UI-функциональный (безопасность)
-- **Теги:** `@p0`
-- **Предусловия:** cookie ставит Server Action через `buildSessionCookieOptions` (§3.5 плана).
-- **Шаги:**
-  1. Выполнить успешный логин под `teacher`.
-  2. Получить cookies контекста.
-  3. Прочитать `document.cookie` из страницы.
-- **Ожидаемый результат:**
-  - В контексте ровно одна cookie `ps_session`; `httpOnly: true`, `path: '/'`, `sameSite`
-    не `None`, значение — JWT из трёх сегментов через точку.
-  - `document.cookie` не содержит ни значения токена, ни имени cookie: JWT не виден из JS,
-    иначе XSS получил бы токен доступа к Nest.
-- **Имя теста в спеке:** `AL-FN-13 — cookie сессии httpOnly и недоступна из JS`
+### AL-FN-13 — the session cookie is httpOnly and unreachable from JS
 
-### AL-FN-14 — невалидный формат email в UI
+- **Priority:** P0
+- **Steps:** sign in, read the context cookies, then evaluate `document.cookie`.
+- **Expected:** one `ps_session` cookie with `httpOnly: true`, `path: '/'`, `sameSite` other than
+  `None`, and a value of three JWT segments; `document.cookie` contains neither the name nor the
+  value. Otherwise XSS would obtain an access token for Nest.
 
-- **Приоритет:** P2
-- **Тип:** UI-функциональный (валидация)
-- **Теги:** —
-- **Предусловия:** поле email — `type="text"` с `autoComplete="email"`, а не `type="email"`
-  (риск 20 плана имплементации).
-- **Шаги:**
-  1. Открыть `/auth/login`.
-  2. Ввести `not-an-email` и любой пароль.
-  3. Нажать «Войти».
-- **Ожидаемый результат:**
-  - Виден `alert` с текстом приложения «Проверьте формат email»: 400 от `ValidationPipe`
-    доходит до `loginAction` и превращается в это сообщение.
-  - URL остаётся `/auth/login`, редиректа нет.
-  - С `type="email"` кейс проверял бы нативную валидацию браузера, а не наш код — форма просто
-    не отправилась бы.
-- **Имя теста в спеке:** `AL-FN-14 — невалидный формат email в UI`
+### AL-FN-14 — an invalid email format in the UI
+
+- **Priority:** P2
+- **Steps:** submit `not-an-email` with a valid password.
+- **Expected:** the alert shows `Check the email format` and the URL stays `/auth/login`. The email
+  field is `type="text"` (invariant 15), so the browser does not block submission and the 400 from
+  `ValidationPipe` reaches `loginAction`.

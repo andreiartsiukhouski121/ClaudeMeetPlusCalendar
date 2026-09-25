@@ -11,18 +11,17 @@ import styles from './login-form.module.css';
 const INITIAL_STATE: LoginFormState = {};
 
 /**
- * Форма логина. Клиентский компонент только из-за `useActionState`: сама отправка идёт
- * Server Action-ом, JWT в браузер не попадает.
+ * Login form. A client component only because of `useActionState`: submission goes through a
+ * Server Action, so the JWT never reaches the browser.
  *
- * Разметка продиктована локаторами тестов (тест-план §5.1) и трогать её вслепую нельзя:
- *  - настоящие `<label htmlFor>` — `getByLabel('Email')` / `getByLabel('Пароль')`;
- *  - контейнер ошибки с `role="alert"` — `getByRole('alert')`;
- *  - кнопка с точным именем «Войти» и ссылка «Зарегистрироваться».
+ * The markup is dictated by test locators and must not be changed blindly: real `<label htmlFor>`
+ * elements, an error container with `role="alert"`, a button named exactly "Sign in" and a link
+ * named "Sign up".
  *
- * Ни `required`, ни `type="email"` (риск 20): и то, и другое включает нативную валидацию,
- * браузер не отправляет форму, серверные ветки «Введите email и пароль» и «Проверьте формат
- * email» не выполняются — и кейсы AL-FN-05/AL-FN-14 начинают проверять браузер, а не наш код.
- * Поле email — `type="text"` с `autoComplete="email"`, на форме стоит `noValidate`.
+ * Invariant 15: no `required` and no `type="email"`. Either one turns on native validation, the
+ * browser refuses to submit, the server branches never run, and AL-FN-05 / AL-FN-14 end up testing
+ * the browser instead of our code. The email field is `type="text"` and the form carries
+ * `noValidate`.
  */
 export function LoginForm() {
   const [state, formAction, pending] = useActionState(loginAction, INITIAL_STATE);
@@ -45,7 +44,7 @@ export function LoginForm() {
 
       <div className={styles.field}>
         <label className={styles.label} htmlFor="password">
-          Пароль
+          Password
         </label>
         <input
           className={styles.input}
@@ -63,11 +62,11 @@ export function LoginForm() {
       )}
 
       <button className={styles.submit} type="submit" disabled={pending}>
-        Войти
+        Sign in
       </button>
 
       <p className={styles.hint}>
-        Нет аккаунта? <Link href="/auth/register">Зарегистрироваться</Link>
+        No account? <Link href="/auth/register">Sign up</Link>
       </p>
     </form>
   );

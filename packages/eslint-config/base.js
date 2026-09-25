@@ -4,7 +4,7 @@ import { defineConfig, globalIgnores } from 'eslint/config';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
-/** Общая база ESLint для всех пакетов монорепозитория. */
+/** Shared ESLint base for every package in the monorepo. */
 export const baseConfig = defineConfig([
   globalIgnores([
     '**/node_modules/**',
@@ -29,7 +29,7 @@ export const baseConfig = defineConfig([
       ],
     },
   },
-  // Prettier должен идти последним: отключает конфликтующие стилевые правила.
+  // Prettier must come last: it switches off conflicting stylistic rules.
   prettier,
 ]);
 

@@ -1,229 +1,244 @@
 ---
 name: regression-verify
-description: Приёмка фичи ЦЕЛИКОМ по регрессионному сьюту — зелёный pnpm verify, ревью парности cases.md/spec.ts, контрольный опыт, отчёт с цифрами. Use when a feature from docs/plans/ is finished, when the user asks "прими фичу", "прогони регресс", "проверь регрессионный сьют", "фича готова", and always before reporting a feature as done. Для проверки одного изменения — скил playwright-verify.
+description: Accepting a WHOLE feature against the regression suite — a green pnpm verify, a review of the cases.md/spec.ts pairing, a control experiment, a report with numbers. Use when a feature from docs/plans/ is finished, when the user asks "accept the feature", "run the regression", "check the regression suite", "the feature is ready", and always before reporting a feature as done. For checking a single change, use the playwright-verify skill.
 ---
 
-Приёмка фичи как обещания: все уровни проверок, соответствие сьюта конвенции, письменный отчёт.
-Отличие от `playwright-verify`: тот проверяет **одно изменение** (MCP-браузер + один спек). Не
-подменяй их друг другом — смешивание превратит быструю проверку в десятиминутный ритуал.
+Accepting a feature as a promise: every level of checks, conformance to the suite convention, a
+written report. The difference from `playwright-verify` is that it checks **one change** (MCP
+browser plus one spec). Do not substitute one for the other — mixing them turns the quick check
+into a ten-minute ritual.
 
-Живая спецификация сьюта — `e2e/README.md` (конвенция имён, теги, правила устойчивости, правило
-размера, экономика прогонов), инварианты — `CLAUDE.md`. Планы в `docs/plans/` — **архив**: ссылаться
-на них за конвенцией нельзя, они устаревают и уже расходятся с реальностью в числах.
+The live suite specification is `e2e/README.md` (naming convention, tags, robustness rules, the
+size rule, run economics); the invariants are in `CLAUDE.md`. The plans in `docs/plans/` are an
+**archive**: they cannot be cited for conventions, they go stale, and their numbers already diverge
+from reality.
 
-**Ничего не считается сделанным без фактического прогона.** «Проверено» без команды и без цифр в
-отчёте — недопустимая формулировка.
+**Nothing counts as done without an actual run.** "Verified" without a command and without numbers
+in the report is not an acceptable phrasing.
 
-Для фичи размера «страница плюс два эндпоинта» **отдельный агент-приёмщик не нужен**: DoD
-исполнителя с контрольными опытами и есть приёмка, а повторный прогон того же самого стоит 20 минут
-и не добавляет информации. Порядок работ фичи целиком — в скиле `feature-pipeline`.
+For a feature the size of "a page plus two endpoints" a **separate acceptance agent is
+unnecessary**: the implementer's DoD with control experiments _is_ the acceptance, and repeating
+the same run costs 20 minutes and adds no information. The order of work for a whole feature is in
+the `feature-pipeline` skill.
 
-## 1. Определи предмет приёмки
+## 1. Identify what is being accepted
 
-`<feature>` — slug фичи: `auth-login` или `home-dashboard`. Он же тег Playwright (`@auth-login`) и
-префикс ID юнит-кейсов (`AL-UT-`, `HD-UT-`). Соответствие — в `e2e/README.md`.
+`<feature>` is the feature slug: `auth-login` or `home-dashboard`. It doubles as the Playwright tag
+(`@auth-login`) and the unit case ID prefix (`AL-UT-`, `HD-UT-`). The mapping is in `e2e/README.md`.
 
-Перед прогонами сними осиротевшие серверы от прошлых падений — иначе `reuseExistingServer`
-переиспользует процесс без нужных переменных окружения, и результат будет ложным в любую сторону:
+Before running anything, clear orphaned servers left by earlier failures — otherwise
+`reuseExistingServer` picks up a process without the right environment variables and the result is
+false in either direction:
 
 ```bash
-netstat -ano | grep :3100        # взять PID из строки LISTENING
+netstat -ano | grep :3100        # take the PID from the LISTENING row
 netstat -ano | grep :3101
 powershell -NoProfile -Command "Stop-Process -Id <pid>"
 ```
 
-Порты бывают чистыми, а прогон всё равно красный: зависший `@playwright/test` от прошлого запуска
-держит свои `webServer` наполовину, и проект `web` падает на `[TypeError: fetch failed]` при зелёном
-`api`. Как его найти — в `playwright-verify`, раздел 6.
+The ports can also be clean while the run is still red: a hung `@playwright/test` from a previous
+run holds its `webServer` half up, and project `web` fails with `[TypeError: fetch failed]` while
+`api` is green. How to find it is in `playwright-verify`, section 6.
 
-Не глуши все `node` разом и не выполняй `taskkill`, который печатает сам Next: это чужие серверы.
+Do not kill every `node` at once, and do not run the `taskkill` that Next prints: those are other
+people's servers.
 
-## 2. Прогоны
+## 2. Runs
 
-**Канонический путь один:**
+**There is one canonical path:**
 
 ```bash
 pnpm verify
 ```
 
-Состав — `check:orientation` → `lint` → `typecheck` → юниты → supertest `apps/api` → `format:check`
-→ весь `e2e` одним подъёмом серверов → `audit`. Этого достаточно для приёмки. Локальный `verify` и
-job `verify` в CI — **один и тот же список шагов**; разойдутся — и «зелено локально, красно в CI»
-научит не доверять локальному гейту. Появился шаг в одном месте — добавь во второе
-(`.github/workflows/ci.yml`).
+Its composition: `check:orientation` → `lint` → `typecheck` → units → the `apps/api` supertest →
+`format:check` → the whole `e2e` on a single server start → `audit`. That is enough for acceptance.
+The local `verify` and the CI `verify` job are **the same list of steps**; let them drift and
+"green locally, red on CI" teaches people to distrust the local gate. A step added in one place is
+added in the other (`.github/workflows/ci.yml`).
 
-Обязателен **результат** — зелёный `pnpm verify`, — а не проход по всем строкам таблицы ниже.
+What is required is the **result** — a green `pnpm verify` — not a walk through every row of the
+table below.
 
-### Диагностическая лестница
+### The diagnostic ladder
 
-Разворачивается, **когда `pnpm verify` покраснел**, чтобы локализовать падение, не гоняя браузер до
-подтверждения контракта. На зелёном пути она лишняя: шаги 1, 5, 6 и 7 — строгие подмножества шага 8,
-а каждый вызов `pnpm e2e …` заново поднимает **оба** сервера (цена — в `e2e/README.md`,
-«Экономика прогонов»).
+Unfold it **when `pnpm verify` goes red**, to localize the failure without starting a browser
+before the contract is confirmed. On the green path it is redundant: steps 1, 5, 6 and 7 are strict
+subsets of step 8, and every `pnpm e2e …` call restarts **both** servers (the cost is in
+`e2e/README.md`, "Run economics").
 
-| #   | Шаг                       | Команда                                    | Что ловит именно здесь                                                                    |
-| --- | ------------------------- | ------------------------------------------ | ----------------------------------------------------------------------------------------- |
-| 1   | Конвенция сьюта           | `pnpm e2e e2e/suite-integrity.api.spec.ts` | Спек без парного `.cases.md`; файл без суффикса; описанный, но не автоматизированный кейс |
-| 2   | Линт                      | `pnpm lint`                                | `test.only`, `expect` без `await`, `waitForTimeout`, `test.skip`, условия в тестах        |
-| 3   | Типы                      | `pnpm typecheck`                           | Корень (`e2e/**`) + каждый пакет; в web сначала `next typegen`                            |
-| 4   | Юниты фичи                | `pnpm test:<feature>`                      | Логику в изоляции; падение здесь делает прогон e2e бессмысленным                          |
-| 5   | Смоук                     | `pnpm e2e e2e/smoke`                       | Серверы поднялись, сид на месте — до десятков кейсов                                      |
-| 6   | API-тесты фичи            | `pnpm e2e --project=api --grep @<feature>` | Контракт. Браузер не поднимается                                                          |
-| 7   | Функциональные тесты фичи | `pnpm e2e --project=web --grep @<feature>` | UI — после подтверждённого контракта, иначе падение UI не отличить от падения API         |
-| 8   | Полный прогон             | `pnpm e2e`                                 | Регресс в соседней фиче и гонки при `fullyParallel` — только он их и ловит                |
-| 9   | Уязвимости зависимостей   | `pnpm audit --audit-level high`            | Известные CVE в дереве. Сетевой шаг: без сети падает, и это не про код                    |
+| #   | Step                     | Command                                    | What it catches here                                                                           |
+| --- | ------------------------ | ------------------------------------------ | ---------------------------------------------------------------------------------------------- |
+| 1   | Suite convention         | `pnpm e2e e2e/suite-integrity.api.spec.ts` | A spec with no paired `.cases.md`; a file with no suffix; a described but unautomated case     |
+| 2   | Lint                     | `pnpm lint`                                | `test.only`, `expect` without `await`, `waitForTimeout`, `test.skip`, conditions               |
+| 3   | Types                    | `pnpm typecheck`                           | The root (`e2e/**`) plus every package; web runs `next typegen` first                          |
+| 4   | Feature units            | `pnpm test:<feature>`                      | Logic in isolation; a failure here makes an e2e run meaningless                                |
+| 5   | Smoke                    | `pnpm e2e e2e/smoke`                       | The servers came up and the seed is in place — before dozens of cases                          |
+| 6   | Feature API tests        | `pnpm e2e --project=api --grep @<feature>` | The contract. No browser starts                                                                |
+| 7   | Feature functional tests | `pnpm e2e --project=web --grep @<feature>` | The UI — after the contract is confirmed, or a UI failure is indistinguishable from an API one |
+| 8   | Full run                 | `pnpm e2e`                                 | A regression in a neighbouring feature and races under `fullyParallel`                         |
+| 9   | Dependency advisories    | `pnpm audit --audit-level high`            | Known CVEs. A network step: without a network it fails, and that is not about the code         |
 
-При падении на шаге N шаги N+1 и далее не запускаются, пока падение не устранено или не оформлено
-задачей (§5): падение контракта делает результат UI-проверки нечитаемым.
+When step N fails, steps N+1 and beyond are not run until it is fixed or filed as a task (§5): a
+broken contract makes the UI result unreadable.
 
-**Юниты отдельно не гоняй.** Они внутри `pnpm verify` и ещё раз внутри `.husky/pre-commit` — по
-содержимому, исправленному `lint-staged`. Третий ручной `pnpm test` не добавляет фактов;
-`pnpm test:<feature>` — инструмент локализации падения, а не шаг зелёного пути.
+**Do not run the units separately.** They are inside `pnpm verify` and again inside
+`.husky/pre-commit` — the latter over the text `lint-staged` has already fixed. A third manual
+`pnpm test` adds no facts; `pnpm test:<feature>` is a localization tool, not a step on the green
+path.
 
-**Повторно прогонять полный сьют ради ещё одного зелёного результата не надо.** Информации это почти
-не добавляет; больше даёт контрольный опыт из шага 11.
+**Do not repeat the full suite for another green result.** It adds almost nothing; a control
+experiment (step 11) does more.
 
-### Шаги сверх `pnpm verify`
+### Steps beyond `pnpm verify`
 
-- **Шаг 10 — интерактивная проверка**, обязательна для любого UI-изменения. Идёт **после** прогонов,
-  а не параллельно: `pnpm dev` и `pnpm e2e` в одном дереве взаимоисключающи (`CLAUDE.md`). Подними
-  `pnpm dev`, дальше по скилу `playwright-verify`. Если инструменты `browser_*` недоступны — скажи
-  это вслух, не подменяй «мысленной проверкой».
-- **Шаг 11 — контрольный опыт** для каждого нового кейса: сломай проверяемое поведение в исходнике,
-  убедись, что прогон **краснеет**, откати. Тест, зелёный при сломанной фиче, хуже отсутствия теста.
-  Для двух первых фич контрольные точки заданы: `verifyPassword`, всегда возвращающий `true` (должны
-  покраснеть `AL-API-02`, `AL-FN-03`), и `countByOwner`, заменённый на `items.length` (должны
-  покраснеть `HD-API-05`, `HD-FN-03`).
+- **Step 10 — the interactive check**, mandatory for any UI change. It comes **after** the runs
+  rather than alongside them: `pnpm dev` and `pnpm e2e` are mutually exclusive in one tree
+  (`CLAUDE.md`). Start `pnpm dev`, then follow `playwright-verify`. If the `browser_*` tools are
+  unavailable, say so out loud rather than substituting a mental check.
+- **Step 11 — a control experiment** for every new case: break the behaviour under test in the
+  source, confirm the run goes **red**, revert. A test that is green with the feature broken is
+  worse than no test. For the first two features the control points are fixed: `verifyPassword`
+  always returning `true` (`AL-API-02`, `AL-FN-03` must go red), and `countByOwner` replaced with
+  `items.length` (`HD-API-05`, `HD-FN-03` must go red).
 
-Двум агентам одновременно нужен **свой git worktree**, а не свои порты (`CLAUDE.md`,
+Two agents at once need **their own git worktree**, not their own ports (`CLAUDE.md`,
 `feature-pipeline` §4).
 
-## 3. Блокеры
+## 3. Blockers
 
-Любой пункт означает «фича не принята». Не «замечание на будущее».
+Any of these means "the feature is not accepted". Not "a note for later".
 
-**Прогоны**
+**Runs**
 
-- Красный тест на любом шаге; красный `pnpm audit --audit-level high`.
-- Заведомо красный тест в коммите. Если проверка невозможна на этом этапе, спек **не создаётся** до
-  этапа, где станет зелёным.
-- Зелёный прогон на переиспользованном сервере: убедись, что в логе `webServer` порты 3100/3101 и что
-  серверы стартовали заново. Прогон на 3000/3001 или правка `playwright.config.ts` в их сторону.
+- A red test at any step; a red `pnpm audit --audit-level high`.
+- A knowingly red test in a commit. If a check is impossible at this stage, the spec is **not
+  created** until the stage where it goes green.
+- A green run obtained on a reused server: confirm the `webServer` log shows ports 3100/3101 and
+  that the servers started fresh. A run on 3000/3001, or an edit to `playwright.config.ts` in that
+  direction.
 
-**Конвенция сьюта** (проверяется `e2e/suite-integrity.api.spec.ts`)
+**Suite convention** (checked by `e2e/suite-integrity.api.spec.ts`)
 
-- Спек без парного `.cases.md` или наоборот — кроме файлов из `SELF_EXEMPT`.
-- Файл в `e2e/**` без суффикса `.api.spec.ts` / `.functional.spec.ts`: не попадёт ни в один проект и
-  молча не запустится.
-- ID кейса описан в `.cases.md`, но отсутствует в спеке и не помечен строкой
-  `- **Не автоматизирован:** <причина + ссылка на задачу>` — это единственный распознаваемый синтаксис.
-- Юнит-спек в `apps/**/src/**`, не упомянутый ни в одном `*.unit.cases.md`; тест, чей заголовок не
-  начинается с ID кейса — кроме `SELF_EXEMPT` и `UNIT_SPEC_EXEMPT`.
+- A spec with no paired `.cases.md` or the other way round — except files in `SELF_EXEMPT`.
+- A file in `e2e/**` without the `.api.spec.ts` / `.functional.spec.ts` suffix: it joins no project
+  and silently never runs.
+- A case ID described in a `.cases.md` but absent from the spec and not marked with
+  `- **Not automated:** <reason + task link>` — the only recognized syntax.
+- A unit spec in `apps/**/src/**` mentioned in no `*.unit.cases.md`; a test whose title does not
+  start with a case ID — except `SELF_EXEMPT` and `UNIT_SPEC_EXEMPT`.
 
-Сверка фактического числа тестов с таблицей чисел в каком-либо документе блокером **не является** и
-не делается: такая таблица устаревает при каждом добавленном кейсе и делает приёмку невыполнимой
-(`FX-013`). Полнота автоматизации вычисляется мета-тестом, а не сверяется глазами.
+Comparing the actual test count against a table of numbers in some document is **not** a blocker
+and is not done: such a table goes stale with every added case and makes acceptance impossible
+(`FX-013`). Automation completeness is computed by the meta-test rather than eyeballed.
 
-**Качество тестов** — правила устойчивости и данных целиком в `e2e/README.md`. Блокерами здесь
-являются их нарушения: `test.only`; `test.skip` без причины и ссылки; `waitForTimeout`; CSS-локаторы;
-`expect(...)` без `await`; абсолютные счётчики в `@mutating`-кейсах; мутация под `teacher`/`student`;
-хардкод данных вместо `e2e/fixtures/seed.ts`; создаваемая встреча не в 2030 году.
+**Test quality** — the robustness and data rules live in full in `e2e/README.md`. Blockers here are
+violations of them: `test.only`; `test.skip` without a reason and a link; `waitForTimeout`; CSS
+locators; `expect(...)` without `await`; absolute counters in `@mutating` cases; mutating
+`teacher`/`student`; hard-coded data instead of `e2e/fixtures/seed.ts`; a created meeting not dated 2030.
 
-**Поведение приложения**
+**Application behaviour**
 
-- Обращение браузера к `127.0.0.1:3101` напрямую — нарушение BFF, ловится `HD-FN-11`.
-- Ненулевой список `console.error` / `pageerror` вне фильтра HMR-шума из `e2e/fixtures/console.ts`.
+- The browser reaching `127.0.0.1:3101` directly — a BFF violation, caught by `HD-FN-11`.
+- A non-empty list of `console.error` / `pageerror` outside the HMR noise filter in
+  `e2e/fixtures/console.ts`.
 
-**Безопасность**
+**Security**
 
-- Красный кейс из `e2e/security/**` — блокер того же уровня, что упавший тест фичи. Эти проверки
-  межфичевые: они ломаются не когда сломана фича, а когда сломан инвариант.
-- Новый защищённый эндпоинт не добавлен в `PROTECTED_ROUTES` или новая закрытая страница — в
-  `PROTECTED_PAGES` (инвариант 16). Списки — единственное, что связывает сьют с растущим приложением.
-- Токен, хеш или пароль в теле ответа, в HTML или в потоке RSC (инварианты 18, 19).
-- Секрет в коммите: `.env` (кроме `.env.example`), приватный ключ, строка вида выпущенного JWT.
-- Ответ раскрывает стек сервера (`X-Powered-By` и подобные заголовки).
-- Ветка отказа аутентификации, различимая по времени ответа: одинакового текста недостаточно.
+- A red case from `e2e/security/**` — a blocker of the same weight as a failing feature test. These
+  checks are cross-feature: they break not when a feature breaks but when an invariant does.
+- A new protected endpoint missing from `PROTECTED_ROUTES`, or a new protected page missing from
+  `PROTECTED_PAGES` (invariant 16). Those lists are the only thing connecting the suite to a
+  growing application.
+- A token, a hash or a password in a response body, in the HTML, or in the RSC stream (invariants
+  18, 19).
+- A secret in a commit: `.env` (other than `.env.example`), a private key, a string shaped like an
+  issued JWT.
+- A response disclosing the server stack (`X-Powered-By` and similar).
+- An authentication rejection branch distinguishable by response time: identical text is not enough.
 
-**Реестр изменений**
+**The ledger**
 
-- Изменение не записано в `docs/CHANGELOG.md`: фича без `FT-`, изменение процесса без `CH-`,
-  найденный дефект без `FX-`. Незаписанный дефект — это дефект, который найдут заново.
-- У записи `FX-` не заполнена графа «Чем найдено». Закрытый пункт бэклога не помечен закрытым и не
-  сослан на запись. Новый пробел не попал в `BACKLOG.md` либо попал с пустой графой «Конфликтует с».
-- Красный кейс `LG-API-*`: дубль ID, ссылка на несуществующий коммит, висячая ссылка.
+- The change is not recorded in `docs/CHANGELOG.md`: a feature without an `FT-`, a process change
+  without a `CH-`, a defect found without an `FX-`. An unrecorded defect is a defect that gets
+  found again.
+- An `FX-` entry with an empty "Found by" column. A closed backlog item not marked closed and not
+  referencing an entry. A newly found gap missing from `BACKLOG.md`, or present with an empty
+  "Conflicts with".
+- A red `LG-API-*` case: a duplicate ID, a reference to a non-existent commit, a dangling reference.
 
-**Отчётность**
+**Reporting**
 
-- Ослабление ассерта под наблюдаемое поведение без явного объяснения в отчёте.
-- «Проверено» / «всё работает» / «тесты прошли» без команды и цифр.
+- Weakening an assertion to match observed behaviour without saying so in the report.
+- "Verified" / "everything works" / "the tests passed" without a command and numbers.
 
-## 4. Чек-лист код-ревью
+## 4. Code review checklist
 
-Прогон зелёный — это ещё не приёмка. Прочитай дифф глазами.
+A green run is not yet acceptance. Read the diff with your eyes.
 
-Структура:
+Structure:
 
-- новые файлы в `e2e/regression/<feature>/`, имена по шаблону; `e2e/README.md` дополнен строкой фичи;
-- теги `@regression`, `@<feature>`, `@p0` / `@mutating` — опцией `tag` у `describe`, не текстом в
-  заголовке;
-- `*.unit.cases.md` ссылается на существующие пути, и каждый спек упомянут в документации.
+- new files in `e2e/regression/<feature>/` with template-conforming names; `e2e/README.md` gained a
+  row for the feature;
+- tags `@regression`, `@<feature>`, `@p0` / `@mutating` set through the `tag` option on `describe`,
+  not as text in the title;
+- `*.unit.cases.md` references existing paths, and every spec is mentioned in the documentation.
 
-Соответствие кейсов коду:
+Cases against the code:
 
-- **шаги и ожидаемый результат в `.cases.md` совпадают с тем, что реально проверяет спек.**
-  Расхождение — блокер: документация начинает лгать, и дальше ей перестают верить;
-- негативные кейсы проверяют **и** статус, **и** отсутствие побочного эффекта (данные не изменились,
-  токен не выдан, cookie не появилась);
-- ни один кейс не полагается на порядок выполнения других;
-- `getByTestId` — только с обоснованием в комментарии.
+- **the steps and expected results in `.cases.md` match what the spec actually checks.** A
+  divergence is a blocker: the documentation starts lying, and after that nobody believes it;
+- negative cases check **both** the status **and** the absence of a side effect (data unchanged, no
+  token issued, no cookie set);
+- no case depends on the execution order of another;
+- `getByTestId` only with a justification in a comment.
 
-Безопасность — сверх автоматических кейсов (`pnpm e2e:security`) прочитай дифф против инвариантов
-16–19 `CLAUDE.md`:
+Security — beyond the automated cases (`pnpm e2e:security`), read the diff against invariants
+16–19:
 
-- новый эндпоинт: guard навешен, DTO не принимает поля владельца или роли, ответ прогнан через
-  маппер, срезающий чувствительные поля;
-- новая закрытая страница и новый Server Action: проверка сессии есть **и** в `proxy.ts`, **и** в
-  серверном слое — `proxy` видит только наличие cookie и гарантией не является;
-- негодная сессия уводится через `/auth/session-expired`, а не напрямую на `/auth/login`;
-- токен не уходит пропсом в клиентский компонент.
+- a new endpoint: the guard is attached, the DTO accepts no owner or role field, the response goes
+  through a mapper that strips sensitive fields;
+- a new protected page and a new Server Action: the session is checked **both** in `proxy.ts` **and**
+  in the server layer — the proxy only sees that a cookie exists and is not a guarantee;
+- a broken session is sent through `/auth/session-expired` rather than straight to `/auth/login`;
+- no token is passed as a prop into a client component.
 
-Код приложения: новых проверок HTTP-контракта в `apps/api/test/app.e2e-spec.ts` нет (они идут в
-`e2e/`); секреты и хеши не утекают в ответы и в разметку.
+Application code: no new HTTP contract checks in `apps/api/test/app.e2e-spec.ts` (they belong in
+`e2e/`); no secrets or hashes leaking into responses or markup.
 
-## 5. Нашли проблему — отдельная задача, план не переписываем
+## 5. Found a problem — file a task, do not rewrite the plan
 
-1. **Кейс отражает требование.** Если он красный, по умолчанию неправ код, а не кейс.
-2. Дефект оформляется **отдельной задачей**: ID кейса, команда воспроизведения, ожидаемое против
-   фактического, ссылка на трейс из `pnpm e2e:report`. Исходные задачи плана не переписываются.
-3. Внутри приёмки допустимо пометить кейс `test.fixme` со ссылкой на созданную задачу. `test.skip`
-   без ссылки — блокер.
-4. Кейс правится **только** если доказано, что неверен он сам (противоречит спецификации фичи).
-   Тогда `.cases.md` и спек правятся одним коммитом, а в отчёте появляется строка «изменён ассерт,
-   причина».
-5. «Заодно починил» внутри приёмки запрещено. Приёмка — воспроизводимая оценка состояния, а не
-   продолжение разработки. Тем же правилом ревьюеру выдаются только права на чтение
-   (`requesting-code-review`).
-6. После фикса — **зелёный `pnpm verify` целиком**, а не только упавший кейс: фикс мог сломать
-   соседнее. Разворачивать диагностическую лестницу при этом не нужно.
+1. **A case expresses a requirement.** If it is red, the code is wrong by default, not the case.
+2. A defect is filed as a **separate task**: the case ID, the reproduction command, expected against
+   actual, a link to the trace from `pnpm e2e:report`. The plan's original tasks are not rewritten.
+3. Inside acceptance it is acceptable to mark a case `test.fixme` with a link to the filed task.
+   `test.skip` without a link is a blocker.
+4. A case is edited **only** when it is proven wrong (it contradicts the feature specification).
+   Then the `.cases.md` and the spec are edited in one commit and the report gains a line saying
+   "assertion changed, and why".
+5. "Fixed it while I was there" is forbidden inside acceptance. Acceptance is a reproducible
+   assessment of the state, not a continuation of development. The same rule is why a reviewer gets
+   read-only permissions (`requesting-code-review`).
+6. After a fix — a **green full `pnpm verify`**, not just the failed case: the fix may have broken
+   something next door. The diagnostic ladder does not need unfolding for that.
 
-## 6. Отчёт
+## 6. The report
 
-Обязательные разделы:
+Mandatory sections:
 
-**Прогоны** — команда и результат с цифрами (`85 passed`, а не «ок»).
+**Runs** — the command and the result with numbers (`87 passed`, not "ok").
 
-**Покрытие** — сколько кейсов зелёных из скольких; что не автоматизировано и почему; есть ли пункты
-спецификации фичи без кейсов.
+**Coverage** — how many cases are green out of how many; what is not automated and why; whether any
+point of the feature specification has no case.
 
-**Интерактивная проверка** — какой сценарий прошли в браузере; состояние консоли; подтверждение, что
-запросов браузера к `:3101` нет; скриншот, если менялся UI.
+**Interactive check** — which scenario was walked in the browser; the state of the console;
+confirmation that the browser made no request to `:3101`; a screenshot if the UI changed.
 
-**Контрольный опыт** — что ломали, какие кейсы покраснели, откатили ли.
+**Control experiment** — what was broken, which cases went red, whether it was reverted.
 
-**Блокеры** — перечень с ID кейса и ссылкой на задачу, либо «нет».
+**Blockers** — a list with case IDs and task links, or "none".
 
-**Созданные задачи** — на каждый найденный дефект.
+**Filed tasks** — one per defect found.
 
-**Пропущено и почему** — явно, либо «ничего». Пропуск, о котором не сказано, — это не пропуск, а
-искажение отчёта.
+**Skipped and why** — explicitly, or "nothing". A skip that is not stated is not a skip but a
+misreported result.

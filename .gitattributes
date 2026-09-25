@@ -1,14 +1,14 @@
-# Единственный источник истины по переводам строк.
+# The single source of truth for line endings.
 #
-# Без этого файла на Windows работает core.autocrlf=true: git подставляет CRLF при каждом
-# checkout, а .prettierrc требует endOfLine=lf — и `pnpm format:check` краснеет на десятках
-# файлов сразу после клонирования, хотя никто ничего не менял. Чинить это перенастройкой
-# git у каждого разработчика нельзя: настройка машинная, а требование — репозиторное.
+# Without this file, Windows runs core.autocrlf=true: git substitutes CRLF on every checkout while
+# .prettierrc demands endOfLine=lf — and `pnpm format:check` goes red on dozens of files right
+# after cloning, with nobody having changed anything. Reconfiguring git per developer is not the
+# fix: that setting is per machine, the requirement is per repository.
 #
-# `text=auto eol=lf`: в индексе всегда LF, в рабочем дереве тоже LF независимо от autocrlf.
+# `text=auto eol=lf`: LF in the index and LF in the working tree, regardless of autocrlf.
 * text=auto eol=lf
 
-# Бинарные — не трогать никогда: нормализация их повредит.
+# Binary files are never touched: normalization would corrupt them.
 *.png binary
 *.jpg binary
 *.jpeg binary

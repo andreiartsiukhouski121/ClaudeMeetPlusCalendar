@@ -1,36 +1,31 @@
 import { test as base, type APIRequestContext } from '@playwright/test';
 
 /**
- * Опции сьюта, которые задаёт `playwright.config.ts`.
+ * Suite options supplied by `playwright.config.ts`.
  *
- * Адрес Nest — значение конфига, а не константа теста. До этого формула адреса (хост, порт из
- * переменной окружения, дефолт) была выписана в ТРЁХ местах — в конфиге, здесь и в
- * `security.functional.spec.ts`, — а адрес web ещё и литералом в `SEC-FN-05` (FX-023).
- *
- * Копии совпадали: все читали одну переменную окружения, и прогон на нештатных портах был
- * корректен. Но держалось это комментарием «при правке порта в конфиге правится и здесь», то
- * есть обещанием, а не инвариантом. Цена расхождения несимметрична: разъехавшись, тест сравнит
- * трафик со старым адресом и проверка BFF станет вакуумно зелёной — не упадёт, а перестанет
- * проверять.
+ * The Nest address is a config value, not a test constant. It used to be spelled out in THREE
+ * places — the config, this file and `security.functional.spec.ts` — plus a literal for the web
+ * address in `SEC-FN-05` (FX-023). The copies agreed, but only by a comment promising they would
+ * be kept in sync. The cost of drift is asymmetric: once apart, the test compares traffic against
+ * a stale address and the BFF check goes vacuously green — it stops checking instead of failing.
  */
 export type ApiOptions = {
-  /** Адрес Nest в прогоне. Приходит из `use.apiBaseURL` в `playwright.config.ts`. */
+  /** Nest address for this run. Comes from `use.apiBaseURL` in `playwright.config.ts`. */
   apiBaseURL: string;
 };
 
 /**
- * Дефолт опции пуст НАМЕРЕННО, а не равен прежней формуле.
+ * The option default is empty DELIBERATELY rather than a copy of the old formula.
  *
- * Рабочий дефолт здесь вернул бы ровно ту конструкцию, которую убирали: вторую копию адреса,
- * способную разойтись с конфигом. Причём разойтись тихо — сьют ходил бы по дефолту, а серверы
- * поднимались бы по конфигу. Пустое значение так не умеет: любое чтение падает с указанием,
- * что чинить.
+ * A working default here would bring back exactly what was removed: a second copy of the address,
+ * able to drift from the config — and drift silently, with the suite using the default while the
+ * servers use the config. An empty value cannot do that: any read fails and names the fix.
  */
 function requireApiBaseURL(apiBaseURL: string): string {
   if (apiBaseURL === '') {
     throw new Error(
-      'Опция apiBaseURL пуста: она не задана в playwright.config.ts (use.apiBaseURL). ' +
-        'Адрес Nest живёт только в конфиге — не восстанавливай формулу в тесте.',
+      'The apiBaseURL option is empty: it is not set in playwright.config.ts (use.apiBaseURL). ' +
+        'The Nest address lives in the config only — do not rebuild the formula in a test.',
     );
   }
 
@@ -38,23 +33,23 @@ function requireApiBaseURL(apiBaseURL: string): string {
 }
 
 /**
- * Ушёл ли запрос напрямую в Nest. Единственное место, где адрес из конфига сопоставляется
- * с URL запроса: `HD-FN-11` и `SEC-FN-03` проверяют один и тот же инвариант BFF и обязаны
- * понимать «напрямую» одинаково.
+ * Whether a request went straight to Nest. The single place where the configured address meets a
+ * request URL: `HD-FN-11` and `SEC-FN-03` check the same BFF invariant and must agree on what
+ * "directly" means.
  */
 export function isNestRequest(url: string, apiBaseURL: string): boolean {
   return url.startsWith(requireApiBaseURL(apiBaseURL));
 }
 
 /**
- * Контекст запросов к Nest для кейсов проекта `web`.
+ * Nest request context for cases in the `web` project.
  *
- * Зачем отдельная фикстура: в проекте `web` у штатной `request` `baseURL` = `:3100`, то есть
- * `request.get('/meetings')` ушёл бы в Next, а не в Nest, и кейсы, которым нужны эталонные
- * `total`/`items` (HD-FN-03, HD-FN-05), были бы нереализуемы как написаны.
+ * Why a separate fixture: in the `web` project the built-in `request` has `baseURL` = `:3100`, so
+ * `request.get('/meetings')` would hit Next rather than Nest, and cases needing baseline
+ * `total`/`items` (HD-FN-03, HD-FN-05) could not be written as they are.
  *
- * BFF это не нарушает: запрос идёт из Node-процесса теста, а не из браузера. Требование
- * «браузер никогда не ходит на :3101» проверяет HD-FN-11 по трафику страницы.
+ * This does not break the BFF rule: the request comes from the test's Node process, not the
+ * browser. "The browser never reaches :3101" is checked by HD-FN-11 against page traffic.
  */
 export const test = base.extend<ApiOptions & { apiRequest: APIRequestContext }>({
   apiBaseURL: ['', { option: true }],

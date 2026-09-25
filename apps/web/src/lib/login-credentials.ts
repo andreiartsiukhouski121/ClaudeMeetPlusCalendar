@@ -1,32 +1,32 @@
 import type { LoginCredentials } from './types';
 
 /**
- * Разбор полей формы логина.
+ * Parsing of the login form fields.
  *
- * Отдельная чистая функция, а не три строки внутри `loginAction`: Server Action не покрыть
- * юнитом, а правило «пароль не изменяем» иначе нечем зафиксировать — оно вернулось бы при
- * первом же рефакторинге (AL-UT-29, AL-UT-30).
+ * A separate pure function rather than three lines inside `loginAction`: a Server Action cannot be
+ * unit tested, and the "never alter the password" rule would otherwise have nothing pinning it —
+ * it would come back at the first refactor (AL-UT-29, AL-UT-30).
  *
- * **Email обрезаем, пароль — нет.** Пробелы вокруг адреса пользователь ставит случайно, и
- * `trim` тут спасает вход; сервер всё равно нормализует адрес повторно (`normalizeEmail`).
- * А пароль — произвольная строка, в которой пробел значащий: обрезав его, мы молча меняем
- * введённые данные, и владелец пароля с пробелом на краю не войдёт никогда. NIST SP 800-63B
- * прямо запрещает изменять и усекать пароль перед проверкой.
+ * Invariant 15: **the email is trimmed, the password is not.** Spaces around an address are
+ * accidental and trimming rescues the login; the server normalizes it again anyway. A password is
+ * an arbitrary string where a space is significant: trimming silently alters what was typed, and
+ * an owner whose password ends in a space could never sign in. NIST SP 800-63B explicitly forbids
+ * modifying or truncating a password before verification.
  */
 export function readLoginCredentials(formData: FormData): LoginCredentials {
   return {
     email: String(formData.get('email') ?? '').trim(),
-    // Ровно String(...), без .trim(): см. комментарий выше. Это не упущение.
+    // Exactly String(...), no .trim(): see above. This is not an oversight.
     password: String(formData.get('password') ?? ''),
   };
 }
 
 /**
- * Пустое поле — единственное, что проверяем на клиентской стороне BFF: формат email и всё
- * остальное валидирует Nest, и его 400 превращается в текст ошибки в `loginAction`.
+ * An empty field is the only thing checked on the BFF side: the email format and everything else
+ * is validated by Nest, whose 400 becomes error text in `loginAction`.
  *
- * Пароль из одних пробелов пустым НЕ считается — он валиден как пароль, и решать, подходит
- * ли он, должен сервер, а не форма.
+ * A password of only spaces does NOT count as empty — it is a valid password, and whether it fits
+ * is the server's call, not the form's.
  */
 export function hasEmptyCredential({ email, password }: LoginCredentials): boolean {
   return email === '' || password === '';

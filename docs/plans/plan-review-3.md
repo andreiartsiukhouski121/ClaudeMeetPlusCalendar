@@ -1,234 +1,201 @@
-# Контрольное ревью планов (итерация 3)
+# Plan control review (iteration 3)
 
-Узкая проверка: закрыты ли 12 пунктов `docs/plans/plan-review-2.md` (далее **Р2**) — NB1–NB4 и
-NM1–NM8 — и не сломали ли правки целостность `docs/plans/feature-plan-implementation.md` (далее
-**ИП**) и `docs/plans/feature-plan-testing.md` (далее **ТП**). Полное ревью с нуля не проводилось.
+> **ARCHIVE.** A record of the third review pass over the two first plans, kept for the reasoning
+> behind the decisions. Not a source of truth: the live convention is in
+> [`e2e/README.md`](../../e2e/README.md), the invariants in [`CLAUDE.md`](../../CLAUDE.md).
+> Translated into English in `CH-014` and condensed; every verdict, number and fix is preserved.
 
-Вердикты вынесены по самим документам, а не по журналу §11 ИП. Три из четырёх блокеров Р2 проверены
-фактическими прогонами на установленных зависимостях (`@playwright/test@1.62.1`,
-`@nestjs/common@12.0.1`, `class-validator@0.15.1`, `class-transformer@0.5.1`, `vitest@4.1.11`,
-`eslint-plugin-playwright@2.11.0`, `pnpm@10.32.1`) — см. §6. Пробы собирались в скретчпаде, файлы
-репозитория не менялись.
+A narrow check: were the 12 items of `plan-review-2.md` (**R2**) — NB1–NB4 and NM1–NM8 — closed, and
+did the edits break the integrity of `feature-plan-implementation.md` (**IP**) and
+`feature-plan-testing.md` (**TP**)? No full review from scratch was done.
 
----
-
-## 1. Вердикт
-
-**Остались блокеры — два, и оба созданы правкой по NB3.**
-
-Все 12 пунктов Р2 применены по существу, и три из четырёх блокеров закрыты корректно — это
-подтверждено прогонами, а не чтением: скрипт `pnpm -r test -t "AL-UT-" --passWithNoTests`
-действительно фильтрует (`1 skipped`, exit 0, `Scope: 4 of 5`); новая фикстурная схема из ТП §5.5
-собрана в скретчпаде и работает — `test.use({ authUser: 'organizer' })` в `describe` загружается,
-логин выполняется один раз на воркер и пользователя; `CreateMeetingDto` с `@IsOptional()` на реальном
-Nest 12 отдаёт `201` и `durationMinutes: 60` без поля и `400 ["durationMinutes must not be less than
-15"]` при `5` — ровно то, что записано в ИП §2.1 и в `HD-API-18`.
-
-Арифметика сходится полностью: пересчитанные по таблицам 53 e2e (11/10/16/13/3) и 38 UT (25+13)
-совпадают с подытогами подразделов, разбивкой по приоритетам, §6.6 ТП и DoD всех шести задач.
-Дублей ID нет, висячих ссылок на удалённые ID в живых позициях нет, смягчений не появилось,
-`prettier --check` на трёх документах чистый.
-
-Блокируют исполнение два дефекта внесения `HD-API-18`, а не сама суть NB3. Первый: в ИП `T2.4`
-состав задачи так и остался «**15 кейсов**: `HD-API-01…10`, `13…17`, номера `18`, `19` не
-используются», хотя DoD этой же задачи требует `16 passed`, — то есть исполнитель напишет 15 тестов
-и получит красный DoD, который §6.6 ТП объявляет блокером. Второй: номер `18` переиспользован в
-нарушение собственного правила ТП §2 («`NN` **не переиспользуется** после удаления кейса»), и абзац
-ТП §3.3 прямо под новым кейсом по-прежнему утверждает, что `HD-API-18` удалён и не переиспользуется.
-Оба правятся точечно, тексты правок в §5.
+Verdicts come from the documents themselves rather than from IP's §11 change log. Three of R2's
+four blockers were checked by actual runs against the installed dependencies
+(`@playwright/test@1.62.1`, `@nestjs/common@12.0.1`, `class-validator@0.15.1`,
+`class-transformer@0.5.1`, `vitest@4.1.11`, `eslint-plugin-playwright@2.11.0`, `pnpm@10.32.1`) — see
+§6. The probes lived in a scratchpad; no repository file was changed.
 
 ---
 
-## 2. Таблица закрытия ревью 2
+## 1. Verdict
 
-| Пункт | Вердикт                                                         | Подтверждение                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
-| ----- | --------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| NB1   | **закрыто**                                                     | ТП стр. 310–311 и ИП стр. 438–439: `"pnpm -r test -t \"AL-UT-\" --passWithNoTests"` — без `--`. Упоминания `pnpm -r test -- -t` остались только в пояснениях «так писать нельзя» (ИП стр. 442, ТП стр. 320–324). Прогон подтверждает фильтрацию (§6, факт 1)                                                                                                                                                                                                     |
-| NB2   | **закрыто**                                                     | ТП §5.5 стр. 734–759: тестовая опция `authUser: ['teacher', { option: true }]` + worker-фикстура `authStateFor: (user) => Promise<string>`, возвращающая **функцию**; ИП стр. 53. Схема собрана и прогнана: 5 passed, `test.use` в `describe` принят (§6, факты 2–3)                                                                                                                                                                                             |
-| NB3   | **закрыто частично** — суть закрыта, внесение дефектно (Б1, Б2) | `@IsOptional()` — ИП стр. 222; строка формы ошибки `durationMinutes` — ИП стр. 200; кейс `HD-API-18` — ТП стр. 495. Поведение подтверждено пробой на реальных Nest 12 + class-validator 0.15.1 (§6, факт 4). Но ИП стр. 597 и ТП стр. 499–503 остались от прежней редакции                                                                                                                                                                                       |
-| NB4   | **закрыто**                                                     | ТП стр. 56–63: перечислены `common/crypto/password.spec.ts`, `auth/auth.service.spec.ts`, `auth/token.service.spec.ts`, `auth/jwt-auth.guard.spec.ts`, `users/users.service.spec.ts`, `meetings/meetings.service.spec.ts` — с подписанными ID; ТП стр. 77–81 отдельно объясняет, почему `auth/password.service.spec.ts` и `meetings/meetings.mapper.spec.ts` в дереве нет. Совпадает с ТП §4.1 (стр. 577–670), ИП `T1.4` (стр. 505) и `T2.3` (стр. 588) поштучно |
-| NM1   | **закрыто**                                                     | ТП стр. 202: правило 5 получило «кроме `*.unit.cases.md`, у которых парного спека нет по правилу 3» + единственный распознаваемый синтаксис пометки `- **Не автоматизирован:** <причина + ссылка на задачу>`; продублировано в §6.3 стр. 853–854                                                                                                                                                                                                                 |
-| NM2   | **закрыто**                                                     | `'playwright/no-page-pause': 'error'` — ТП стр. 159, ИП стр. 467 («эти четыре стоят в `warn`»). Описание шага 2 приведено к фактическим уровням: ТП стр. 821 («уровня `error` только `no-focused-test`, `missing-playwright-await` и `no-networkidle`»), ИП стр. 756. Уровни пресета сверены (§6, факт 7)                                                                                                                                                        |
-| NM3   | **закрыто**                                                     | ТП §6.3 стр. 848–852: «**Исключения:** файлы из `SELF_EXEMPT` … и из `UNIT_SPEC_EXEMPT` (baseline-спек скаффолда `apps/api/src/app.controller.spec.ts` с заголовком `should return "Hello World!"`)»; §6.4 стр. 875–876 — то же для чек-листа                                                                                                                                                                                                                    |
-| NM4   | **закрыто**                                                     | ИП стр. 434: «флаг нужен именно из-за пустого пакета, а не из-за фильтрации», «`-t` без совпадений при наличии spec-файлов даёт `1 skipped` и код 0»; ТП стр. 326–329 — та же формулировка. Факт перепроверен прогоном (§6, факт 1: `1 skipped`, exit 0)                                                                                                                                                                                                         |
-| NM5   | **закрыто**                                                     | ТП §1.5 стр. 178: «**Заголовок теста при переезде обязательно переименовывается** в `SM-API-01 — GET / отвечает приветствием`… Меняется только заголовок, логика — нет»; ИП `T0.6` стр. 461 — то же                                                                                                                                                                                                                                                              |
-| NM6   | **закрыто**                                                     | ТП §1.8 стр. 269: в таблицу добавлена строка «Конвенция сьюта — нет (в `SELF_EXEMPT`) — `suite-integrity.api.spec.ts` — api»; ИП DoD `T0.6` стр. 470: «перечислены в таблице `e2e/README.md` (в неё входит и строка мета-теста — тест-план §1.8), и число файлов совпадает». Пересчёт: таблица даёт 7 спек-файлов, столько же покажет `pnpm e2e --list`                                                                                                          |
-| NM7   | **закрыто**                                                     | ТП `HD-FN-08` стр. 527: «cookie `ps_session` в контексте отсутствует (если реализация оставляет её с пустым значением — значение строго пустое, и шаг 5 всё равно даёт редирект)» — слова «или пуста» нет, текст совпадает с предписанием Р2                                                                                                                                                                                                                     |
-| NM8   | **закрыто**                                                     | ИП §2.1 стр. 199: «при **нечисловом** значении в массиве приходят три сообщения (`must not be greater than 100`, `must not be less than 1`, `must be an integer number`), поэтому сверять по вхождению, а не по равенству (проверено пробой)»                                                                                                                                                                                                                    |
+**Two blockers remain, and both were created by the edit for NB3.**
 
-**Итог: закрыто полностью 11 из 12, закрыто частично 1 (NB3).** Не закрытых и закрытых неверно нет.
+All 12 R2 items were applied in substance, and three of the four blockers were closed correctly —
+confirmed by runs rather than by reading:
 
----
+- `pnpm -r test -t "AL-UT-" --passWithNoTests` really does filter (`1 skipped`, exit 0,
+  `Scope: 4 of 5`);
+- the new fixture scheme from TP §5.5 was assembled in a scratchpad and works —
+  `test.use({ authUser: 'organizer' })` inside a `describe` loads, and the login runs once per
+  worker and user;
+- `CreateMeetingDto` with `@IsOptional()` on real Nest 12 returns `201` with `durationMinutes: 60`
+  when the field is absent, and `400 ["durationMinutes must not be less than 15"]` for `5` — exactly
+  what IP §2.1 and `HD-API-18` claim.
 
-## 3. Арифметика
+The arithmetic adds up completely: 53 e2e recounted from the tables (11/10/16/13/3) and 38 UT
+(25+13) match the subsection subtotals, the priority breakdown, TP §6.6 and the DoD of all six
+tasks. There are no duplicate IDs, no dangling references to deleted IDs in live positions, no
+weakened assertions, and `prettier --check` is clean on all three documents.
 
-Пересчёт сделан по таблицам кейсов §3 и спискам §4 ТП, не по заявленным итогам. Команды:
-`grep -cE '^\| (AL|HD|SM)-(API|FN)-[0-9]{2}'` → 53; `grep -cE '^- \`(AL|HD)-UT-[0-9]{2}\`'`→ 38;
-приоритеты —`awk`по 4-й колонке строк-определений и по маркеру`P[0-9]` в списках юнитов.
-
-| Набор                                       | Заявлено                    | Пересчитано                                                         | Сходится |
-| ------------------------------------------- | --------------------------- | ------------------------------------------------------------------- | -------- |
-| `auth-login` API (§3.1)                     | 11 (P0 5 / P1 6 / P2 0)     | 11: `01…04`, `07`, `08`, `10`, `11`, `13…15` — 5 / 6 / 0            | да       |
-| `auth-login` функциональные (§3.2)          | 10 (P0 5 / P1 4 / P2 1)     | 10: `01…06`, `08`, `10`, `13`, `14` — 5 / 4 / 1                     | да       |
-| `home-dashboard` API (§3.3)                 | 16 (P0 9 / P1 7 / P2 0)     | 16: `01…10`, `13…18` — 9 / 7 / 0                                    | да       |
-| `home-dashboard` функциональные (§3.4)      | 13 (P0 8 / P1 4 / P2 1)     | 13: `01…11`, `14`, `16` — 8 / 4 / 1                                 | да       |
-| `smoke` (§3.5)                              | 3                           | 3: `SM-API-01…03`                                                   | да       |
-| **e2e всего** (§3.5 стр. 566)               | **53** (11+10+16+13+3)      | **53** строк-определений                                            | да       |
-| UT `auth-login` (§4.1)                      | 25 (P0 18 / P1 6 / P2 1)    | 25: `01…11`, `13…15`, `17`, `19…28` — 18 / 6 / 1                    | да       |
-| UT `home-dashboard` (§4.2)                  | 13 (P0 6 / P1 6 / P2 1)     | 13: `01…11`, `15`, `16` — 6 / 6 / 1                                 | да       |
-| **UT всего** (§4.2 стр. 677)                | **38** (25+13)              | **38** пунктов-определений                                          | да       |
-| §6.6 ТП, строки по наборам                  | 11 / 10 / 16 / 13 / 3 / 53  | совпадает с §3.1–3.5                                                | да       |
-| §6.6 ТП, юниты                              | 25 / 13 / 38 + baseline     | api 27 (8+3+3+2+2+9) + web 11 (3+4+4) = 38, +1 baseline             | да       |
-| DoD `T1.4` (ИП стр. 509)                    | `25 passed`                 | 25                                                                  | да       |
-| DoD `T1.5` (ИП стр. 515)                    | `11 passed`, smoke `2`      | 11; smoke в фиче 1 = `SM-API-01` + `SM-API-02` = 2                  | да       |
-| DoD `T1.9` (ИП стр. 551)                    | `10 passed`                 | 10                                                                  | да       |
-| DoD `T2.3` (ИП стр. 592)                    | `13 passed`, `pnpm test` 38 | 13; 38                                                              | да       |
-| DoD `T2.4` (ИП стр. 598)                    | `16 passed`, smoke `3`      | 16; 3 — **но состав той же задачи говорит 15** (блокер Б1)          | нет      |
-| DoD `T2.9` (ИП стр. 659)                    | `13 passed`                 | 13                                                                  | да       |
-| §5.4 ТП, «48 read-only кейсов»              | 48                          | 53 − 5 `@mutating` (`HD-API-13`, `17`, `18`, `HD-FN-07`, `08`) = 48 | да       |
-| §5.5 ТП, «13 кейсов фичи 2»                 | 13                          | 13                                                                  | да       |
-| Итоговый абзац ИП стр. 959–960              | 53 / 38                     | 53 / 38                                                             | да       |
-| Состав в `T1.4`/`T1.5`/`T1.9`/`T2.3`/`T2.9` | перечни ID                  | совпадают с §3–§4 поштучно                                          | да       |
-| Состав в `T2.4`                             | 15, `01…10`, `13…17`        | по ТП должно быть 16, `01…10`, `13…18`                              | **нет**  |
-
-Пересчёт сошёлся везде, кроме одной клетки — строки состава `T2.4`. Остальные восемь мест, куда
-`HD-API-18` обязан был попасть (подытог §3.3, итог §3.5, §5.4, §6.6, матрица §7, ИП §2.2 п. 5, DoD
-`T2.4`, журнал §11), обновлены.
+What blocks execution is two defects in **how** `HD-API-18` was introduced, not the substance of
+NB3. First: IP `T2.4` still describes the task as "**15 cases**: `HD-API-01…10`, `13…17`, numbers
+`18` and `19` unused", while the DoD of that same task demands `16 passed` — the implementer writes
+15 tests and gets a red DoD, which TP §6.6 declares a blocker. Second: number `18` was reused in
+violation of TP §2 ("`NN` is **never reused** after a case is deleted"), and the paragraph in TP §3.3
+directly below the new case still states that `HD-API-18` was deleted and is not reused. Both are
+fixable in place; the texts are in §5.
 
 ---
 
-## 4. Целостность
+## 2. Closure of review 2
 
-**Дубли ID — не найдено.** 53 строки-определения в §3 и 38 пунктов §4 уникальны
-(`sort | uniq -c | awk '$1>1'` — пусто). Единственная коллизия — не дубль определения, а
-переиспользование номера удалённого кейса: `HD-API-18` (см. Б2).
+| Item | Verdict                                                                     | Evidence                                                                                                                                                                                                                                             |
+| ---- | --------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| NB1  | **closed**                                                                  | The script is `"pnpm -r test -t \"AL-UT-\" --passWithNoTests"` without the `--`. Mentions of `pnpm -r test -- -t` survive only in the "do not write it this way" notes. Filtering confirmed by a run (fact 1)                                        |
+| NB2  | **closed**                                                                  | TP §5.5: the test option `authUser: ['teacher', { option: true }]` plus the worker fixture `authStateFor: (user) => Promise<string>` returning a **function**. Assembled and run: 5 passed, `test.use` accepted in a `describe` (facts 2–3)          |
+| NB3  | **partly closed** — the substance is closed, the wording is broken (B1, B2) | `@IsOptional()` and the `durationMinutes` error-shape line are in IP; the `HD-API-18` case is in TP. The behaviour was confirmed by a probe on real Nest 12 + class-validator 0.15.1 (fact 4). But two paragraphs survive from the previous revision |
+| NB4  | **closed**                                                                  | TP lists the six unit spec files with their IDs and separately explains why `auth/password.service.spec.ts` and `meetings/meetings.mapper.spec.ts` do not exist. Matches TP §4.1, IP `T1.4` and `T2.3` item by item                                  |
+| NM1  | **closed**                                                                  | Rule 5 gained "except `*.unit.cases.md`, which have no paired spec by rule 3" plus the single recognized marker syntax `- **Not automated:** <reason + task link>`                                                                                   |
+| NM2  | **closed**                                                                  | `'playwright/no-page-pause': 'error'` is in both documents, and the step 2 description now matches the actual preset levels. Levels verified (fact 7)                                                                                                |
+| NM3  | **closed**                                                                  | TP §6.3 spells out the `SELF_EXEMPT` and `UNIT_SPEC_EXEMPT` exceptions, and §6.4 repeats them for the checklist                                                                                                                                      |
+| NM4  | **closed**                                                                  | "The flag is needed because of the empty package, not because of filtering"; "`-t` with no match but with spec files gives `1 skipped` and exit 0". Re-verified by a run (fact 1)                                                                    |
+| NM5  | **closed**                                                                  | TP §1.5: "**The test title is renamed on the move**… only the title changes, the logic does not"; IP `T0.6` says the same                                                                                                                            |
+| NM6  | **closed**                                                                  | The suite convention row was added to the TP §1.8 table, and the `T0.6` DoD now requires the file count to match. The table gives 7 spec files, which is what `pnpm e2e --list` shows                                                                |
+| NM7  | **closed**                                                                  | `HD-FN-08`: "the `ps_session` cookie is absent from the context (if the implementation leaves it with an empty value, the value is strictly empty…)" — the words "or empty" are gone                                                                 |
+| NM8  | **closed**                                                                  | IP §2.1: "with a **non-numeric** value three messages arrive, so compare by inclusion rather than equality (verified by probe)"                                                                                                                      |
 
-**Висячие ссылки — не найдено.** Проверены все 24 удалённых/переехавших ID (`AL-API-05`, `06`, `09`,
-`12`, `16…19`; `AL-FN-07`, `09`, `11`, `12`; `HD-API-11`, `12`, `19`; `HD-FN-12`, `13`, `15`;
-`AL-UT-12`, `16`, `18`; `HD-UT-12`, `13`, `14`). Каждое упоминание стоит в пояснительном абзаце «что
-стало с номерами», в §9/§10/§11 ИП или в заголовке кейса-приёмника («покрывает бывшие …»). В живых
-позициях — матрице §7 ТП, таблице §6.6, DoD задач, §5.4, разделах рисков — ни одного. `AL-UT-16` и
-`AL-UT-18` в ТП вообще не встречаются вне абзаца-итога §4.1.
-
-**Новый кейс `HD-API-18`.** Внесён в матрицу §7 (ТП стр. 950: `HD-API-13…HD-API-18`), в список
-мутирующих §5.4 (стр. 716) и в подытог §3.3. Правила §5.4 соблюдены: выделенный пользователь
-`planner` (шаг 1), уникальный `title`, `startsAt` = `2030-01-01T10:00:00.000Z`; относительных
-счётчиков кейс не использует, потому что вообще не проверяет счётчик, — запрет §6.3 на абсолютные
-ассерты счётчиков не нарушен. Serial-блок и «только `planner`» заданы обобщённой формулировкой ИП
-`T2.4` стр. 597, которая покрывает и этот кейс. Конфликты номера — Б2.
-
-**Согласованность ИП и ТП — расхождений не найдено, кроме состава `T2.4`.**
-
-- Имена фикстур: `seed.ts`, `api.ts`, `auth.api.ts`, `auth.fixture.ts`, `console.ts` — ИП стр. 50–54
-  против ТП стр. 25–29, совпадают, включая роли (`api.ts` = `API_BASE_URL` + `apiRequest`,
-  `auth.api.ts` = логин по API).
-- Дерево юнит-спеков: ТП стр. 56–70 ↔ ТП §4.1/§4.2 ↔ ИП `T1.4` стр. 505 ↔ ИП `T2.3` стр. 588 —
-  девять файлов, одинаковые пути, одинаковые диапазоны ID.
-- Набор правил ESLint: четыре правила (`no-wait-for-timeout`, `no-skipped-test`,
-  `no-conditional-in-test`, `no-page-pause`) в ТП стр. 156–159, ИП стр. 467, и в описаниях шага 2
-  (ТП стр. 821, ИП стр. 756).
-- Судьба `seed.api.spec.ts`: не создаётся до `T1.5` — ТП стр. 34, 350, 563–564; ИП стр. 56, 462, 854.
-- `SM-API-02` вводится в `T1.5`, `SM-API-03` — в `T2.4`: колонка «Вводится» ТП §3.5, ИП `T1.5`
-  стр. 513 и `T2.4` стр. 596. Совпадает.
-- Порядок и нумерация шагов пайплайна: 10 шагов, ИП стр. 755–764 дословно повторяют нумерацию
-  ТП §6.2; «шаги 1–8 не переставляются» в обоих.
-
-**Смягчений — не найдено.** Grep по «допустим\*» даёт только легитимные употребления: «Разбиение
-**обязательно**, а не «допустимо»» (ИП стр. 462), «Ослабление ассерта допустимо, только если он был
-неверным» (ИП стр. 561), `test.fixme` (ТП стр. 898), «допустимого диапазона» в заголовке `HD-API-09`,
-«абсолютные числа допустимы только для read-only пользователей» (ТП стр. 724). В ожидаемых
-результатах кейсов §3.1–3.5 «или/либо» не осталось ни разу: единственное совпадение — литерал
-сообщения «Неверный email или пароль» в `AL-API-02`.
-
-**Мелочь (не блокер).** `docs/plans/README.md` стр. 10 после появления §11 ИП по-прежнему обещает
-только «журнал правок по ревью 1 — в §10 там же».
+**Result: 11 of 12 fully closed, 1 partly (NB3).** None left open or closed incorrectly.
 
 ---
 
-## 5. Остаточные блокеры
+## 3. Arithmetic
 
-### Б1 — состав `T2.4` в ИП остался «15 кейсов, `18` не используется» при DoD `16 passed`
+Recounted from the case tables of TP §3 and the lists of §4, not from the stated totals.
 
-**Чем подтверждено.** ИП стр. 597: «Состав — **15 кейсов** из тест-плана §3.3: `HD-API-01…10`,
-`13…17`. Номера `11`, `12` объединены в `HD-API-10`, `18`, `19` не используются». Следующая строка,
-стр. 598: «DoD: `pnpm e2e --project=api --grep @home-dashboard` → `16 passed`». ТП §3.3 стр. 497 —
-16 кейсов, §6.6 стр. 914 — 16, матрица §7 стр. 950 — `HD-API-13…HD-API-18`.
+| Set                                       | Stated                     | Recounted                                                    | Agrees |
+| ----------------------------------------- | -------------------------- | ------------------------------------------------------------ | ------ |
+| `auth-login` API (§3.1)                   | 11 (P0 5 / P1 6 / P2 0)    | 11: `01…04`, `07`, `08`, `10`, `11`, `13…15` — 5 / 6 / 0     | yes    |
+| `auth-login` functional (§3.2)            | 10 (P0 5 / P1 4 / P2 1)    | 10: `01…06`, `08`, `10`, `13`, `14` — 5 / 4 / 1              | yes    |
+| `home-dashboard` API (§3.3)               | 16 (P0 9 / P1 7 / P2 0)    | 16: `01…10`, `13…18` — 9 / 7 / 0                             | yes    |
+| `home-dashboard` functional (§3.4)        | 13 (P0 8 / P1 4 / P2 1)    | 13: `01…11`, `14`, `16` — 8 / 4 / 1                          | yes    |
+| `smoke` (§3.5)                            | 3                          | 3: `SM-API-01…03`                                            | yes    |
+| **e2e total**                             | **53** (11+10+16+13+3)     | **53** definition rows                                       | yes    |
+| UT `auth-login` (§4.1)                    | 25 (P0 18 / P1 6 / P2 1)   | 25: `01…11`, `13…15`, `17`, `19…28` — 18 / 6 / 1             | yes    |
+| UT `home-dashboard` (§4.2)                | 13 (P0 6 / P1 6 / P2 1)    | 13: `01…11`, `15`, `16` — 6 / 6 / 1                          | yes    |
+| **UT total**                              | **38** (25+13)             | **38** definition items                                      | yes    |
+| TP §6.6 rows and units                    | 11/10/16/13/3/53; 25/13/38 | match §3.1–3.5; api 27 + web 11 = 38, plus 1 baseline        | yes    |
+| DoD of `T1.4`/`T1.5`/`T1.9`/`T2.3`/`T2.9` | 25/11/10/13/13 passed      | all match                                                    | yes    |
+| DoD `T2.4`                                | `16 passed`, smoke `3`     | 16 and 3 — **but the task composition says 15** (blocker B1) | no     |
+| TP §5.4 "48 read-only cases"              | 48                         | 53 − 5 `@mutating` = 48                                      | yes    |
+| Composition of `T2.4`                     | 15, `01…10`, `13…17`       | per TP it must be 16, `01…10`, `13…18`                       | **no** |
 
-**Почему блокер, а не опечатка.** Состав задачи — это то, по чему исполнитель пишет спек. Он напишет
-15 тестов, получит `15 passed` и красный DoD, а §6.6 ТП стр. 923–924 объявляет несовпадение числа
-блокером («либо кейс не автоматизирован, либо появился недокументированный тест»). Это тот же класс
-отказа, за который Р2 признало блокером NB4.
-
-**Правка.** ИП стр. 597 заменить на: «Состав — **16 кейсов** из тест-плана §3.3: `HD-API-01…10`,
-`13…18`. Номера `11`, `12` объединены в `HD-API-10`, `19` не используется. `HD-API-18` — новый кейс
-по блокеру NB3 ревью 2 (`POST /meetings` без `durationMinutes` → 201 и дефолт 60)». Остальная часть
-строки (правила мутирующих кейсов) не меняется.
-
-### Б2 — номер `HD-API-18` переиспользован в нарушение правила ТП §2, и абзац §3.3 это опровергает
-
-**Чем подтверждено.** ТП §2 стр. 362: «`NN` — двузначный, **не переиспользуется** после удаления
-кейса». `HD-API-18` был удалён по §5.1 ревью 1, и ТП стр. 499–503, то есть **сразу под новым
-определением кейса на стр. 495**, по-прежнему гласит: «Номера `11`, `12` (объединены в `HD-API-10`),
-`18`, `19` (удалены по §5.1 ревью 1) не переиспользуются: — `HD-API-18` («форма элемента списка») —
-ключи проверяет `HD-API-01` …». Р2 в NB3 предложило «кейс `HD-API-18` в свободном номере», но `18`
-свободным не был — ошибка самого ревью, унаследованная правкой.
-
-**Почему блокер.** Во-первых, `home-dashboard.api.cases.md` строится из §3.3 вместе с этим абзацем,
-и тогда файл содержит `HD-API-18` дважды — правило 6 §1.6 («ни один `.cases.md` не содержит
-дублирующихся ID») даёт красный **шаг 1** пайплайна, который блокирует все последующие. Во-вторых,
-документ в одном разделе определяет кейс и отрицает его существование — исполнителю нечем
-разрешить противоречие, кроме догадки.
-
-**Правка (предпочтительная — сохраняет правило §2).** Переномеровать кейс в `HD-API-20` (следующий
-свободный: `18` и `19` удалены) и провести номер по шести местам:
-
-- ТП стр. 495 — ID в строке кейса;
-- ТП стр. 716 — список пяти мутирующих;
-- ТП стр. 950 — матрица §7: `HD-API-13…HD-API-17`, `HD-API-20`;
-- ИП стр. 222 — «Ловится кейсом `HD-API-20`»;
-- ИП стр. 597 — состав `T2.4` (см. Б1): `HD-API-01…10`, `13…17`, `20`;
-- ИП стр. 947, 957 — журнал §11.
-
-Числа при этом не меняются нигде: 16 / 53 / 48 остаются. Абзац ТП стр. 499–503 остаётся верным как
-есть.
-
-**Альтернатива (дешевле, но ломает правило §2):** оставить номер `18`, а абзац стр. 499–503
-переписать на «Номера `11`, `12` объединены в `HD-API-10`, `19` не используется. Номер `18`
-переиспользован осознанно — прежний кейс «форма элемента списка» слился в `HD-API-01`, новый
-`HD-API-18` проверяет дефолт `durationMinutes`; исключение из правила §2 названо здесь явно» и
-дописать это исключение в §2 стр. 362. Тогда придётся отдельно проследить, чтобы правило 6 §1.6 не
-считало ID из пояснительных абзацев.
-
-**Другого блокирующего кода в правках нет.** Ни NB1, ни NB2, ни NB4 остаточных дефектов не оставили.
+Everything reconciles except one cell — the composition row of `T2.4`. The other eight places where
+`HD-API-18` had to appear were updated.
 
 ---
 
-## 6. Проверенные факты
+## 4. Integrity
 
-| №   | Утверждение плана                                                                               | Команда / проба                                                                                                                                                                                                             | Результат                                                                                                                                                                                                                         | Вердикт                                           |
-| --- | ----------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
-| 1   | `pnpm -r test -t "AL-UT-" --passWithNoTests` фильтрует юниты по фиче (ТП стр. 310, ИП стр. 438) | `pnpm -r test -t "AL-UT-" --passWithNoTests` в корне репозитория                                                                                                                                                            | `Scope: 4 of 5 workspace projects`; `apps/api test$ vitest run "-t" "AL-UT-" "--passWithNoTests"`; `Tests 1 skipped (1)`; exit 0. Литерального `--` в командной строке `vitest` нет, охват корневой пакет не втягивает            | **подтверждено** (NB1, NM4)                       |
-| 2   | Схема ТП §5.5 загружается: `test.use({ authUser: 'organizer' })` в `describe` допустим          | Playwright 1.62.1, проба в скретчпаде: `auth.fixture.ts` буква в букву из ТП стр. 740–759 + спек с тремя `describe`, `--workers=1`                                                                                          | `5 passed (1.3s)`, exit 0. Ошибки `Cannot use({ authUser }) in a describe group` нет; `worker fixture … cannot depend on a test fixture` нет; `test.use({ storageState: undefined })` в соседнем `describe` тоже принят           | **подтверждено** (NB2)                            |
-| 3   | Логин выполняется один раз на воркер и пользователя                                             | та же проба, счётчик вызовов `uiLogin`                                                                                                                                                                                      | `login#1 user=teacher worker=0` — переиспользован вторым тестом под `teacher`; `login#2 user=organizer worker=0` — переиспользован вторым тестом serial-блока. Всего 2 логина на 4 авторизованных теста                           | **подтверждено** (NB2)                            |
-| 4   | `CreateMeetingDto` из ИП §2.2 п. 5 принимает тело без `durationMinutes`, сервис подставляет 60  | реальный Nest-app в скретчпаде: `@nestjs/common@12.0.1`, `class-validator@0.15.1`, `APP_PIPE` = `ValidationPipe({whitelist, forbidNonWhitelisted, transform})`, DTO и `create()` списаны из плана, HTTP на `127.0.0.1:3399` | без `durationMinutes` → `201 {"…","durationMinutes":60}`; `durationMinutes:30` → `201 … 30`; `durationMinutes:5` → `400 {"message":["durationMinutes must not be less than 15"],…}`; `481` → `400 … must not be greater than 480` | **подтверждено** (NB3, форма §2.1 стр. 200 точна) |
-| 5   | Побочные ожидания того же контракта                                                             | та же проба                                                                                                                                                                                                                 | лишнее поле `ownerId` → `400 ["property ownerId should not exist"]` (`HD-API-16`); пустой объект → `400` с упоминанием `title` и `startsAt` (`HD-API-15`)                                                                         | подтверждено                                      |
-| 6   | `prettier --check` на трёх документах чистый (условие DoD `T0.7`/`T2.14`)                       | `npx prettier --check docs/plans/feature-plan-implementation.md docs/plans/feature-plan-testing.md docs/plans/README.md`                                                                                                    | `All matched files use Prettier code style!`, exit 0                                                                                                                                                                              | подтверждено                                      |
-| 7   | «В пресете эти четыре стоят в `warn`» (ИП стр. 467); «уровня `error` только три» (ТП стр. 821)  | `node -e "import p from 'eslint-plugin-playwright'; …configs['flat/recommended'].rules"`                                                                                                                                    | `no-wait-for-timeout`, `no-skipped-test`, `no-conditional-in-test`, `no-page-pause` = `warn`; `no-networkidle`, `no-focused-test`, `missing-playwright-await` = `error`                                                           | подтверждено (NM2)                                |
-| 8   | 53 e2e-кейса и 38 юнит-кейсов определены в ТП                                                   | `grep -cE '^\| (AL\|HD\|SM)-(API\|FN)-[0-9]{2}'`; `grep -cE '^- \`(AL\|HD)-UT-[0-9]{2}\`'`; `sort \| uniq -c \| awk '$1>1'`                                                                                                 | 53 и 38, дублей нет; разбивка по приоритетам 5/6/0, 5/4/1, 9/7/0, 8/4/1 и 18/6/1, 6/6/1 совпадает с подытогами                                                                                                                    | подтверждено                                      |
-| 9   | Состав `T2.4` согласован с ТП §3.3                                                              | `grep -n "15 кейсов\|16 кейсов\|15 passed\|16 passed" docs/plans/*.md`                                                                                                                                                      | ИП стр. 597 — «15 кейсов … `13…17` … `18`, `19` не используются»; ИП стр. 598 — «`16 passed`»; ТП стр. 497 и 914 — 16                                                                                                             | **опровергнуто** (блокер Б1)                      |
-| 10  | Номер `HD-API-18` свободен (Р2, NB3: «в свободном номере»)                                      | `grep -n "HD-API-18" docs/plans/feature-plan-testing.md`                                                                                                                                                                    | стр. 495 — определение нового кейса; стр. 502 — «`HD-API-18` («форма элемента списка») … не переиспользуются». Правило ТП §2 стр. 362 переиспользование запрещает                                                                 | **опровергнуто** (блокер Б2)                      |
-| 11  | Строка `HD-API-18` — часть таблицы кейсов §3.3                                                  | чтение ТП стр. 493–497                                                                                                                                                                                                      | стр. 494 — пустая строка, отделяющая новый ряд от таблицы: в GFM стр. 495 отрендерится абзацем с пайпами, а не строкой таблицы. `prettier --check` это не ловит (факт 6)                                                          | дефект вёрстки, чинится удалением стр. 494        |
+**No duplicate IDs.** The 53 definition rows in §3 and the 38 items in §4 are unique. The only
+collision is not a duplicate definition but the reuse of a deleted case's number: `HD-API-18`
+(see B2).
+
+**No dangling references.** All 24 deleted or relocated IDs were checked. Every mention sits in an
+explanatory "what happened to these numbers" paragraph, in IP §9/§10/§11, or in the heading of a
+receiving case. None appears in a live position — the TP §7 matrix, the §6.6 table, task DoDs, §5.4,
+or the risk sections.
+
+**The new `HD-API-18` case** was added to the §7 matrix, to the mutating list in §5.4 and to the
+§3.3 subtotal. The §5.4 rules are respected: the dedicated `planner` user, a unique `title`, and
+`startsAt` = `2030-01-01T10:00:00.000Z`. It uses no relative counters because it checks no counter
+at all, so the §6.3 ban on absolute counter assertions is not violated.
+
+**IP and TP agree** on fixture names, the unit spec tree (nine files, identical paths and ID
+ranges), the four ESLint rules, the fate of `seed.api.spec.ts`, which task introduces `SM-API-02`
+and `SM-API-03`, and the ten-step pipeline numbering — with the sole exception of the `T2.4`
+composition.
+
+**No weakened assertions.** A grep for "acceptable"/"allowed" returns only legitimate uses. In the
+expected results of §3.1–3.5 there is no "or"/"either" left; the single match is the literal message
+"Invalid email or password" in `AL-API-02`.
+
+**Minor (not a blocker).** After §11 appeared in IP, `docs/plans/README.md` still promises only "the
+review 1 change log in §10 there".
 
 ---
 
-## 7. Что делать дальше
+## 5. Remaining blockers
 
-1. **Б1** — переписать строку состава ИП `T2.4` (стр. 597) на 16 кейсов и диапазон `13…18` (или
-   `13…17`, `20` — если выбран вариант с переномеровкой).
-2. **Б2** — переномеровать новый кейс в `HD-API-20` по шести адресам из §5 либо назвать
-   переиспользование номера `18` явным исключением из правила §2 и переписать абзац ТП стр. 499–503.
-3. Убрать пустую строку ТП стр. 494, чтобы `HD-API-18` попал в таблицу §3.3 (факт 11).
-4. Мелочь: дописать §11 в правило приоритета `docs/plans/README.md` стр. 10.
+### B1 — the `T2.4` composition still says "15 cases, `18` unused" while the DoD says `16 passed`
 
-Пересчёт итогов после этих правок не потребуется: 53 e2e, 38 UT, 16 в `home-dashboard` API и 48
-read-only кейсов остаются без изменений при любом из двух вариантов Б2.
+**Evidence.** IP: "Composition — **15 cases** from test plan §3.3: `HD-API-01…10`, `13…17`. Numbers
+`11`, `12` merged into `HD-API-10`; `18`, `19` unused." The next line: "DoD:
+`pnpm e2e --project=api --grep @home-dashboard` → `16 passed`". TP §3.3 says 16, §6.6 says 16, and
+the §7 matrix says `HD-API-13…HD-API-18`.
+
+**Why a blocker rather than a typo.** The task composition is what the implementer writes the spec
+from. They will write 15 tests, get `15 passed` and a red DoD, and TP §6.6 declares a count mismatch
+a blocker ("either a case is not automated, or an undocumented test appeared"). That is the same
+class of failure R2 called a blocker in NB4.
+
+**Fix.** Replace the composition line with: "Composition — **16 cases** from test plan §3.3:
+`HD-API-01…10`, `13…18`. Numbers `11`, `12` merged into `HD-API-10`, `19` unused. `HD-API-18` is a
+new case from review 2's NB3 (`POST /meetings` without `durationMinutes` → 201 and a default of
+60)." The rest of the line (the mutating case rules) stays.
+
+### B2 — the number `HD-API-18` was reused against TP §2, and the §3.3 paragraph contradicts it
+
+**Evidence.** TP §2: "`NN` is two digits and is **never reused** after a case is deleted."
+`HD-API-18` was deleted in review 1, and the paragraph **directly below the new case definition**
+still reads: "Numbers `11`, `12` (merged into `HD-API-10`), `18`, `19` (deleted in review 1) are not
+reused: — `HD-API-18` ("list item shape") — the keys are checked by `HD-API-01` …". R2's NB3 asked
+for "the case at a free number", but `18` was not free — an error of the review itself, inherited by
+the edit.
+
+**Why a blocker.** First, `home-dashboard.api.cases.md` is built from §3.3 together with that
+paragraph, so the file would contain `HD-API-18` twice — rule 6 of §1.6 ("no `.cases.md` holds
+duplicate IDs") makes **step 1** of the pipeline red, which blocks every later step. Second, the
+document defines a case and denies its existence in one section, and the implementer has nothing but
+a guess to resolve that.
+
+**Preferred fix (keeps rule §2).** Renumber the case to `HD-API-20` (the next free number, since 18
+and 19 are deleted) and carry the number through six places: the TP case row, the list of five
+mutating cases, the §7 matrix, the IP reference "caught by `HD-API-20`", the `T2.4` composition, and
+the §11 change log. No number changes anywhere: 16 / 53 / 48 stay as they are.
+
+**Alternative (cheaper but breaks rule §2):** keep `18` and rewrite the paragraph to name the reuse
+as an explicit, deliberate exception, adding that exception to §2. Then rule 6 of §1.6 must be made
+to ignore IDs inside explanatory paragraphs.
+
+---
+
+## 6. Verified facts
+
+| #   | Claim                                                                   | Result                                                                                                                                                                  | Verdict                                |
+| --- | ----------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
+| 1   | `pnpm -r test -t "AL-UT-" --passWithNoTests` filters units by feature   | `Scope: 4 of 5 workspace projects`; `Tests 1 skipped (1)`; exit 0. No literal `--` reaches `vitest`, and the root package is not pulled in                              | **confirmed** (NB1, NM4)               |
+| 2   | The TP §5.5 scheme loads: `test.use({ authUser })` inside a `describe`  | `5 passed (1.3s)`, exit 0. Neither "Cannot use({ authUser }) in a describe group" nor "worker fixture cannot depend on a test fixture" appeared                         | **confirmed** (NB2)                    |
+| 3   | The login runs once per worker and user                                 | 2 logins for 4 authenticated tests; each state reused by the second test of its group                                                                                   | **confirmed** (NB2)                    |
+| 4   | `CreateMeetingDto` accepts a body without `durationMinutes`, default 60 | without the field → `201 … "durationMinutes":60`; `30` → `201 … 30`; `5` → `400 ["durationMinutes must not be less than 15"]`; `481` → `400 … 480`                      | **confirmed** (NB3)                    |
+| 5   | Side expectations of the same contract                                  | an extra `ownerId` → `400 ["property ownerId should not exist"]` (`HD-API-16`); an empty object → `400` mentioning `title` and `startsAt` (`HD-API-15`)                 | confirmed                              |
+| 6   | `prettier --check` is clean on the three documents                      | `All matched files use Prettier code style!`, exit 0                                                                                                                    | confirmed                              |
+| 7   | "These four sit at `warn` in the preset"                                | `no-wait-for-timeout`, `no-skipped-test`, `no-conditional-in-test`, `no-page-pause` = `warn`; `no-networkidle`, `no-focused-test`, `missing-playwright-await` = `error` | confirmed (NM2)                        |
+| 8   | 53 e2e and 38 unit cases are defined in TP                              | 53 and 38, no duplicates; the priority breakdown matches the subtotals                                                                                                  | confirmed                              |
+| 9   | The `T2.4` composition agrees with TP §3.3                              | IP says "15 cases … `13…17` … `18`, `19` unused" and "`16 passed`"; TP says 16 in two places                                                                            | **refuted** (blocker B1)               |
+| 10  | The number `HD-API-18` is free                                          | It is both the new case definition and, seven lines below, "… is not reused". TP §2 forbids reuse                                                                       | **refuted** (blocker B2)               |
+| 11  | The `HD-API-18` row is part of the §3.3 table                           | A blank line separates the new row from the table: in GFM it renders as a paragraph with pipes rather than a table row. `prettier --check` does not catch it            | a layout defect; delete the blank line |
+
+---
+
+## 7. What to do next
+
+1. **B1** — rewrite the `T2.4` composition line to 16 cases and the range `13…18` (or `13…17`, `20`
+   if the renumbering option is chosen).
+2. **B2** — renumber the new case to `HD-API-20` across the six addresses in §5, or name the reuse
+   of `18` an explicit exception to rule §2 and rewrite the contradicting paragraph.
+3. Remove the blank line so `HD-API-18` lands inside the §3.3 table (fact 11).
+4. Minor: mention §11 in the priority rule of `docs/plans/README.md`.
+
+No totals need recomputing afterwards: 53 e2e, 38 UT, 16 in `home-dashboard` API and 48 read-only
+cases stay unchanged under either option for B2.

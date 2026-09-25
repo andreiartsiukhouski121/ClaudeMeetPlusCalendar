@@ -1,124 +1,125 @@
-# Реестр изменений
+# Changelog
 
-Что уже сделано в проекте: фичи, изменения процесса и **все найденные дефекты с причинами**.
+What has been done in this project: features, process changes and **every defect found, with its
+cause**.
 
-Зачем файл существует: без него каждая новая задача начинается с догадки «а это уже делали?», и
-проект получает второй `format:check`, второй способ проверять сессию, второй тайминговый фикс.
-Раздел «Дефекты» важнее раздела «Фичи»: он говорит, на чём здесь **уже** ломались, и половина
-записей — это ошибки, которые невозможно увидеть в диффе.
+Why the file exists: without it every new task starts with a guess — "did we do this already?" —
+and the project ends up with a second `format:check`, a second way to check the session, a second
+timing fix. The Defects section matters more than the Features section: it says what has **already**
+broken here, and half the entries are mistakes that cannot be seen in a diff.
 
-**Правила ведения**
+**Rules**
 
-- Новые записи — **сверху** своей таблицы: так параллельные правки конфликтуют в одной строке, а не
-  по всему файлу.
-- ID не переиспользуются после удаления записи.
-- **Графа `Коммит` — последняя во всех таблицах реестра.** На этом держатся и `LG-API-03`, и
-  `pnpm ledger:fill`: они адресуют позицию, а не угадывают графу по содержимому. Угадывание уже
-  ломалось — в описании записи `FX-019` слово `pending` стоит в тексте, и парсер принимал описание
-  за графу коммита (`FX-022`). Меняешь порядок граф — правь и проверку.
-- Каждая запись обязана иметь `Коммит` — иначе это обещание, а не изменение. У записи, которую
-  добавляет текущее изменение, ставится литерал `pending`, и **следующим коммитом** он заменяется
-  на настоящий хеш: хеш нельзя знать до коммита, а `--amend` менял бы его снова. Такая правка
-  реестра своей записи не требует. Подставляй командой **`pnpm ledger:fill`**, а не заменой по
-  файлу: она правит только строки таблиц. Глобальная замена дважды испортила текст этих правил —
-  слово `pending` встречается и в них. `LG-API-03` проверяет не количество таких записей — одно изменение законно вносит несколько, — а
-  то, что ни одна не пережила больше одного коммита: смотрит версию файла на `HEAD~1`.
-- Дефект, найденный проверкой, попадает в «Дефекты» **вместе с признаком, чем он был найден**: это
-  единственный способ понять, какие проверки реально работают.
-- Закрытый пункт бэклога переезжает сюда, а в [BACKLOG.md](BACKLOG.md) помечается закрытым со
-  ссылкой на ID здесь.
-- Структуру файла проверяет `e2e/ledger/ledger.api.spec.ts` на каждом `pnpm verify`.
-
----
-
-## Фичи
-
-| ID     | Дата       | Что                                                                            | Проверки                                    | Коммит    |
-| ------ | ---------- | ------------------------------------------------------------------------------ | ------------------------------------------- | --------- |
-| FT-002 | 2026-09-07 | Главная `/`: приветствие, счётчик встреч, 3 последние, создание встречи, выход | 16 API-кейсов, 13 функциональных, 13 юнитов | `4bedc02` |
-| FT-001 | 2026-09-07 | Страница логина `/auth/login` + контракт `POST /auth/login`, `GET /auth/me`    | 11 API-кейсов, 10 функциональных, 27 юнитов | `7c4fc5b` |
-
-**FT-001.** BFF-схема: браузер к Nest не ходит, сессия в httpOnly cookie, логин и выход — Server
-Actions. Пароли — `scrypt` с солью на пользователя. Неверный пароль и неизвестный email дают одно
-сообщение. `/auth/register` — заглушка (см. `BL-008`).
-
-**FT-002.** In-memory встречи с сидом из 4 пользователей. `total` считается `countByOwner`, не длиной
-`items`. `ownerId` всегда из подписанного токена. Гейт неавторизованных — `src/proxy.ts` (не
-`middleware.ts`: в Next 16 deprecated), плюс дублирующая проверка в `lib/dal.ts` и в каждом Server
-Action.
+- New entries go at the **top** of their table: parallel edits then conflict on one line rather
+  than across the file.
+- IDs are never reused after an entry is deleted.
+- **The `Commit` column is last in every ledger table.** Both `LG-API-03` and `pnpm ledger:fill`
+  depend on that: they address a position rather than guessing the column by content. Guessing
+  already broke — the description of `FX-019` contains the word `pending`, and the parser took the
+  description for the commit column (`FX-022`). Change the column order and you change the checks.
+- Every entry must carry a `Commit`, or it is a promise rather than a change. An entry added by the
+  current change gets the literal `pending`, and the **next commit** replaces it with the real
+  hash: the hash cannot be known before the commit, and `--amend` would change it again. That edit
+  needs no ledger entry of its own. Substitute it with **`pnpm ledger:fill`** rather than a
+  file-wide replace: the command only edits table rows. A global replace has twice corrupted the
+  text of these very rules, because the word `pending` appears in them too.
+- A defect found by a check goes into Defects **together with what found it**: that is the only way
+  to learn which checks actually work.
+- A closed backlog item moves here and is marked closed in [BACKLOG.md](BACKLOG.md) with a
+  reference to its ID here.
+- The file structure is checked by `e2e/ledger/ledger.api.spec.ts` on every `pnpm verify`.
 
 ---
 
-## Изменения процесса и инфраструктуры
+## Features
 
-| ID     | Дата       | Что                                                                                                                                                                                      | Коммит    |
-| ------ | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| CH-013 | 2026-09-16 | Два именованных потока работ: скил `bugfix-pipeline` и шаблон `TEMPLATE-BUGFIX.md` (`pnpm plan:new <slug> --bug`), фазы названы в `feature-pipeline`, развилка «фича или баг» в правилах | `5c860e6` |
-| CH-012 | 2026-09-16 | Аудит скилов: снят конфликт механизмов параллельности, замеры сведены в `e2e/README.md`, планы помечены архивом, добавлены `skills:sync`/`skills:check` с пином по коммиту               | `7126d8a` |
-| CH-011 | 2026-09-15 | Внешние скилы `skills.sh` подключены адаптерами в `.claude/skills/` (4 шт.), `.agents/` — в `.gitignore`, `skills-lock.json` — в git                                                     | `7126d8a` |
-| CH-010 | 2026-09-15 | `CLAUDE.md` в каждом приложении: карта пакета, его особенности и куда писать тесты — без копий корневых инвариантов                                                                      | `7126d8a` |
-| CH-009 | 2026-09-14 | Хук `pre-commit` прогоняет юниты (`pnpm test` после `lint-staged`, `.md`-коммиты пропускаются); в правилах закреплено «кто что гоняет»                                                   | `7126d8a` |
-| CH-008 | 2026-09-08 | CI на GitHub Actions: job `verify` по шагам + production-сборка с артефактом; локальный `verify` выровнен с CI                                                                           | `60bd98c` |
-| CH-007 | 2026-09-08 | Ориентация стала принудительной: `check-orientation.mjs` в pre-commit и в `verify`, `pnpm plan:new`                                                                                      | `825a498` |
-| CH-006 | 2026-09-08 | Реестр изменений и бэклог + обязательная ориентация перед планированием                                                                                                                  | `b46addb` |
-| CH-005 | 2026-09-08 | Межфичевой security-сьют `e2e/security/` (15 кейсов) + `pnpm audit` в `verify`                                                                                                           | `daf86b2` |
-| CH-004 | 2026-09-08 | Ускорение пайплайна: скил `feature-pipeline`, шаблон плана, инварианты в `CLAUDE.md`, `pnpm verify`                                                                                      | `9d4b752` |
-| CH-003 | 2026-09-07 | Скил `regression-verify` — приёмка фичи с обязательным прогоном трёх уровней                                                                                                             | `36e83b4` |
-| CH-002 | 2026-09-07 | Регрессионный сьют по фичам: парные `.cases.md`/`.spec.ts`, маршрутизация проектов Playwright суффиксом имени файла                                                                      | `36e83b4` |
-| CH-001 | 2026-09-07 | Мета-тест конвенции `e2e/suite-integrity.api.spec.ts`                                                                                                                                    | `36e83b4` |
+| ID     | Date       | What                                                                   | Checks                          | Commit    |
+| ------ | ---------- | ---------------------------------------------------------------------- | ------------------------------- | --------- |
+| FT-002 | 2026-09-07 | Home `/`: greeting, meeting counter, 3 most recent, creation, sign-out | 16 API, 13 functional, 13 units | `4bedc02` |
+| FT-001 | 2026-09-07 | Login page `/auth/login` + `POST /auth/login`, `GET /auth/me` contract | 11 API, 10 functional, 27 units | `7c4fc5b` |
+
+**FT-001.** BFF layout: the browser never talks to Nest, the session lives in an httpOnly cookie,
+login and sign-out are Server Actions. Passwords use `scrypt` with a per-user salt. A wrong password
+and an unknown email give one message. `/auth/register` is a placeholder (see `BL-008`).
+
+**FT-002.** In-memory meetings with a seed of 4 users. `total` comes from `countByOwner`, not from
+the length of `items`. `ownerId` always comes from the signed token. The gate for unauthenticated
+visitors is `src/proxy.ts` (not `middleware.ts`, deprecated in Next 16), plus a duplicate check in
+`lib/dal.ts` and inside every Server Action.
 
 ---
 
-## Дефекты и фиксы
+## Process and infrastructure changes
 
-Найденное **проверками**, а не ревью диффа. Колонка «Чем найдено» — самая полезная в файле.
+| ID     | Date       | What                                                                                                                                                                       | Commit    |
+| ------ | ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| CH-014 | 2026-09-25 | The whole project switched to English: docs, skills, comments, test titles, UI strings, API messages and the seed; comments compressed                                     | `39e9e0c` |
+| CH-013 | 2026-09-16 | Two named workflows: the `bugfix-pipeline` skill and `TEMPLATE-BUGFIX.md` (`pnpm plan:new <slug> --bug`), phases named in `feature-pipeline`, the fork documented in rules | `5c860e6` |
+| CH-012 | 2026-09-16 | Skill audit: the parallelism conflict removed, measurements consolidated in `e2e/README.md`, plans marked archive, `skills:sync`/`skills:check` added with commit pinning  | `7126d8a` |
+| CH-011 | 2026-09-15 | External skills wired in as adapters in `.claude/skills/` (4), `.agents/` in `.gitignore`, `skills-lock.json` in git                                                       | `7126d8a` |
+| CH-010 | 2026-09-15 | A `CLAUDE.md` per application: package map, its quirks and where tests go — without copies of the root invariants                                                          | `7126d8a` |
+| CH-009 | 2026-09-14 | The `pre-commit` hook runs units (`pnpm test` after `lint-staged`, `.md` commits skipped); "who runs what" recorded in the rules                                           | `7126d8a` |
+| CH-008 | 2026-09-08 | CI on GitHub Actions: a `verify` job step by step plus a production build with an artifact; the local `verify` aligned with CI                                             | `60bd98c` |
+| CH-007 | 2026-09-08 | Orientation made mandatory: `check-orientation.mjs` in pre-commit and in `verify`, `pnpm plan:new`                                                                         | `825a498` |
+| CH-006 | 2026-09-08 | The changelog and backlog plus mandatory orientation before planning                                                                                                       | `b46addb` |
+| CH-005 | 2026-09-08 | The cross-feature security suite `e2e/security/` (15 cases) plus `pnpm audit` in `verify`                                                                                  | `daf86b2` |
+| CH-004 | 2026-09-08 | Pipeline speed-up: the `feature-pipeline` skill, the plan template, invariants in `CLAUDE.md`, `pnpm verify`                                                               | `9d4b752` |
+| CH-003 | 2026-09-07 | The `regression-verify` skill — feature acceptance with a mandatory run of all three levels                                                                                | `36e83b4` |
+| CH-002 | 2026-09-07 | Regression suite grouped by feature: paired `.cases.md`/`.spec.ts`, Playwright projects routed by filename suffix                                                          | `36e83b4` |
+| CH-001 | 2026-09-07 | The convention meta-test `e2e/suite-integrity.api.spec.ts`                                                                                                                 | `36e83b4` |
 
-| ID     | Дата       | Дефект                                                                                                                                                                                                            | Чем найдено                                           | Коммит    |
-| ------ | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- | --------- |
-| FX-030 | 2026-09-16 | Троблшутинг скилов не покрывал отказ «проект `web` красный на `fetch failed`, порты чисты»: зависший `@playwright/test` от прошлого прогона держит `webServer` наполовину, а рецепт искал только занятые порты    | прогон приёмки                                        | `7126d8a` |
-| FX-029 | 2026-09-16 | `pnpm audit` красный: `multer@2.2.0` с двумя high (GHSA-qfvm-cv95-jqjf, GHSA-535w-7cp7-47q4) тянулся транзитивно из `@nestjs/platform-express@12.0.1`, приёмка была невозможна                                    | `pnpm audit` в `pnpm verify`                          | `7126d8a` |
-| FX-028 | 2026-09-16 | Восстановление внешних наборов скилов было невыполнимо: `skills.sh` из адаптеров и `CLAUDE.md` не существует в контуре, а в `skills-lock.json` не было ни ветки, ни коммита — только непроверяемый `computedHash` | аудит скилов                                          | `7126d8a` |
-| FX-027 | 2026-09-16 | Абзац замеров прогонов жил в четырёх копиях с тремя разными наборами чисел (41+62, 42+77, 84+42), и неверны были все: фактически 85 e2e и 42 юнита, `pnpm verify` — 137 с                                         | аудит скилов                                          | `7126d8a` |
-| FX-026 | 2026-09-16 | Архивные планы объявлены каноном в трёх живых документах: `regression-verify` звал их устаревшими, а `e2e/README.md` и `docs/plans/README.md` отсылали к ним за конвенцией                                        | аудит скилов                                          | `7126d8a` |
-| FX-025 | 2026-09-16 | Права ревьюера противоречили между скилами: `requesting-code-review` требовал только чтения, `feature-pipeline` — `Write` на отчёт                                                                                | аудит скилов                                          | `7126d8a` |
-| FX-024 | 2026-09-16 | `feature-pipeline` описывал параллельную реализацию двумя несовместимыми механизмами: §4 требовал worktree (отдельные процессы без общего контекста), §5а и §9 — параметров и отчётности in-process субагентов    | аудит скилов                                          | `7126d8a` |
-| FX-023 | 2026-09-14 | Адрес серверов дублировался в ЧЕТЫРЁХ местах (конфиг, `fixtures/api.ts`, `security.functional.spec.ts` и литерал в `SEC-FN-05`), синхронность держалась комментарием                                              | ревью пользователя                                    | `7126d8a` |
-| FX-022 | 2026-09-08 | `LG-API-03` определял графу коммита **по содержимому** и принимал за неё описание записи `FX-019`, где слово `pending` стоит в тексте                                                                             | прогон CI                                             | `ce9f08f` |
-| FX-021 | 2026-09-08 | `pnpm ledger:fill` заменял **первое вхождение** `pending` в строке, а не графу хеша: у записи, где это слово стоит в описании, испортилось описание                                                               | ручная сверка после прогона `ledger:fill`             | `f3f675c` |
-| FX-020 | 2026-09-08 | `pnpm ledger:fill` ставил всем записям хеш `HEAD`: запись, введённая предыдущим коммитом, получала чужой                                                                                                          | попытка заполнить запись, названную `LG-API-03` на CI | `aa13e34` |
-| FX-019 | 2026-09-08 | Инвариант `pending` делал **первый push любой новой записи красным по построению**: на CI дерево всегда чистое, а хеш заполняется следующим коммитом                                                              | первый прогон CI                                      | `9c526a9` |
-| FX-018 | 2026-09-08 | `LG-API-04` объявлял весь реестр битым на CI: `actions/checkout` делает shallow clone, и `git cat-file` не находит ни одного старого коммита                                                                      | первый прогон CI                                      | `9c526a9` |
-| FX-017 | 2026-09-08 | Незаполненный шаблон плана **проходил** проверку ориентации: его текст-подсказка длиннее порога и содержит фразу «совпадений нет» из инструкции                                                                   | контрольный опыт «создать план и не заполнить»        | `825a498` |
-| FX-016 | 2026-09-08 | `@playwright/mcp@latest` тянул неприкреплённый код из сети при каждом старте                                                                                                                                      | аудит пайплайна                                       | `e622344` |
-| FX-015 | 2026-09-08 | `pnpm verify` начинался с `pnpm audit`: без сети не запускался ни один тест                                                                                                                                       | аудит пайплайна                                       | `e622344` |
-| FX-014 | 2026-09-08 | `regression-verify` содержал три взаимоисключающих предписания о прогонах                                                                                                                                         | аудит пайплайна                                       | `e622344` |
-| FX-013 | 2026-09-08 | Блокер «число тестов = таблица в плане» невыполним: 77 e2e против 53                                                                                                                                              | аудит пайплайна                                       | `e622344` |
-| FX-012 | 2026-09-08 | Мета-тест не увидел бы третью фичу: префиксы ID захардкожены, правила 5–7 стали бы вакуумно зелёными                                                                                                              | аудит + контрольный опыт                              | `e622344` |
-| FX-011 | 2026-09-08 | `SEC-API-05` флакал ~в половине прогонов (2,518 при пороге 2,5) и давал ложный сигнал «уязвимость вернулась»                                                                                                      | аудит пайплайна                                       | `e622344` |
-| FX-010 | 2026-09-08 | Заявление «параллельность через порты» ложно: Next 16 держит dev-сервер по каталогу, `pnpm dev` блокирует `pnpm e2e` целиком                                                                                      | аудит + мой опыт                                      | `e622344` |
-| FX-009 | 2026-09-08 | Правило 5 мета-теста считало объявлением кейса любое упоминание ID, ссылка в прозе роняла прогон                                                                                                                  | добавление security-сьюта                             | `daf86b2` |
-| FX-008 | 2026-09-08 | `X-Powered-By: Express` в каждом ответе                                                                                                                                                                           | `SEC-API-08`                                          | `daf86b2` |
-| FX-007 | 2026-09-08 | Тайминговый оракул на логине: 52 мс на неизвестный email против 86–114 мс на неверный пароль                                                                                                                      | `SEC-API-05`                                          | `daf86b2` |
-| FX-006 | 2026-09-08 | `ERR_TOO_MANY_REDIRECTS` при негодной cookie: пользователь запёрт и не мог дойти до формы логина                                                                                                                  | `SEC-FN-05`                                           | `daf86b2` |
-| FX-005 | 2026-09-07 | `pnpm format:check` не мог быть зелёным: `core.autocrlf` против `endOfLine: lf`                                                                                                                                   | приёмка фичи 2                                        | `892ee9c` |
-| FX-004 | 2026-09-07 | `loginAction` обрезал пробелы у **пароля**: пароль с пробелом на краю молча менялся                                                                                                                               | приёмка фичи 1, код-ревью                             | `7c4fc5b` |
-| FX-003 | 2026-09-07 | Четыре правила `eslint-plugin-playwright` стояли в `warn`, ESLint выходил с кодом 0 — `waitForTimeout` и `test.skip` проходили линт                                                                               | T0, контрольный опыт                                  | `36e83b4` |
-| FX-002 | 2026-09-07 | Дублирующийся `--passWithNoTests` роняет `vitest@4`: `Expected a single value`                                                                                                                                    | T0, прогон                                            | `36e83b4` |
-| FX-001 | 2026-09-07 | Мета-тест сканировал `e2e/e2e`, находил ноль файлов и **проходил вакуумно** при любом нарушении конвенции                                                                                                         | T0, контрольный опыт                                  | `36e83b4` |
+---
 
-### Найденное при реализации, до появления кода в ветке
+## Defects and fixes
 
-Эти дефекты нашли ревью плана и спайк — до того, как они попали в кодовую базу. Записаны потому,
-что каждый из них вернётся при следующей похожей задаче.
+Found by **checks**, not by reviewing diffs. The "Found by" column is the most useful in the file.
 
-| Дефект                                                                                                                          | Как обнаружен                        |
-| ------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------ |
-| `@IsOptional()` пропущен у `limit` и у `durationMinutes` — `GET /meetings` без параметра и создание встречи из формы давали 400 | проба на реальном Nest в ревью плана |
-| `@Max(50)` против кейсов с `limit=100`                                                                                          | проба                                |
-| Три функциональных кейса фичи 1 требовали дашборда из фичи 2 — их DoD был недостижим                                            | ревью плана                          |
-| Playwright отвергает `test.use` для worker-scoped опции: спек не загружается целиком                                            | проба на Playwright 1.62.1           |
-| `import 'server-only'` не резолвится Vitest                                                                                     | чтение исходников `next`             |
-| `middleware.ts` в Next 16 deprecated, переименован в `proxy.ts`                                                                 | чтение доков установленного `next`   |
-| POST в Nest по умолчанию отвечает 201, не 200                                                                                   | чтение исходников `@nestjs/common`   |
-| `getByRole('alert')` даёт strict-mode violation: App Router держит свой route announcer                                         | первый прогон функциональных тестов  |
-| `JwtModule.register({ signOptions: { expiresIn } })` не компилируется: `jsonwebtoken@9` типизирует срок шаблонным литералом     | typecheck                            |
+| ID     | Date       | Defect                                                                                                                                                                         | Found by                               | Commit    |
+| ------ | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------- | --------- |
+| FX-030 | 2026-09-16 | The skills' troubleshooting missed the "project `web` red on `fetch failed`, ports clean" failure: a hung `@playwright/test` from a previous run holds its `webServer` half up | acceptance run                         | `7126d8a` |
+| FX-029 | 2026-09-16 | `pnpm audit` red: `multer@2.2.0` with two high advisories pulled transitively from `@nestjs/platform-express@12.0.1`, making acceptance impossible                             | `pnpm audit` inside `pnpm verify`      | `7126d8a` |
+| FX-028 | 2026-09-16 | Restoring external skill sets was impossible: the `skills.sh` referenced by the adapters does not exist here, and the lock file held neither a branch nor a commit             | skill audit                            | `7126d8a` |
+| FX-027 | 2026-09-16 | The run measurements paragraph lived in four copies with three different number sets, and all were wrong: actually 85 e2e and 42 units, `pnpm verify` 137 s                    | skill audit                            | `7126d8a` |
+| FX-026 | 2026-09-16 | Archived plans were declared canonical in three live documents while `regression-verify` called them obsolete                                                                  | skill audit                            | `7126d8a` |
+| FX-025 | 2026-09-16 | Reviewer permissions contradicted between skills: `requesting-code-review` demanded read-only, `feature-pipeline` granted `Write`                                              | skill audit                            | `7126d8a` |
+| FX-024 | 2026-09-16 | `feature-pipeline` described parallel implementation with two incompatible mechanisms: §4 required worktrees, §5a and §9 described in-process subagents                        | skill audit                            | `7126d8a` |
+| FX-023 | 2026-09-14 | The server address was duplicated in FOUR places (config, `fixtures/api.ts`, `security.functional.spec.ts` and a literal in `SEC-FN-05`), kept in sync by a comment            | user review                            | `7126d8a` |
+| FX-022 | 2026-09-08 | `LG-API-03` located the commit column **by content** and took the description of `FX-019` for it, where the word `pending` appears in prose                                    | CI run                                 | `ce9f08f` |
+| FX-021 | 2026-09-08 | `pnpm ledger:fill` replaced the **first occurrence** of `pending` in a row rather than the hash column, corrupting a description                                               | manual check after a `ledger:fill` run | `f3f675c` |
+| FX-020 | 2026-09-08 | `pnpm ledger:fill` stamped `HEAD` on every entry: an entry introduced by the previous commit got a foreign hash                                                                | filling an entry named by `LG-API-03`  | `aa13e34` |
+| FX-019 | 2026-09-08 | The `pending` invariant made **the first push of any new entry red by construction**: on CI the tree is always clean while the hash is filled by the next commit               | first CI run                           | `9c526a9` |
+| FX-018 | 2026-09-08 | `LG-API-04` declared the whole ledger broken on CI: `actions/checkout` does a shallow clone and `git cat-file` finds no old commit                                             | first CI run                           | `9c526a9` |
+| FX-017 | 2026-09-08 | An untouched plan template **passed** the orientation check: its prompt text is longer than the threshold and contains the phrase "no matches" from the instructions           | control experiment                     | `825a498` |
+| FX-016 | 2026-09-08 | `@playwright/mcp@latest` pulled unpinned code from the network on every start                                                                                                  | pipeline audit                         | `e622344` |
+| FX-015 | 2026-09-08 | `pnpm verify` began with `pnpm audit`: without a network not a single test ran                                                                                                 | pipeline audit                         | `e622344` |
+| FX-014 | 2026-09-08 | `regression-verify` held three mutually exclusive prescriptions about runs                                                                                                     | pipeline audit                         | `e622344` |
+| FX-013 | 2026-09-08 | The blocker "test count = the table in the plan" was impossible to satisfy: 77 e2e against 53                                                                                  | pipeline audit                         | `e622344` |
+| FX-012 | 2026-09-08 | The meta-test would not have seen a third feature: ID prefixes were hard-coded and rules 5–7 would go vacuously green                                                          | audit plus control experiment          | `e622344` |
+| FX-011 | 2026-09-08 | `SEC-API-05` flaked in about half the runs (2.518 against a threshold of 2.5) and falsely signalled "the vulnerability is back"                                                | pipeline audit                         | `e622344` |
+| FX-010 | 2026-09-08 | The claim "parallelism through ports" was false: Next 16 registers a dev server per directory, and `pnpm dev` blocks `pnpm e2e` entirely                                       | audit plus experience                  | `e622344` |
+| FX-009 | 2026-09-08 | Meta-test rule 5 treated any mention of an ID as a case declaration, so a prose cross-reference failed the run                                                                 | adding the security suite              | `daf86b2` |
+| FX-008 | 2026-09-08 | `X-Powered-By: Express` on every response                                                                                                                                      | `SEC-API-08`                           | `daf86b2` |
+| FX-007 | 2026-09-08 | A timing oracle on login: 52 ms for an unknown email against 86–114 ms for a wrong password                                                                                    | `SEC-API-05`                           | `daf86b2` |
+| FX-006 | 2026-09-08 | `ERR_TOO_MANY_REDIRECTS` on an invalid cookie: the user was locked out and could not reach the login form                                                                      | `SEC-FN-05`                            | `daf86b2` |
+| FX-005 | 2026-09-07 | `pnpm format:check` could never be green: `core.autocrlf` against `endOfLine: lf`                                                                                              | feature 2 acceptance                   | `892ee9c` |
+| FX-004 | 2026-09-07 | `loginAction` trimmed whitespace from the **password**: a password with an edge space silently changed                                                                         | feature 1 acceptance, code review      | `7c4fc5b` |
+| FX-003 | 2026-09-07 | Four `eslint-plugin-playwright` rules sat at `warn` and ESLint exited 0 — `waitForTimeout` and `test.skip` passed the lint                                                     | T0, control experiment                 | `36e83b4` |
+| FX-002 | 2026-09-07 | A duplicated `--passWithNoTests` breaks `vitest@4`: `Expected a single value`                                                                                                  | T0, run                                | `36e83b4` |
+| FX-001 | 2026-09-07 | The meta-test scanned `e2e/e2e`, found zero files and **passed vacuously** under any violation of the convention                                                               | T0, control experiment                 | `36e83b4` |
+
+### Found during implementation, before the code reached a branch
+
+These were found by plan review and by the spike, before they entered the codebase. Recorded
+because each will return on the next similar task.
+
+| Defect                                                                                                                    | How it was found                     |
+| ------------------------------------------------------------------------------------------------------------------------- | ------------------------------------ |
+| `@IsOptional()` missing on `limit` and `durationMinutes` — `GET /meetings` without a parameter and form creation gave 400 | probe against real Nest in review    |
+| `@Max(50)` against cases using `limit=100`                                                                                | probe                                |
+| Three functional cases of feature 1 required feature 2's dashboard — their DoD was unreachable                            | plan review                          |
+| Playwright rejects `test.use` for a worker-scoped option: the whole spec fails to load                                    | probe on Playwright 1.62.1           |
+| `import 'server-only'` does not resolve under Vitest                                                                      | reading the `next` sources           |
+| `middleware.ts` is deprecated in Next 16 and renamed to `proxy.ts`                                                        | reading the installed `next` docs    |
+| POST in Nest answers 201 by default, not 200                                                                              | reading the `@nestjs/common` sources |
+| `getByRole('alert')` gives a strict-mode violation: App Router keeps its own route announcer                              | first functional run                 |
+| `JwtModule.register({ signOptions: { expiresIn } })` does not compile: `jsonwebtoken@9` types it as a template literal    | typecheck                            |

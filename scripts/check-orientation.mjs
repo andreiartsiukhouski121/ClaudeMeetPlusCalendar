@@ -1,40 +1,34 @@
 #!/usr/bin/env node
 /**
- * Проверка раздела 0 «Ориентация» во всех активных планах (`docs/plans/*.plan.md`).
+ * Validates section 0 "Orientation" in every active plan (`docs/plans/*.plan.md`).
  *
- * Зачем отдельный скрипт, а не кейс в сьюте: эта же проверка стоит в `.husky/pre-commit`, где
- * поднимать Playwright с двумя dev-серверами нельзя — хук должен отрабатывать за миллисекунды.
- * Логика живёт в одном месте и вызывается из трёх: хук, `pnpm check:orientation`, `pnpm verify`.
+ * A standalone script rather than a suite case because `.husky/pre-commit` runs it too, and the
+ * hook must finish in milliseconds — no Playwright, no dev servers.
  *
- * Что именно не даём сделать: сдать план с пустой или отписочной ориентацией. До этой проверки
- * «пустой ответ означает, что шаг пропустили» было соглашением — то есть не значило ничего.
- *
- * Чего проверка НЕ умеет и не должна: понять, что задача дубль по сути. Она проверяет, что
- * ориентацию провели и записали, а смысл ответов оценивает ревью. Граница проведена намеренно:
- * проверка, притворяющаяся умнее, чем она есть, вреднее отсутствующей.
+ * It does NOT judge whether a task duplicates another in substance. It proves the orientation was
+ * done and written down; review judges the answers. A check pretending to be smarter than it is
+ * does more harm than no check at all.
  */
 
 import { readdirSync, readFileSync, existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 
 const PLANS_DIR = 'docs/plans';
+
 /**
- * Шаблоны планов — по одному на поток работ (`feature-pipeline` и `bugfix-pipeline`). Список
- * обязан быть полным: из него берётся эталон «поле не заполнено», и шаблон, забытый здесь, делает
- * свои планы непроверяемыми — незаполненный раздел 0 проходит молча. Проверено контрольным опытом
- * при заведении `TEMPLATE-BUGFIX.md`: до этой правки баг-план без единого ответа был «пройден».
+ * One template per workflow (`feature-pipeline`, `bugfix-pipeline`). The list must be complete: it
+ * supplies the "field left untouched" baseline, so a template missing here makes its own plans
+ * unverifiable — an empty section 0 passes silently. Proven by control experiment when
+ * `TEMPLATE-BUGFIX.md` was added.
  */
 const TEMPLATES = ['docs/plans/TEMPLATE.md', 'docs/plans/TEMPLATE-BUGFIX.md'];
 const PLAN_SUFFIX = '.plan.md';
 const LEDGER_FILES = ['docs/CHANGELOG.md', 'docs/BACKLOG.md'];
 
-/** Минимальная длина ответа. «нет» — не ответ; «нет: … потому что …» — ответ. */
+/** "no" is not an answer; "no: … because …" is. */
 const MIN_ANSWER_LENGTH = 20;
 
-/**
- * Отписки, которые формально непусты. Список закрытый: свободная эвристика начала бы отклонять
- * законные короткие ответы, а закрытый список ловит именно галочку.
- */
+/** Non-empty brush-offs. A closed list: a loose heuristic would reject valid short answers. */
 const PLACEHOLDERS = [
   '—',
   '-',
@@ -45,33 +39,34 @@ const PLACEHOLDERS = [
   'tbd',
   'n/a',
   'na',
-  'нет',
-  'нет.',
-  'да',
-  'не знаю',
-  'не применимо',
-  'ок',
+  'no',
+  'no.',
+  'yes',
+  'none',
+  'nothing',
+  'unknown',
+  'not applicable',
   'ok',
   '...',
   '…',
 ];
 
-/** Четыре вопроса ориентации. `needsLedgerProof` — ответ обязан опираться на реестр. */
+/** The four orientation questions. `needsLedgerProof` — the answer must lean on the ledger. */
 const QUESTIONS = [
-  { label: 'Дубль', needsLedgerProof: true },
-  { label: 'Конфликт с реализованным', needsLedgerProof: false },
-  { label: 'Конфликт с планируемым', needsLedgerProof: true },
-  { label: 'Неясности', needsLedgerProof: false },
+  { label: 'Duplicate', needsLedgerProof: true },
+  { label: 'Conflicts with shipped', needsLedgerProof: false },
+  { label: 'Conflicts with planned', needsLedgerProof: true },
+  { label: 'Open questions', needsLedgerProof: false },
 ];
 
-/** ID записи реестра. */
+/** Ledger entry ID. */
 const LEDGER_ID = /\b(?:FT|CH|FX|BL)-\d{3}\b/g;
 
 /**
- * Явное отрицание для вопросов, требующих опоры на реестр: «в реестре смотрел, совпадений нет».
- * Фиксированные формулировки, а не любое слово «нет»: иначе доказательством станет само слово.
+ * Explicit denial for ledger-backed questions. Fixed phrasings, not any stray "no" — otherwise the
+ * word itself becomes the proof.
  */
-const EXPLICIT_NO_MATCH = ['совпадений нет', 'нет совпадений', 'совпадений не найдено'];
+const EXPLICIT_NO_MATCH = ['no matches', 'nothing matches', 'found no matches'];
 
 function repoRoot() {
   let dir = process.cwd();
@@ -82,13 +77,13 @@ function repoRoot() {
     }
     const parent = dirname(dir);
     if (parent === dir) {
-      throw new Error('Не найден корень монорепозитория (pnpm-workspace.yaml)');
+      throw new Error('Monorepo root not found (pnpm-workspace.yaml)');
     }
     dir = parent;
   }
 }
 
-/** ID, объявленные в реестре: ответ не может ссылаться на несуществующую запись. */
+/** IDs declared in the ledger: an answer cannot cite an entry that does not exist. */
 function declaredLedgerIds(root) {
   const ids = new Set();
 
@@ -119,7 +114,7 @@ function activePlans(root) {
     .map((name) => `${PLANS_DIR}/${name}`);
 }
 
-/** Текст после метки `- **Метка:**` до конца абзаца. */
+/** Text after `- **Label:**` up to the end of the paragraph. */
 function answerFor(content, label) {
   const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const pattern = new RegExp(`^\\s*-\\s*\\*\\*${escaped}:\\*\\*(.*)$`, 'm');
@@ -129,7 +124,7 @@ function answerFor(content, label) {
     return null;
   }
 
-  // Ответ может продолжаться на следующих строках с отступом — забираем их тоже.
+  // An answer may continue on indented lines — collect those too.
   const lines = content.split(/\r?\n/);
   const startIndex = lines.findIndex((line) => pattern.test(line));
   const collected = [match[1]];
@@ -146,12 +141,11 @@ function answerFor(content, label) {
 }
 
 /**
- * Ответы из самого шаблона — эталон «поле не заполнено».
+ * The templates' own prompt text is the "left untouched" baseline.
  *
- * Без этой сверки незаполненный план проходил проверку: текст-подсказка шаблона длиннее
- * порога и содержит фразу «совпадений нет» из инструкции, то есть формально удовлетворял всем
- * правилам. Поймано контрольным опытом «создать план и не заполнять» — ровно тем сценарием,
- * который проверка обязана ловить в первую очередь.
+ * Without this comparison an untouched plan passed: the prompt text is longer than the threshold
+ * and already contains the phrase "no matches" from the instructions. Caught by the control
+ * experiment "create a plan and fill nothing" — the very case this check exists for.
  */
 function templateAnswers(root) {
   const answers = new Map(QUESTIONS.map(({ label }) => [label, new Set()]));
@@ -176,7 +170,7 @@ function templateAnswers(root) {
   return answers;
 }
 
-/** Сравнение по существу: регистр, пробелы и разметка не должны спасать от совпадения. */
+/** Case, whitespace and markup must not rescue an answer from matching. */
 function normalize(text) {
   return text.toLowerCase().replace(/[`*_]/g, '').replace(/\s+/g, ' ').trim();
 }
@@ -190,11 +184,10 @@ function violations(root) {
   for (const plan of plans) {
     const content = readFileSync(join(root, plan), 'utf8');
 
-    if (!/^##\s*0\.\s*Ориентация/m.test(content)) {
+    if (!/^##\s*0\.\s*Orientation/m.test(content)) {
       problems.push(
-        `${plan}: нет раздела «## 0. Ориентация». Скопируй его из docs/plans/TEMPLATE.md ` +
-          `(или TEMPLATE-BUGFIX.md) — ` +
-          'планирование начинается с чтения реестра и бэклога, а не с кода',
+        `${plan}: no "## 0. Orientation" section. Copy it from docs/plans/TEMPLATE.md ` +
+          '(or TEMPLATE-BUGFIX.md) — planning starts by reading the ledger, not the code',
       );
       continue;
     }
@@ -203,32 +196,32 @@ function violations(root) {
       const answer = answerFor(content, label);
 
       if (answer === null) {
-        problems.push(`${plan}: нет строки «- **${label}:**» в разделе 0`);
+        problems.push(`${plan}: no "- **${label}:**" line in section 0`);
         continue;
       }
       if (answer === '') {
-        problems.push(`${plan}: ответ на «${label}» пуст`);
+        problems.push(`${plan}: the answer to "${label}" is empty`);
         continue;
       }
       if (PLACEHOLDERS.includes(answer.toLowerCase().replace(/[`*]/g, '').trim())) {
         problems.push(
-          `${plan}: ответ на «${label}» — отписка («${answer}»). Нужен ответ по существу: ` +
-            'что именно нашёл в реестре и бэклоге и что из этого следует',
+          `${plan}: the answer to "${label}" is a brush-off ("${answer}"). Say what you found in ` +
+            'the ledger and the backlog, and what follows from it',
         );
         continue;
       }
       if (fromTemplate.get(label).has(normalize(answer))) {
         problems.push(
-          `${plan}: ответ на «${label}» — это текст-подсказка из шаблона, то есть поле не ` +
-            'заполняли. Ориентация начинается с чтения docs/CHANGELOG.md и docs/BACKLOG.md, ' +
-            'а не с копирования шаблона',
+          `${plan}: the answer to "${label}" is the template's own prompt text — the field was ` +
+            'never filled in. Orientation starts by reading docs/CHANGELOG.md and ' +
+            'docs/BACKLOG.md, not by copying the template',
         );
         continue;
       }
       if (answer.length < MIN_ANSWER_LENGTH) {
         problems.push(
-          `${plan}: ответ на «${label}» короче ${MIN_ANSWER_LENGTH} символов («${answer}») — ` +
-            'это галочка, а не ориентация',
+          `${plan}: the answer to "${label}" is shorter than ${MIN_ANSWER_LENGTH} characters ` +
+            `("${answer}") — that is a checkbox, not orientation`,
         );
         continue;
       }
@@ -243,16 +236,16 @@ function violations(root) {
 
       if (unknown.length > 0) {
         problems.push(
-          `${plan}: ответ на «${label}» ссылается на ${unknown.join(', ')} — таких записей в ` +
-            'реестре нет',
+          `${plan}: the answer to "${label}" cites ${unknown.join(', ')} — no such entries in ` +
+            'the ledger',
         );
         continue;
       }
       if (cited.length === 0 && !saysNoMatch) {
         problems.push(
-          `${plan}: ответ на «${label}» не опирается на реестр. Укажи ID записей ` +
-            `(FT-/CH-/FX-/BL-) либо напиши прямо «совпадений нет» и почему — иначе неясно, ` +
-            'смотрел ли ты docs/CHANGELOG.md и docs/BACKLOG.md вообще',
+          `${plan}: the answer to "${label}" does not lean on the ledger. Cite entry IDs ` +
+            '(FT-/CH-/FX-/BL-) or say "no matches" and why — otherwise there is no telling ' +
+            'whether you opened docs/CHANGELOG.md and docs/BACKLOG.md at all',
         );
       }
     }
@@ -265,19 +258,18 @@ const root = repoRoot();
 const { problems, planCount } = violations(root);
 
 if (problems.length > 0) {
-  console.error('\nОриентация не пройдена — планирование не может продолжаться:\n');
+  console.error('\nOrientation failed — planning cannot continue:\n');
   problems.forEach((problem) => console.error(`  • ${problem}`));
   console.error(
-    '\nПорядок: прочитать docs/CHANGELOG.md (что делали, включая все дефекты) и ' +
-      'docs/BACKLOG.md (что предстоит и что уже отклонено), затем заполнить раздел 0 плана.\n' +
-      'Если задача оказалась дублем — это результат работы, а не отказ: скажи об этом и ' +
-      'остановись.\n',
+    '\nOrder: read docs/CHANGELOG.md (what was done, defects included) and docs/BACKLOG.md ' +
+      '(what is planned and what was rejected), then fill section 0 of the plan.\n' +
+      'If the task turns out to be a duplicate, saying so is a result, not a refusal.\n',
   );
   process.exit(1);
 }
 
 console.log(
   planCount === 0
-    ? `Активных планов (${PLANS_DIR}/*${PLAN_SUFFIX}) нет — проверять нечего.`
-    : `Ориентация пройдена в ${planCount} плане(ах).`,
+    ? `No active plans (${PLANS_DIR}/*${PLAN_SUFFIX}) — nothing to check.`
+    : `Orientation passed in ${planCount} plan(s).`,
 );

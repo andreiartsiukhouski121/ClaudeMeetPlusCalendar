@@ -1,13 +1,12 @@
-# Тот же пайплайн проверок, что локальный `pnpm verify`, но на стороне GitHub.
+# The same set of checks as the local `pnpm verify`, but on GitHub's side.
 #
-# Шаги разбиты по одному на проверку, а не одной командой `pnpm verify`, — и это не противоречит
-# правилу «делай один pnpm verify» из скила regression-verify. То правило экономит **подъёмы
-# dev-серверов**, а их делает только шаг `pnpm e2e`; lint, typecheck, юниты и audit серверов не
-# поднимают, поэтому их разделение бесплатно. Взамен в интерфейсе GitHub сразу видно, какой этап
-# упал: переспросить интерактивно там нельзя.
+# The steps are split one per check rather than a single `pnpm verify` call, and that does not
+# contradict the "do one pnpm verify" rule from the regression-verify skill. That rule saves
+# **dev server starts**, and only the `pnpm e2e` step makes those; lint, typecheck, units and audit
+# start no servers, so splitting them is free. In exchange, the GitHub UI shows which stage failed
+# — there is no asking interactively there.
 #
-# Секретов workflow не требует: JWT_SECRET и API_URL для прогона передаёт сам
-# playwright.config.ts через webServer.env.
+# No secrets are needed: playwright.config.ts passes JWT_SECRET and API_URL through webServer.env.
 
 name: CI
 
@@ -18,33 +17,33 @@ on:
     branches: [main]
   workflow_dispatch:
 
-# Новый пуш в ту же ветку отменяет предыдущий прогон: держать в очереди устаревшие проверки
-# смысла нет. Для main отмену не делаем — там каждый коммит должен быть проверен.
+# A new push to the same branch cancels the previous run: queued stale checks are pointless. main
+# is exempt — every commit there must be checked.
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 env:
-  # Хуки git на CI бесполезны, а скрипт prepare ставит их при каждом install.
+  # Git hooks are useless on CI, and the prepare script installs them on every install.
   HUSKY: 0
 
 jobs:
   verify:
-    name: Проверки
+    name: Checks
     runs-on: ubuntu-latest
     timeout-minutes: 25
 
     steps:
-      # fetch-depth: 0, а не дефолтный shallow clone: кейс LG-API-04 разрешает хеши коммитов
-      # реестра через git cat-file, и в поверхностной копии он не находит ни одного — прогон
-      # падает с «коммиты не существуют в репозитории», хотя реестр в порядке. Поймано первым
-      # же прогоном на CI (FX-018). История проекта маленькая, полная выборка ничего не стоит.
+      # fetch-depth: 0 rather than the default shallow clone: case LG-API-04 resolves ledger commit
+      # hashes through git cat-file, and in a shallow copy it finds none — the run fails with
+      # "commits do not exist in the repository" while the ledger is fine. Caught by the very first
+      # CI run (FX-018). The history is small, so a full fetch costs nothing.
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      # pnpm ставится до setup-node: иначе кэш 'pnpm' в setup-node не найдёт менеджер.
-      # Версия не указана — берётся из поля packageManager в package.json.
+      # pnpm is installed before setup-node: otherwise the 'pnpm' cache in setup-node finds no
+      # package manager. No version is pinned — it comes from packageManager in package.json.
       - uses: pnpm/action-setup@v4
 
       - uses: actions/setup-node@v4
@@ -52,50 +51,50 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
 
-      - name: Установка зависимостей
+      - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # Браузер кэшируется отдельно от node_modules: он весит сотни мегабайт и не меняется,
-      # пока не меняется версия @playwright/test. Ключ берём из lock-файла.
-      - name: Кэш браузера Playwright
+      # The browser is cached separately from node_modules: it weighs hundreds of megabytes and
+      # does not change until the @playwright/test version does. The key comes from the lock file.
+      - name: Cache the Playwright browser
         id: playwright-cache
         uses: actions/cache@v4
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
 
-      - name: Установка Chromium
-        # --with-deps нужен всегда, даже при попадании в кэш: системные библиотеки живут вне
-        # ~/.cache и на свежем раннере отсутствуют.
+      - name: Install Chromium
+        # --with-deps is always needed, even on a cache hit: the system libraries live outside
+        # ~/.cache and are absent on a fresh runner.
         run: pnpm exec playwright install --with-deps chromium
 
-      # Дальше — локальный пайплайн по шагам, в том же порядке: от дешёвого к дорогому.
-      # Первым идёт ориентация: она секундная и говорит, что задачу вообще планировали.
-      - name: Ориентация в планах
+      # From here on, the local pipeline step by step, in the same order: cheapest first.
+      # Orientation comes first: it takes a second and proves the task was planned at all.
+      - name: Plan orientation
         run: pnpm check:orientation
 
-      - name: Линт
+      - name: Lint
         run: pnpm lint
 
-      - name: Типы
+      - name: Types
         run: pnpm typecheck
 
-      - name: Юнит-тесты
+      - name: Unit tests
         run: pnpm test
 
-      - name: Supertest-набор Nest
+      - name: Nest supertest suite
         run: pnpm --filter @purpleschool/api test:e2e
 
-      - name: Форматирование
+      - name: Formatting
         run: pnpm format:check
 
-      # Единственный шаг, поднимающий dev-серверы. Один вызов на весь сьют: 84 теста, оба проекта.
-      - name: E2E, весь сьют
+      # The only step that starts dev servers. One call for the whole suite, both projects.
+      - name: E2E, whole suite
         run: pnpm e2e
 
-      # Отчёт нужен именно при падении: локально его смотрят через pnpm e2e:report, на CI —
-      # скачивают артефакт. Без него причина падения в CI не восстанавливается.
-      - name: Отчёт Playwright при падении
+      # The report matters exactly on failure: locally it is opened with pnpm e2e:report, on CI it
+      # is downloaded as an artifact. Without it a CI failure cannot be reconstructed.
+      - name: Playwright report on failure
         if: failure()
         uses: actions/upload-artifact@v4
         with:
@@ -105,13 +104,13 @@ jobs:
             test-results/
           retention-days: 14
 
-      # Последним: шаг зависит от состояния чужих зависимостей и может покраснеть на изменении,
-      # которого мы не делали. К этому моменту все остальные результаты уже видны.
-      - name: Уязвимости зависимостей
+      # Last: this step depends on the state of other people's dependencies and can go red on a
+      # change we did not make. By now every other result is already visible.
+      - name: Dependency vulnerabilities
         run: pnpm audit --audit-level high
 
   build:
-    name: Production-сборка
+    name: Production build
     needs: verify
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -124,20 +123,20 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
 
-      - name: Установка зависимостей
+      - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # Отдельный job, а не шаг в verify: production-сборка проверяет другое — что код собирается
-      # без dev-режима. Ошибки, которые видит только `next build` (например, невалидные
-      # метаданные или проблемы статической генерации), в dev-прогоне не проявляются.
-      - name: Сборка
+      # A separate job rather than a step in verify: a production build checks something else —
+      # that the code compiles outside dev mode. Errors only `next build` sees (invalid metadata,
+      # static generation problems) never surface in a dev run.
+      - name: Build
         run: pnpm build
 
-      # Развёртывания нет: площадка не выбрана и секретов для неё не существует. Артефакт — это
-      # доставка без развёртывания, и называется так честно. Настоящий деплой добавляется, когда
-      # заказчик скажет, куда и чем; придумывать деплой с несуществующими токенами нельзя — он
-      # выглядел бы работающим и не работал.
-      - name: Артефакт сборки
+      # There is no deployment: no platform has been chosen and no secrets exist for one. An
+      # artifact is delivery without deployment, and it is named honestly. A real deploy gets added
+      # when the customer says where and with what; inventing one with non-existent tokens would
+      # look like it works and would not.
+      - name: Build artifact
         uses: actions/upload-artifact@v4
         with:
           name: build-${{ github.sha }}

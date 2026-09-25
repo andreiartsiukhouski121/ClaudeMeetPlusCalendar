@@ -3,7 +3,7 @@ import tseslint from 'typescript-eslint';
 
 import { baseConfig } from './base.js';
 
-/** Конфиг для Nest.js-приложений (с проверкой типов). */
+/** Config for Nest.js apps (type-aware). */
 export const nestConfig = defineConfig([
   ...baseConfig,
   tseslint.configs.recommendedTypeChecked,
@@ -24,7 +24,7 @@ export const nestConfig = defineConfig([
     },
   },
   {
-    // Файлы вне tsconfig (например, eslint.config.mjs) — без type-aware правил.
+    // Files outside tsconfig (eslint.config.mjs, for example) get no type-aware rules.
     files: ['**/*.mjs', '**/*.js', '**/*.cjs'],
     extends: [tseslint.configs.disableTypeChecked],
   },

@@ -1,79 +1,70 @@
-# Безопасность — функциональные тесты
+# Security — functional tests
 
-- **Спек:** `e2e/security/security.functional.spec.ts`
-- **Проект Playwright:** `web`
-- **Теги:** `@security`
-- **Запуск:** `pnpm e2e:security` (или `pnpm e2e --project=web --grep @security`)
-- **Общие предусловия:** сид применён, серверы 3100/3101 поднимает Playwright.
+- **Spec:** `e2e/security/security.functional.spec.ts`
+- **Playwright project:** `web`
+- **Tags:** `@security`
+- **Run:** `pnpm e2e:security` (or `pnpm e2e --project=web --grep @security`)
+- **Preconditions:** the seed is applied; Playwright starts 3100/3101.
 
-Здесь проверяется то, что видно только из браузера: что сессия недоступна скриптам страницы, что
-токен не утекает в разметку и что закрытые страницы действительно закрыты. Инварианты API — в
-парном `security.api.cases.md`.
+This file checks what is only visible from the browser: that the session is unreachable from page
+scripts, that the token never leaks into the markup, and that protected pages really are protected.
+API invariants live in the paired `security.api.cases.md`.
 
-## Сводка
+## Summary
 
-| ID        | Заголовок                                                        | Приоритет | Тег   |
-| --------- | ---------------------------------------------------------------- | --------- | ----- |
-| SEC-FN-01 | cookie сессии httpOnly, sameSite=lax, path=/ и не читается из JS | P0        | `@p0` |
-| SEC-FN-02 | токен не попадает в HTML, в разметку и в клиентские скрипты      | P0        | `@p0` |
-| SEC-FN-03 | браузер не обращается к API напрямую и не светит токен в сети    | P0        | `@p0` |
-| SEC-FN-04 | закрытые страницы недоступны без сессии и после выхода           | P0        | `@p0` |
-| SEC-FN-05 | подделанная cookie сессии не даёт доступа                        | P0        | `@p0` |
+| ID        | Title                                                              | Priority | Tag   |
+| --------- | ------------------------------------------------------------------ | -------- | ----- |
+| SEC-FN-01 | the session cookie is httpOnly, sameSite=lax, path=/, JS-invisible | P0       | `@p0` |
+| SEC-FN-02 | the token never reaches the HTML, the markup or client scripts     | P0       | `@p0` |
+| SEC-FN-03 | the browser never calls the API directly nor exposes the token     | P0       | `@p0` |
+| SEC-FN-04 | protected pages are unreachable without a session and after logout | P0       | `@p0` |
+| SEC-FN-05 | a forged session cookie grants no access                           | P0       | `@p0` |
 
-## Кейсы
+## Cases
 
-### SEC-FN-01 — cookie сессии httpOnly, sameSite=lax, path=/ и не читается из JS
+### SEC-FN-01 — the session cookie is httpOnly, sameSite=lax, path=/ and JS-invisible
 
-- **Приоритет:** P0
-- **Шаги:**
-  1. Войти через UI как `teacher`.
-  2. Прочитать cookies контекста.
-  3. Выполнить в странице `document.cookie`.
-- **Ожидаемый результат:** cookie `ps_session` есть; `httpOnly` = `true`, `sameSite` = `Lax`,
-  `path` = `/`; `document.cookie` **не содержит** ни имени `ps_session`, ни значения токена.
-  Дублирует `AL-FN-13` намеренно: там это часть контракта логина, здесь — инвариант для любой
-  будущей страницы.
+- **Priority:** P0
+- **Steps:** sign in through the UI as `teacher`, read the context cookies, then evaluate
+  `document.cookie` in the page.
+- **Expected:** the `ps_session` cookie exists with `httpOnly` = `true`, `sameSite` = `Lax`,
+  `path` = `/`; `document.cookie` contains **neither** the name `ps_session` nor the token value.
+  Duplicates `AL-FN-13` on purpose: there it is part of the login contract, here it is an invariant
+  for any future page.
 
-### SEC-FN-02 — токен не попадает в HTML, в разметку и в клиентские скрипты
+### SEC-FN-02 — the token never reaches the HTML, the markup or client scripts
 
-- **Приоритет:** P0
-- **Шаги:**
-  1. Войти как `teacher`, открыть `/`.
-  2. Взять `page.content()` — итоговый HTML вместе с сериализованными данными RSC.
-  3. Взять значение cookie сессии.
-- **Ожидаемый результат:** значение токена не встречается в HTML; в тексте страницы нет подстрок
-  `accessToken`, `Bearer`, `scrypt`. Это ловит типовую ошибку — передачу токена пропсом в клиентский
-  компонент: он бы уехал в поток RSC и стал бы доступен любому скрипту на странице.
+- **Priority:** P0
+- **Steps:** sign in as `teacher`, open `/`, take `page.content()` (the final HTML together with
+  the serialized RSC data) and the session cookie value.
+- **Expected:** the token value does not appear in the HTML, and the page text contains no
+  `accessToken`, `Bearer` or `scrypt`. This catches the classic mistake — passing the token as a
+  prop to a client component (invariant 19): it would travel in the RSC stream and become
+  available to any script on the page.
 
-### SEC-FN-03 — браузер не обращается к API напрямую и не светит токен в сети
+### SEC-FN-03 — the browser never calls the API directly nor exposes the token on the wire
 
-- **Приоритет:** P0
-- **Шаги:**
-  1. Начать запись сетевых запросов.
-  2. Войти как `teacher`, открыть `/`, создать встречу.
-  3. Просмотреть список запросов и их заголовки.
-- **Ожидаемый результат:** ни один запрос браузера не адресован порту Nest; ни в одном запросе
-  браузера нет заголовка `Authorization`. Второе важнее первого: заголовок с токеном в браузерном
-  запросе означал бы, что BFF обойдён, даже если адрес совпадает с Next.
+- **Priority:** P0
+- **Steps:** start recording network requests, sign in as `teacher`, open `/`, then inspect the
+  request list and their headers.
+- **Expected:** no browser request is addressed to the Nest port, and no browser request carries an
+  `Authorization` header. The second matters more than the first: a token header on a browser
+  request would mean the BFF was bypassed even if the address matches Next's.
 
-### SEC-FN-04 — закрытые страницы недоступны без сессии и после выхода
+### SEC-FN-04 — protected pages are unreachable without a session
 
-- **Приоритет:** P0
-- **Шаги:**
-  1. В чистом контексте открыть каждый закрытый путь из списка `PROTECTED_PAGES`.
-  2. Войти как `organizer`, выйти кнопкой, открыть те же пути снова.
-- **Ожидаемый результат:** каждый раз итоговый URL — `/auth/login`; на странице нет приветствия с
-  email и нет списка встреч. Список путей ведётся в спеке: добавил закрытую страницу — допиши, и
-  кейс подхватит её сам.
+- **Priority:** P0
+- **Steps:** in a clean context, open every protected path from `PROTECTED_PAGES`.
+- **Expected:** the resulting URL is `/auth/login` every time; the page shows no email greeting and
+  no meeting list. The path list is kept in the spec: add a protected page, add a line, and the
+  case picks it up (invariant 16).
 
-### SEC-FN-05 — подделанная cookie сессии не даёт доступа
+### SEC-FN-05 — a forged session cookie grants no access
 
-- **Приоритет:** P0
-- **Шаги:**
-  1. В чистом контексте вручную выставить cookie `ps_session` со значением `not.a.jwt`.
-  2. Открыть `/`.
-  3. Повторить со значением валидного по форме, но подписанного другим секретом токена.
-- **Ожидаемый результат:** оба раза — редирект на `/auth/login`, дашборд не отображается. Это
-  проверка того, что `proxy.ts` не является гарантией: он видит только **наличие** cookie, поэтому
-  валидность обязан подтверждать серверный слой (`lib/dal.ts` → `GET /auth/me`). Без этой проверки
-  подделка cookie давала бы доступ к странице.
+- **Priority:** P0
+- **Steps:** in a clean context set the `ps_session` cookie to `not.a.jwt` and open `/`; repeat
+  with a token that is well formed but signed with a different secret.
+- **Expected:** both times a redirect to `/auth/login`, with no dashboard. This checks that
+  `proxy.ts` is not a guarantee: it only sees that a cookie **exists**, so validity has to be
+  confirmed by the server layer (`lib/dal.ts` → `GET /auth/me`). Without it, forging a cookie would
+  grant access to the page.

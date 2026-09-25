@@ -13,20 +13,20 @@ import { collectConsoleProblems } from '../../fixtures/console.js';
 import { FUTURE_STARTS_AT_LOCAL, SEED_USERS, TEACHER_MEETINGS } from '../../fixtures/seed.js';
 
 /**
- * UI главной страницы `/`. Кейсы — в парном `home-dashboard.functional.cases.md`;
- * заголовок каждого теста начинается с ID кейса.
+ * UI of the home page `/`. Cases live in the paired `home-dashboard.functional.cases.md`; every
+ * test title starts with its case ID.
  *
- * Проект `web`: Desktop Chrome, `baseURL = http://127.0.0.1:3100`. Пути относительные.
+ * Project `web`: Desktop Chrome, `baseURL = http://127.0.0.1:3100`, relative paths.
  *
- * Два набора фикстур объединены `mergeTests`: сессия берётся из `auth.fixture.ts`
- * (`authUser`/`authedPage`), а эталонные `total`/`items` — через `apiRequest` из `api.ts`.
- * Именно `apiRequest`, а НЕ штатная `request`: в проекте `web` у неё `baseURL` = `:3100`,
- * то есть запрос ушёл бы в Next, а не в Nest, и кейсы `HD-FN-03`/`HD-FN-05` были бы
- * нереализуемы как написаны. BFF это не нарушает — запрос идёт из Node-процесса теста,
- * а браузерный трафик проверяет `HD-FN-11`.
+ * Two fixture sets are merged with `mergeTests`: the session comes from `auth.fixture.ts`
+ * (`authUser`/`authedPage`), the baseline `total`/`items` through `apiRequest` from `api.ts`.
+ * `apiRequest` specifically, NOT the built-in `request`: in the `web` project the latter has
+ * `baseURL` = `:3100`, so the call would hit Next rather than Nest and `HD-FN-03`/`HD-FN-05` could
+ * not be written as they are. This does not break the BFF rule — the call comes from the test's
+ * Node process, and browser traffic is checked by `HD-FN-11`.
  *
- * Локаторы — только по роли, метке и тексту (тест-план §5.1): в `apps/web` CSS-модули
- * с хешированными классами, селектор по классу умрёт на следующем билде.
+ * Locators go by role, label and text only: `apps/web` uses CSS modules with hashed classes, so a
+ * class selector dies on the next build.
  */
 const test = mergeTests(authTest, apiTest);
 
@@ -34,23 +34,23 @@ const TEACHER = SEED_USERS.teacher;
 const STUDENT = SEED_USERS.student;
 const SESSION_COOKIE_NAME = 'ps_session';
 
-/** Счётчик встреч — один текстовый узел ровно в формате `Всего встреч: N`. */
-const COUNTER_PATTERN = /^Всего встреч: \d+$/;
+/** The counter is a single text node in exactly the `Meetings total: N` format. */
+const COUNTER_PATTERN = /^Meetings total: \d+$/;
 
 function counter(page: Page): Locator {
   return page.getByText(COUNTER_PATTERN);
 }
 
 /**
- * Число из счётчика. Хелпер вынесен из теста намеренно: `playwright/no-conditional-in-test`
- * стоит в `error`, а «бросить, если не совпало» без условия не написать.
+ * The number from the counter. The helper is outside the test on purpose:
+ * `playwright/no-conditional-in-test` is an error, and "throw if it did not match" needs one.
  */
 async function readCounter(page: Page): Promise<number> {
   const text = await counter(page).innerText();
   const matched = /(\d+)/.exec(text);
 
   if (matched === null) {
-    throw new Error(`Счётчик встреч не найден в тексте "${text}"`);
+    throw new Error(`Meeting counter not found in the text "${text}"`);
   }
 
   return Number(matched[1]);
@@ -61,7 +61,7 @@ interface MeetingsPageBody {
   total: number;
 }
 
-/** Эталонные данные напрямую из Nest — источник ожидаемых чисел вместо литерала в тесте. */
+/** Baseline data straight from Nest — the source of expected numbers instead of a literal. */
 async function fetchMeetingsPage(
   apiRequest: APIRequestContext,
   limit: number,
@@ -72,43 +72,47 @@ async function fetchMeetingsPage(
 
   expect(
     response.status(),
-    'Эталонные данные не получены от Nest напрямую — проблема в сиде или в /meetings, ' +
-      'а не в проверяемом UI',
+    'Baseline data could not be fetched from Nest directly — the problem is the seed or ' +
+      '/meetings, not the UI under test',
   ).toBe(200);
 
   return (await response.json()) as MeetingsPageBody;
 }
 
-test.describe('Главная: UI', { tag: ['@regression', '@home-dashboard'] }, () => {
+test.describe('Dashboard: UI', { tag: ['@regression', '@home-dashboard'] }, () => {
   /**
-   * Кейсы без сессии. `storageState: undefined` сам по себе no-op (глобального
-   * `storageState` в конфиге нет) — он объявляет, что тест берёт чистую `page`,
-   * а не `authedPage`, и страхует от будущего добавления глобального состояния.
+   * Cases without a session. `storageState: undefined` is a no-op on its own (there is no global
+   * `storageState` in the config) — it declares that the test takes a clean `page` rather than
+   * `authedPage`, and guards against a global state being added later.
    */
-  test.describe('без сессии', () => {
+  test.describe('without a session', () => {
     test.use({ storageState: undefined });
 
-    test('HD-FN-01 — неавторизованный на / уходит на логин', { tag: '@p0' }, async ({ page }) => {
-      await page.goto('/');
+    test(
+      'HD-FN-01 — an unauthenticated visitor on / goes to login',
+      { tag: '@p0' },
+      async ({ page }) => {
+        await page.goto('/');
 
-      await expect(page).toHaveURL('/auth/login');
-      await expect(page.getByLabel('Email')).toBeVisible();
-      await expect(page.getByRole('button', { name: 'Войти' })).toBeVisible();
+        await expect(page).toHaveURL('/auth/login');
+        await expect(page.getByLabel('Email')).toBeVisible();
+        await expect(page.getByRole('button', { name: 'Sign in' })).toBeVisible();
 
-      // Данных дашборда на странице нет — редирект случился до рендера.
-      await expect(counter(page)).toBeHidden();
-      await expect(page.getByText(TEACHER.email)).toBeHidden();
-    });
+        // No dashboard data on the page — the redirect happened before the render.
+        await expect(counter(page)).toBeHidden();
+        await expect(page.getByText(TEACHER.email)).toBeHidden();
+      },
+    );
 
-    test('HD-FN-11 — браузер не обращается к API напрямую', async ({ page, apiBaseURL }) => {
+    test('HD-FN-11 — the browser never calls the API directly', async ({ page, apiBaseURL }) => {
       const requestedUrls: string[] = [];
-      // Подписка ДО первой навигации: иначе запросы логина в список не попадут.
+      // Subscribe BEFORE the first navigation, or the login requests never land in the list.
       page.on('request', (request) => requestedUrls.push(request.url()));
 
       await page.goto('/auth/login');
       await page.getByLabel('Email').fill(TEACHER.email);
-      await page.getByLabel('Пароль').fill(TEACHER.password);
-      await page.getByRole('button', { name: 'Войти' }).click();
+      await page.getByLabel('Password').fill(TEACHER.password);
+      await page.getByRole('button', { name: 'Sign in' }).click();
 
       await expect(page).toHaveURL('/');
       await expect(page.getByRole('heading', { level: 1 })).toContainText(TEACHER.email);
@@ -117,15 +121,15 @@ test.describe('Главная: UI', { tag: ['@regression', '@home-dashboard'] },
 
       expect(
         toNest,
-        `Браузер обратился к Nest напрямую (${apiBaseURL}) — нарушение BFF. ` +
-          'Весь трафик страницы обязан идти в Next, а к Nest ходит только сервер Next.',
+        `The browser called Nest directly (${apiBaseURL}) — a BFF violation. All page traffic ` +
+          'must go to Next, and only the Next server talks to Nest.',
       ).toEqual([]);
       expect(requestedUrls.length).toBeGreaterThan(0);
     });
   });
 
   test(
-    'HD-FN-02 — приветствие содержит email пользователя',
+    'HD-FN-02 — the greeting contains the user email',
     { tag: '@p0' },
     async ({ authedPage }) => {
       await authedPage.goto('/');
@@ -138,23 +142,25 @@ test.describe('Главная: UI', { tag: ['@regression', '@home-dashboard'] },
   );
 
   test(
-    'HD-FN-03 — количество встреч совпадает с данными API',
+    'HD-FN-03 — the meeting count matches the API data',
     { tag: '@p0' },
     async ({ authedPage, apiRequest }) => {
       const reference = await fetchMeetingsPage(apiRequest, TEACHER_MEETINGS.latestLimit);
 
       await authedPage.goto('/');
 
-      // Ожидаемое число берётся из ответа API, а не из литерала: подмена `total` на
-      // `items.length` в сервисе обязана уронить именно этот ассерт.
-      await expect(authedPage.getByText(`Всего встреч: ${String(reference.total)}`)).toBeVisible();
+      // The expected number comes from the API response rather than a literal: replacing `total`
+      // with `items.length` in the service must break this very assertion.
+      await expect(
+        authedPage.getByText(`Meetings total: ${String(reference.total)}`),
+      ).toBeVisible();
       expect(reference.total).toBe(TEACHER_MEETINGS.total);
       expect(await readCounter(authedPage)).toBe(reference.total);
       expect(reference.total).not.toBe(reference.items.length);
     },
   );
 
-  test('HD-FN-04 — показаны ровно 3 последние встречи', { tag: '@p0' }, async ({ authedPage }) => {
+  test('HD-FN-04 — exactly 3 recent meetings are shown', { tag: '@p0' }, async ({ authedPage }) => {
     await authedPage.goto('/');
 
     const list = authedPage.getByRole('list');
@@ -164,7 +170,7 @@ test.describe('Главная: UI', { tag: ['@regression', '@home-dashboard'] },
   });
 
   test(
-    'HD-FN-05 — порядок и отсечение старых встреч',
+    'HD-FN-05 — ordering and cutting of older meetings',
     { tag: '@p0' },
     async ({ authedPage, apiRequest }) => {
       const reference = await fetchMeetingsPage(apiRequest, TEACHER_MEETINGS.latestLimit);
@@ -174,8 +180,8 @@ test.describe('Главная: UI', { tag: ['@regression', '@home-dashboard'] },
       const items = authedPage.getByRole('list').getByRole('listitem');
       await expect(items).toHaveCount(reference.items.length);
 
-      // Порядок в UI сверяется с порядком из API, а не с константой: так кейс ловит
-      // и потерянную сортировку в сервисе, и переупорядочивание в разметке.
+      // The UI order is compared with the API order rather than a constant, so the case catches
+      // both a lost sort in the service and a reordering in the markup.
       for (const [index, expectedTitle] of reference.items.map((item) => item.title).entries()) {
         await expect(items.nth(index)).toContainText(expectedTitle);
       }
@@ -188,20 +194,20 @@ test.describe('Главная: UI', { tag: ['@regression', '@home-dashboard'] },
   );
 
   test(
-    'HD-FN-06 — кнопка «Создать встречу» присутствует',
+    'HD-FN-06 — the "Create meeting" button is present',
     { tag: '@p0' },
     async ({ authedPage }) => {
       await authedPage.goto('/');
 
-      const button = authedPage.getByRole('button', { name: 'Создать встречу' });
+      const button = authedPage.getByRole('button', { name: 'Create meeting' });
 
       await expect(button).toBeVisible();
       await expect(button).toBeEnabled();
     },
   );
 
-  test('HD-FN-10 — нет ошибок в консоли на главной', async ({ authedPage }) => {
-    // Подписка ДО goto: иначе ошибки первого рендера в список не попадут.
+  test('HD-FN-10 — no console errors on the dashboard', async ({ authedPage }) => {
+    // Subscribe BEFORE goto, or first-render errors never land in the list.
     const problems = collectConsoleProblems(authedPage);
 
     await authedPage.goto('/');
@@ -211,7 +217,7 @@ test.describe('Главная: UI', { tag: ['@regression', '@home-dashboard'] },
     expect(problems).toEqual([]);
   });
 
-  test('HD-FN-14 — доступность управляющих элементов', async ({ authedPage }) => {
+  test('HD-FN-14 — accessibility of the controls', async ({ authedPage }) => {
     await authedPage.goto('/');
 
     await expect(authedPage.getByRole('list')).toBeVisible();
@@ -219,36 +225,36 @@ test.describe('Главная: UI', { tag: ['@regression', '@home-dashboard'] },
       TEACHER_MEETINGS.latestLimit,
     );
 
-    // Роль + непустое доступное имя: если имя пропадёт, локатор просто не найдёт кнопку.
-    await expect(authedPage.getByRole('button', { name: 'Создать встречу' })).toBeVisible();
-    await expect(authedPage.getByRole('button', { name: 'Выйти' })).toBeVisible();
+    // Role plus a non-empty accessible name: if the name disappears, the locator finds nothing.
+    await expect(authedPage.getByRole('button', { name: 'Create meeting' })).toBeVisible();
+    await expect(authedPage.getByRole('button', { name: 'Sign out' })).toBeVisible();
 
     await expect(authedPage.getByRole('heading', { level: 1 })).toHaveCount(1);
   });
 
-  test('HD-FN-16 — авторизованный на /auth/login уходит на /', async ({ authedPage }) => {
+  test('HD-FN-16 — an authenticated visitor on /auth/login goes to /', async ({ authedPage }) => {
     await authedPage.goto('/auth/login');
 
-    // Обратный редирект делает `proxy.ts` — это DoD задачи T2.7.
+    // The bounce back is done by `proxy.ts`.
     await expect(authedPage).toHaveURL('/');
-    await expect(authedPage.getByRole('button', { name: 'Войти' })).toBeHidden();
+    await expect(authedPage.getByRole('button', { name: 'Sign in' })).toBeHidden();
     await expect(authedPage.getByRole('heading', { level: 1 })).toContainText(TEACHER.email);
   });
 
-  test.describe('пользователь без встреч', () => {
+  test.describe('user without meetings', () => {
     test.use({ authUser: 'student' });
 
-    test('HD-FN-09 — пустое состояние при отсутствии встреч', async ({ authedPage }) => {
+    test('HD-FN-09 — empty state when there are no meetings', async ({ authedPage }) => {
       const problems = collectConsoleProblems(authedPage);
 
       await authedPage.goto('/');
 
       await expect(authedPage.getByRole('heading', { level: 1 })).toContainText(STUDENT.email);
-      await expect(authedPage.getByText('Всего встреч: 0')).toBeVisible();
+      await expect(authedPage.getByText('Meetings total: 0')).toBeVisible();
       await expect(authedPage.getByRole('listitem')).toHaveCount(0);
-      await expect(authedPage.getByText('Встреч пока нет')).toBeVisible();
+      await expect(authedPage.getByText('No meetings yet')).toBeVisible();
 
-      const button = authedPage.getByRole('button', { name: 'Создать встречу' });
+      const button = authedPage.getByRole('button', { name: 'Create meeting' });
       await expect(button).toBeVisible();
       await expect(button).toBeEnabled();
 
@@ -257,45 +263,45 @@ test.describe('Главная: UI', { tag: ['@regression', '@home-dashboard'] },
   });
 
   /**
-   * Мутирующие кейсы — под `organizer`: он выделен именно для `*.functional.spec.ts`
-   * (в `*.api.spec.ts` мутируется `planner`), поэтому межпроектной гонки нет.
-   * Serial — страховка внутри файла. Ассерты на счётчик только относительные (`N` → `N+1`),
-   * заголовок встречи уникальный, дата — 2030 год из `fixtures/seed.ts`.
+   * Mutating cases run as `organizer`, reserved for `*.functional.spec.ts` (`*.api.spec.ts`
+   * mutates `planner`), so there is no cross-project race. Serial mode is the in-file backup.
+   * Counter assertions are relative only (`N` → `N+1`), the title is unique and the date is the
+   * 2030 constant from `fixtures/seed.ts`.
    *
-   * `HD-FN-08` логаутится, но общее состояние воркера этим не портит: `authedPage`
-   * создаёт новый контекст из файла `storageState` на каждый тест, а сам файл логаут
-   * не меняет.
+   * `HD-FN-08` signs out but does not spoil shared worker state: `authedPage` builds a new context
+   * from the `storageState` file for every test, and signing out does not change that file.
    */
-  test.describe('мутирующие кейсы под organizer', () => {
+  test.describe('mutating cases as organizer', () => {
     test.describe.configure({ mode: 'serial' });
     test.use({ authUser: 'organizer' });
 
     test(
-      'HD-FN-07 — создание встречи обновляет счётчик и список',
+      'HD-FN-07 — creating a meeting updates the counter and the list',
       { tag: ['@p0', '@mutating'] },
       async ({ authedPage }) => {
         await authedPage.goto('/');
 
         const before = await readCounter(authedPage);
-        const title = `E2E встреча ${String(Date.now())}-${String(
+        const title = `E2E meeting ${String(Date.now())}-${String(
           Math.floor(Math.random() * 1e6),
         )}`;
 
-        await authedPage.getByLabel('Название').fill(title);
-        await authedPage.getByLabel('Дата и время').fill(FUTURE_STARTS_AT_LOCAL);
-        await authedPage.getByRole('button', { name: 'Создать встречу' }).click();
+        await authedPage.getByLabel('Title').fill(title);
+        await authedPage.getByLabel('Date and time').fill(FUTURE_STARTS_AT_LOCAL);
+        await authedPage.getByRole('button', { name: 'Create meeting' }).click();
 
-        await expect(authedPage.getByText(`Всего встреч: ${String(before + 1)}`)).toBeVisible();
+        await expect(authedPage.getByText(`Meetings total: ${String(before + 1)}`)).toBeVisible();
 
         const items = authedPage.getByRole('list').getByRole('listitem');
-        // Дата 2030 года позже любой сид-встречи владельца, сортировка DESC ⇒ новая первая.
+        // The 2030 date is later than any seeded meeting of the owner, and sorting is DESC, so the
+        // new meeting comes first.
         await expect(items.first()).toContainText(title);
         expect(await items.count()).toBeLessThanOrEqual(TEACHER_MEETINGS.latestLimit);
 
-        // Перезагрузка: изменение обязано жить на сервере, а не в состоянии клиента.
+        // Reload: the change must live on the server, not in client state.
         await authedPage.reload();
 
-        await expect(authedPage.getByText(`Всего встреч: ${String(before + 1)}`)).toBeVisible();
+        await expect(authedPage.getByText(`Meetings total: ${String(before + 1)}`)).toBeVisible();
         await expect(authedPage.getByRole('list').getByRole('listitem').first()).toContainText(
           title,
         );
@@ -303,12 +309,12 @@ test.describe('Главная: UI', { tag: ['@regression', '@home-dashboard'] },
     );
 
     test(
-      'HD-FN-08 — выход из аккаунта закрывает доступ',
+      'HD-FN-08 — signing out closes access',
       { tag: ['@p0', '@mutating'] },
       async ({ authedPage }) => {
         await authedPage.goto('/');
 
-        const logout = authedPage.getByRole('button', { name: 'Выйти' });
+        const logout = authedPage.getByRole('button', { name: 'Sign out' });
         await expect(logout).toBeVisible();
 
         await logout.click();
@@ -320,13 +326,13 @@ test.describe('Главная: UI', { tag: ['@regression', '@home-dashboard'] },
         const sessionCookies = (await authedPage.context().cookies()).filter(
           (cookie) => cookie.name === SESSION_COOKIE_NAME,
         );
-        // Cookie удалена. Если бы реализация оставляла её с пустым значением, кейс всё
-        // равно был бы корректен: значение обязано быть строго пустым.
+        // The cookie is gone. Had the implementation left it with an empty value, the case would
+        // still be correct: the value must be strictly empty.
         expect(
           sessionCookies.map((cookie) => cookie.value).filter((value) => value !== ''),
         ).toEqual([]);
 
-        // Повторный заход на `/` — детерминированная проверка «после выхода данных нет».
+        // A second visit to `/` is the deterministic "no data after sign-out" check.
         await authedPage.goto('/');
 
         await expect(authedPage).toHaveURL('/auth/login');

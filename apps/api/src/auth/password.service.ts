@@ -3,9 +3,9 @@ import { Injectable } from '@nestjs/common';
 import { hashPassword, verifyPassword } from '../common/crypto/password.js';
 
 /**
- * DI-обёртка над `common/crypto/password.ts`: сервисам нужна инъекция, а чистым функциям —
- * прямой юнит. Своего спека у обёртки НЕТ осознанно (план имплементации §9, тест-план §4.1):
- * поведение покрыто AL-UT-09…11 у реализации, а делегация — моком в AL-UT-06.
+ * DI wrapper over `common/crypto/password.ts`: services need injection, pure functions need a
+ * direct unit test. No spec of its own on purpose — the behaviour is covered by AL-UT-09…11 on the
+ * implementation, and the delegation by a mock in AL-UT-06.
  */
 @Injectable()
 export class PasswordService {

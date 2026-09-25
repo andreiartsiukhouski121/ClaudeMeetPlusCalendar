@@ -7,44 +7,44 @@ import { test as authTest } from '../fixtures/auth.fixture.js';
 import { SEED_USERS } from '../fixtures/seed.js';
 
 /**
- * Инварианты безопасности, видимые только из браузера. Кейсы — в парном
+ * Security invariants visible only from the browser. Cases live in the paired
  * `security.functional.cases.md`.
  *
- * Проект `web`: Desktop Chrome, `baseURL = http://127.0.0.1:3100`. Пути относительные.
+ * Project `web`: Desktop Chrome, `baseURL = http://127.0.0.1:3100`, relative paths.
  *
- * Часть кейсов дублирует проверки внутри фич (`AL-FN-13`, `HD-FN-11`) намеренно: там это часть
- * контракта конкретной страницы, здесь — инвариант, который обязан держаться для любой новой.
+ * Some cases duplicate checks inside features (`AL-FN-13`, `HD-FN-11`) on purpose: there it is
+ * part of one page's contract, here it is an invariant that must hold for every new page.
  */
 
 /**
- * Наборы объединены `mergeTests`: сессия — из `auth.fixture.ts`, адрес Nest — опция `apiBaseURL`
- * из `api.ts`, которую задаёт `playwright.config.ts`. Раньше здесь лежала своя копия формулы
- * порта (FX-023): она читала ту же переменную окружения и потому совпадала с конфигом, но
- * совпадение держалось на дисциплине. Разойдись копии — `SEC-FN-03` сравнивал бы трафик с
- * адресом, на котором Nest не поднимали, и молча перестал бы проверять BFF.
+ * The sets are merged with `mergeTests`: the session from `auth.fixture.ts`, the Nest address from
+ * the `apiBaseURL` option in `api.ts`, which `playwright.config.ts` supplies. This file used to
+ * hold its own copy of the port formula (FX-023): it read the same environment variable and so
+ * agreed with the config, but only by discipline. Once apart, `SEC-FN-03` would compare traffic
+ * against an address where Nest was never started and silently stop checking the BFF rule.
  */
 const test = mergeTests(authTest, apiTest);
 
 const SESSION_COOKIE_NAME = 'ps_session';
 
-/** Закрытые страницы. Добавляя страницу за гейтом, добавь путь сюда. */
+/** Protected pages. Adding a page behind the gate means adding a path here (invariant 16). */
 const PROTECTED_PAGES = ['/'];
 
 /**
- * Адрес web из настроек проекта. Дефолта нет НАМЕРЕННО: прежнее `baseURL ?? 'http://…:3100'`
- * было четвёртой копией адреса, причём единственной, которая переменную окружения не читала
- * вовсе. Сработать она не успевала — у проекта `web` `baseURL` задан всегда, — но сработав,
- * поставила бы cookie не тому origin, и тест «подделка не даёт доступа» зеленел бы, ничего не
- * проверив (FX-023). Замена молчаливого дефолта на падение убирает эту возможность.
+ * The web address from the project settings. There is DELIBERATELY no default: the former
+ * `baseURL ?? 'http://…:3100'` was a fourth copy of the address and the only one that never read
+ * the environment variable. It never got to fire — the `web` project always sets `baseURL` — but
+ * if it had, it would have set the cookie on the wrong origin and "a forgery grants no access"
+ * would have gone green having checked nothing (FX-023).
  *
- * Функция модульная, а не проверка внутри кейса: `playwright/no-conditional-in-test` запрещает
- * ветвление в теле теста, и запрещает справедливо.
+ * A module-level function rather than a check inside the case: `playwright/no-conditional-in-test`
+ * forbids branching in a test body, and rightly so.
  */
 function requireBaseURL(baseURL: string | undefined): string {
   if (baseURL === undefined) {
     throw new Error(
-      'baseURL проекта web не задан в playwright.config.ts — cookie некуда ставить. ' +
-        'Адрес живёт в конфиге; не восстанавливай его литералом здесь.',
+      'The web project baseURL is not set in playwright.config.ts — there is nowhere to put the ' +
+        'cookie. The address lives in the config; do not restore it as a literal here.',
     );
   }
 
@@ -55,14 +55,14 @@ async function sessionCookieValue(page: Page): Promise<string> {
   const cookies = await page.context().cookies();
   const session = cookies.find((cookie) => cookie.name === SESSION_COOKIE_NAME);
 
-  expect(session, 'cookie сессии не найдена — логин не сработал').toBeDefined();
+  expect(session, 'session cookie not found — the login did not work').toBeDefined();
 
   return session?.value ?? '';
 }
 
-test.describe('Безопасность: браузер', { tag: '@security' }, () => {
+test.describe('Security: browser', { tag: '@security' }, () => {
   test(
-    'SEC-FN-01 — cookie сессии httpOnly и недоступна из JS',
+    'SEC-FN-01 — the session cookie is httpOnly and unreachable from JS',
     { tag: '@p0' },
     async ({ authedPage }) => {
       await authedPage.goto('/');
@@ -78,27 +78,31 @@ test.describe('Безопасность: браузер', { tag: '@security' }, 
       const visibleToScripts = await authedPage.evaluate(() => document.cookie);
 
       expect(visibleToScripts).not.toContain(SESSION_COOKIE_NAME);
-      expect(visibleToScripts).not.toContain(session?.value ?? 'нет-значения');
+      expect(visibleToScripts).not.toContain(session?.value ?? 'no-value');
     },
   );
 
-  test('SEC-FN-02 — токен не попадает в HTML страницы', { tag: '@p0' }, async ({ authedPage }) => {
-    await authedPage.goto('/');
-    await expect(authedPage.getByRole('heading', { level: 1 })).toBeVisible();
+  test(
+    'SEC-FN-02 — the token never reaches the page HTML',
+    { tag: '@p0' },
+    async ({ authedPage }) => {
+      await authedPage.goto('/');
+      await expect(authedPage.getByRole('heading', { level: 1 })).toBeVisible();
 
-    const token = await sessionCookieValue(authedPage);
-    // page.content() отдаёт итоговый HTML вместе с сериализованным потоком RSC — именно туда
-    // уехал бы токен, переданный пропсом в клиентский компонент.
-    const html = await authedPage.content();
+      const token = await sessionCookieValue(authedPage);
+      // page.content() returns the final HTML together with the serialized RSC stream — exactly
+      // where a token passed as a prop to a client component would end up (invariant 19).
+      const html = await authedPage.content();
 
-    expect(html).not.toContain(token);
-    expect(html).not.toContain('accessToken');
-    expect(html).not.toContain('Bearer');
-    expect(html).not.toContain('scrypt');
-  });
+      expect(html).not.toContain(token);
+      expect(html).not.toContain('accessToken');
+      expect(html).not.toContain('Bearer');
+      expect(html).not.toContain('scrypt');
+    },
+  );
 
   test(
-    'SEC-FN-03 — браузер не ходит в API и не светит токен в сети',
+    'SEC-FN-03 — the browser never calls the API and never exposes the token on the wire',
     { tag: '@p0' },
     async ({ authedPage, apiBaseURL }) => {
       const requests: { url: string; hasAuthHeader: boolean }[] = [];
@@ -116,18 +120,19 @@ test.describe('Безопасность: браузер', { tag: '@security' }, 
       expect(requests.length).toBeGreaterThan(0);
       expect(
         requests.filter((request) => isNestRequest(request.url, apiBaseURL)),
-        `Браузер обратился к Nest напрямую (${apiBaseURL}) — нарушение BFF`,
+        `The browser called Nest directly (${apiBaseURL}) — a BFF violation`,
       ).toEqual([]);
-      // Заголовок с токеном в браузерном запросе означал бы обход BFF, даже если адрес — Next.
+      // A token header on a browser request would mean the BFF was bypassed even if the address
+      // is Next's.
       expect(requests.filter((request) => request.hasAuthHeader)).toEqual([]);
     },
   );
 
-  test.describe('без сессии', () => {
+  test.describe('without a session', () => {
     test.use({ storageState: undefined });
 
     test(
-      'SEC-FN-04 — закрытые страницы недоступны без сессии',
+      'SEC-FN-04 — protected pages are unreachable without a session',
       { tag: '@p0' },
       async ({ page }) => {
         for (const path of PROTECTED_PAGES) {
@@ -141,7 +146,7 @@ test.describe('Безопасность: браузер', { tag: '@security' }, 
     );
 
     test(
-      'SEC-FN-05 — подделанная cookie сессии не даёт доступа',
+      'SEC-FN-05 — a forged session cookie grants no access',
       { tag: '@p0' },
       async ({ page, baseURL }) => {
         const base64url = (value: object) =>
@@ -152,7 +157,7 @@ test.describe('Безопасность: браузер', { tag: '@security' }, 
           email: SEED_USERS.teacher.email,
           exp: Math.floor(Date.now() / 1000) + 3600,
         });
-        const foreignSignature = createHmac('sha256', 'совершенно-другой-секрет')
+        const foreignSignature = createHmac('sha256', 'an-entirely-different-secret')
           .update(`${header}.${payload}`)
           .digest('base64url')
           .replace(/=+$/, '');
@@ -172,9 +177,9 @@ test.describe('Безопасность: браузер', { tag: '@security' }, 
           await page.goto('/');
 
           /*
-           * `proxy.ts` видит только НАЛИЧИЕ cookie и пропустил бы такой запрос дальше — значит
-           * валидность обязан подтверждать серверный слой (`lib/dal.ts` → `GET /auth/me`).
-           * Без этого подделка cookie давала бы доступ к дашборду.
+           * `proxy.ts` only sees that a cookie EXISTS and would let this request through, so
+           * validity has to be confirmed by the server layer (`lib/dal.ts` → `GET /auth/me`).
+           * Without that, forging a cookie would grant access to the dashboard.
            */
           await expect(page).toHaveURL(/\/auth\/login$/);
           await expect(page.getByText(SEED_USERS.teacher.email)).toHaveCount(0);

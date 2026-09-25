@@ -42,7 +42,7 @@ Thumbs.db
 .vercel
 *.pem
 
-# внешние наборы скилов: содержимое не версионируется, как node_modules. Источник, ветка, коммит
-# и treeHash каждого набора лежат в `skills-lock.json` — он в git. Восстановление и сверка:
-# `pnpm skills:sync` / `pnpm skills:check`. Адаптеры под этот репозиторий живут в `.claude/skills/`.
+# External skill sets: contents are not versioned, same as node_modules. The source, branch,
+# commit and treeHash of each set live in `skills-lock.json`, which is in git. Restore and verify
+# with `pnpm skills:sync` / `pnpm skills:check`. The adapters live in `.claude/skills/`.
 .agents/

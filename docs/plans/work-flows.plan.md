@@ -1,91 +1,91 @@
-# План: work-flows
+# Plan: work-flows
 
-Два именованных потока работ вместо одного: **фича** (есть, но фазы не названы) и **багфикс**
-(нет вовсе). Задача процессная, продуктового кода не трогает.
+Two named workflows instead of one: **feature** (exists, but its phases are unnamed) and **bugfix**
+(does not exist at all). A process task — it touches no product code.
 
-## 0. Ориентация: что в проекте уже есть
+## 0. Orientation: what the project already has
 
-- **Дубль:** частично. Фичевый поток закрыт `CH-004` (скил `feature-pipeline`, шаблон плана) и
-  уточнён `CH-012`; его надо не изобретать, а достроить — назвать фазы и добавить явный шаг
-  требований и архитектуры. Багового потока в реестре нет ни одной записи: ближайшее — `FX-014`
-  (три взаимоисключающих предписания о прогонах) и §5 `regression-verify` «нашли проблему —
-  отдельная задача», но это правило внутри приёмки, а не поток работ. Совпадений, закрывающих
-  задачу целиком, нет.
-- **Конфликт с реализованным:** трогает `scripts/new-plan.mjs` и `scripts/check-orientation.mjs`.
-  Второй — критично: он берёт эталон «поле не заполнено» **только** из `docs/plans/TEMPLATE.md`
-  (функция `templateAnswers`), поэтому второй шаблон обязан попасть в тот же список, иначе
-  незаполненный баг-план пройдёт проверку — то есть `CH-007` перестанет работать ровно для новых
-  планов. Ни один инвариант 1–19 не меняется. Кейсы не трогаются, кроме `LG-API-*` новой записью.
-- **Конфликт с планируемым:** совпадений нет. `BL-013` (инструмент worktree) и `BL-014`
-  (`.claude/agents/*.md`) соседние, но независимые: оба про исполнителей, а не про фазы работ.
-  `BL-001` (rate limiting) станет первым кандидатом пройти по новому баговому потоку, но задача
-  его не закрывает.
-- **Неясности:** «баг» и «дефект» в проекте используются как синонимы, а граф `FX-` в реестре
-  фиксирует и то, что нашли до релиза (дефект процесса, вроде вакуумного мета-теста), и то, что
-  сломалось в рантайме. Поток обязан работать с обоими, поэтому различия не ввожу; вместо этого
-  ввожу порог, за которым багу нужен письменный план, а до которого хватает красного теста и
-  записи `FX-`.
+- **Duplicate:** partly. The feature flow is closed by `CH-004` (the `feature-pipeline` skill and
+  the plan template) and refined by `CH-012`; it needs finishing rather than inventing — naming the
+  phases and adding an explicit requirements-and-architecture step. The bugfix flow has no ledger
+  entry at all: the closest are `FX-014` (three mutually exclusive prescriptions about runs) and
+  `regression-verify` §5 "found a problem — file a separate task", but that is a rule inside
+  acceptance, not a workflow. Nothing closes the task in full.
+- **Conflicts with shipped:** touches `scripts/new-plan.mjs` and `scripts/check-orientation.mjs`.
+  The second one critically: it takes the "field left untouched" baseline **only** from
+  `docs/plans/TEMPLATE.md`, so the second template must join that list or an untouched bugfix plan
+  passes — that is, `CH-007` stops working precisely for new plans. No invariant changes. Cases are
+  untouched apart from `LG-API-*`, which sees a new entry.
+- **Conflicts with planned:** no matches. `BL-013` (worktree tooling) and `BL-014`
+  (`.claude/agents/*.md`) are adjacent but independent: both concern executors rather than phases.
+  `BL-001` (rate limiting) will be the first candidate to travel the new bugfix flow, but this task
+  does not close it.
+- **Open questions:** "bug" and "defect" are used as synonyms here, and the `FX-` column records
+  both what was found before release (a process defect such as the vacuous meta-test) and what
+  broke at runtime. The flow must handle both, so no distinction is introduced; instead there is a
+  threshold beyond which a bug needs a written plan, and below which a red test and an `FX-` entry
+  suffice.
 
-Раздел «Отклонено» бэклога ни того, ни другого потока не содержит.
+The Rejected section of the backlog contains neither flow.
 
-## 1. Спайк: чем проверены рискованные допущения
+## 1. Spike: how the risky assumptions were proven
 
-| Допущение                                               | Как проверено                      | Факт                                                                       |
-| ------------------------------------------------------- | ---------------------------------- | -------------------------------------------------------------------------- |
-| `check-orientation` сверяет отписки с одним шаблоном    | чтение `templateAnswers`           | Да, константа `TEMPLATE` одна → второй шаблон нужно явно добавить в список |
-| Проверка находит планы по суффиксу, а не по содержимому | чтение `activePlans`               | `*.plan.md`; файлы `TEMPLATE*.md` под него не попадают — конфликта нет     |
-| Ответ раздела 0 может занимать несколько строк          | чтение `answerFor` + `ci-pipeline` | Да, абзац до пустой строки или до следующего `- **`                        |
-| `plan:new` умеет только один шаблон                     | чтение `new-plan.mjs`              | `copyFileSync` одного `TEMPLATE`; нужен выбор                              |
-| Незаполненный баг-план действительно пройдёт без правки | контрольный опыт (см. §6)          | Проверяется до и после правки: до — проходит, после — роняет               |
+| Assumption                                               | How it was proven                   | Fact                                                          |
+| -------------------------------------------------------- | ----------------------------------- | ------------------------------------------------------------- |
+| `check-orientation` compares brush-offs to one template  | reading `templateAnswers`           | Yes, a single `TEMPLATE` constant → the second must be added  |
+| The checker finds plans by suffix, not by content        | reading `activePlans`               | `*.plan.md`; `TEMPLATE*.md` files do not match — no conflict  |
+| A section 0 answer may span several lines                | reading `answerFor` + `ci-pipeline` | Yes, a paragraph up to a blank line or the next `- **`        |
+| `plan:new` supports only one template                    | reading `new-plan.mjs`              | A single `copyFileSync` of one `TEMPLATE`; a choice is needed |
+| An untouched bugfix plan really would pass without a fix | control experiment (see §6)         | Verified before and after: before it passes, after it fails   |
 
-## 2. Контракт
+## 2. Contract
 
-Неприменимо: HTTP-эндпоинты не добавляются.
+Not applicable: no HTTP endpoints are added.
 
-## 3. Данные
+## 3. Data
 
-Неприменимо.
+Not applicable.
 
-## 4. Задачи
+## 4. Tasks
 
-| ID  | Что делать                                                                                          | Файлы                                                               | Готово, когда                                                                       | Зависит от |
-| --- | --------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- | ----------------------------------------------------------------------------------- | ---------- |
-| W1  | Шаблон плана багфикса: воспроизведение, причина, влияние, «почему не поймали», план фикса, проверка | `docs/plans/TEMPLATE-BUGFIX.md`                                     | Раздел 0 совпадает по форме с `TEMPLATE.md`                                         | —          |
-| W2  | `pnpm plan:new <slug> --bug` выбирает баговый шаблон                                                | `scripts/new-plan.mjs`                                              | Обе команды создают `<slug>.plan.md` из своего шаблона                              | W1         |
-| W3  | `check-orientation` сверяет отписки **со всеми** шаблонами                                          | `scripts/check-orientation.mjs`                                     | Контрольный опыт §6 роняет незаполненный баг-план                                   | W1         |
-| W4  | Скил `bugfix-pipeline`: семь шагов, порог «нужен ли план», красный тест **до** фикса                | `.claude/skills/bugfix-pipeline/SKILL.md`                           | Шаги названы, у каждого вход и выход; триггеры не пересекаются с `feature-pipeline` | W1         |
-| W5  | В `feature-pipeline` — явная таблица фаз и шаг «требования и архитектура»; ссылка на баговый поток  | `.claude/skills/feature-pipeline/SKILL.md`                          | Фазы читаются с первого экрана, дублей с `CLAUDE.md` не добавилось                  | —          |
-| W6  | Развилка «фича или баг» в правилах проекта                                                          | `CLAUDE.md`, `README.md`, `docs/plans/README.md`                    | Один короткий раздел со ссылками, без пересказа скилов                              | W4, W5     |
-| W9  | Машинная защита связки «шаблоны ↔ проверка»: кейсы `PR-API-01`/`PR-API-02`                          | `e2e/process/*`, `e2e/suite-integrity.api.spec.ts`, `e2e/README.md` | Оба кейса краснеют, если сломать метку или забыть шаблон в списке                   | W3         |
-| W7  | Запись `CH-013` в реестр                                                                            | `docs/CHANGELOG.md`                                                 | `pnpm e2e e2e/ledger` зелёный                                                       | W1–W6      |
-| W8  | Приёмка: контрольный опыт по W3, `pnpm format`, один `pnpm verify`                                  | —                                                                   | `pnpm verify` зелёный целиком                                                       | W7         |
+| ID  | What to do                                                                                     | Files                                                               | Done when                                                            | Depends on |
+| --- | ---------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- | -------------------------------------------------------------------- | ---------- |
+| W1  | A bugfix plan template: reproduction, cause, impact, "why it was not caught", fix plan, checks | `docs/plans/TEMPLATE-BUGFIX.md`                                     | Section 0 matches `TEMPLATE.md` in form                              | —          |
+| W2  | `pnpm plan:new <slug> --bug` picks the bugfix template                                         | `scripts/new-plan.mjs`                                              | Both commands create `<slug>.plan.md` from their own template        | W1         |
+| W3  | `check-orientation` compares brush-offs against **every** template                             | `scripts/check-orientation.mjs`                                     | The control experiment in §6 fails an untouched bugfix plan          | W1         |
+| W4  | The `bugfix-pipeline` skill: seven steps, the "is a plan needed" threshold, red test first     | `.claude/skills/bugfix-pipeline/SKILL.md`                           | Steps named with an input and an output; triggers do not overlap     | W1         |
+| W5  | An explicit phase table in `feature-pipeline` plus the requirements step                       | `.claude/skills/feature-pipeline/SKILL.md`                          | The phases read off the first screen; no new duplication             | —          |
+| W6  | The "feature or bug" fork in the project rules                                                 | `CLAUDE.md`, `README.md`, `docs/plans/README.md`                    | One short section with references, no restating of the skills        | W4, W5     |
+| W9  | Machine protection of the templates ↔ checker link: cases `PR-API-01`/`PR-API-02`              | `e2e/process/*`, `e2e/suite-integrity.api.spec.ts`, `e2e/README.md` | Both cases fail if a label is renamed or a template is left unlisted | W3         |
+| W7  | The `CH-013` ledger entry                                                                      | `docs/CHANGELOG.md`                                                 | `pnpm e2e e2e/ledger` green                                          | W1–W6      |
+| W8  | Acceptance: the W3 control experiment, `pnpm format`, one `pnpm verify`                        | —                                                                   | `pnpm verify` green end to end                                       | W7         |
 
-Параллельность не нужна: W2 и W3 правят соседние скрипты, но оба зависят от формы шаблона из W1,
-а W6 сводит результат. Все задачи идут последовательно в одном дереве.
+Parallelism is unnecessary: W2 and W3 edit neighbouring scripts but both depend on the template
+shape from W1, and W6 ties the result together.
 
-## 5. Риски
+## 5. Risks
 
-- **Второй шаблон — второй источник расхождения.** Раздел 0 обязан остаться идентичным по форме:
-  его парсит `check-orientation` по меткам `- **Дубль:**` и трём другим. Любая правка формы в одном
-  шаблоне без второго ломает проверку молча. Смягчение: W3 делает список шаблонов общим, а
-  контрольный опыт §6 проверяет именно это.
-- **Ещё один обязательный документ на каждый баг — прямой путь к тому, от чего ушли** в `CH-004`
-  (100 минут планирования против 85 минут кода). Смягчение: порог в §4 скила — план нужен только
-  при неочевидной причине, затронутом контракте или инварианте, безопасности либо более чем одном
-  модуле. Для остального поток — красный тест, фикс, запись `FX-`.
+- **A second template is a second source of drift.** Section 0 must stay identical in form: the
+  checker parses it by the `- **Duplicate:**` label and three others. Editing the form in one
+  template without the other breaks the check silently. Mitigation: W3 makes the template list
+  shared, and the W9 cases verify exactly that.
+- **One more mandatory document per bug is the straight road back** to what `CH-004` moved away
+  from (100 minutes of planning against 85 of code). Mitigation: the threshold in §4 of the skill —
+  a plan is needed only for a non-obvious cause, a touched contract or invariant, security, or more
+  than one module. Otherwise the flow is a red test, a fix and an `FX-` entry.
 
-## 6. Допущения и осознанные пропуски
+## 6. Assumptions and deliberate omissions
 
-- **Контрольный опыт обязателен и входит в приёмку:** создать баг-план командой, не заполнять
-  раздел 0, убедиться, что `pnpm check:orientation` **краснеет**, удалить. Без этого W3 —
-  непроверенное утверждение, а вакуумно проходящая проверка в этом репозитории уже была (`FX-001`).
-- **Отдельный тип записи реестра для багов не вводится:** `FX-` уже означает дефект, а графа «Чем
-  найдено» уже отвечает на вопрос, какая проверка сработала. Второй графы «почему не поймали
-  раньше» не добавляю — ответ живёт в плане багфикса и в новом пункте `BL-`, если чинить проверку
-  надо отдельно.
-- **W9 добавлен по ходу, его не было в исходном списке.** Риск §5 («правка формы в одном шаблоне
-  без второго ломает проверку молча») исходно закрывался только текстом и дисциплиной. Раз в этом
-  репозитории уже есть класс дефектов «проверка молча перестала проверять» (`FX-001`), риск закрыт
-  механизмом: кейсы `PR-API-01`/`PR-API-02`, оба проверены контрольным опытом.
-- **Триаж и приоритизация багов не автоматизируются.** Признак срочности — раздел «Влияние» плана и
-  приоритет `P1`/`P2`/`P3` бэклога, как у прочих пунктов; отдельной шкалы severity не завожу.
+- **The control experiment is mandatory and part of acceptance:** create a bugfix plan with the
+  command, fill nothing, confirm `pnpm check:orientation` **fails**, delete it. Without that, W3 is
+  an unverified claim — and a vacuously passing check has happened here before (`FX-001`).
+- **W9 was added along the way and was not in the original list.** The §5 risk ("editing the form
+  in one template without the other breaks the check silently") was originally covered by prose and
+  discipline alone. Since this repository already has a class of defects called "the check silently
+  stopped checking", the risk is now closed by mechanism: cases `PR-API-01`/`PR-API-02`, both
+  verified by control experiment.
+- **No separate ledger entry type for bugs:** `FX-` already means defect, and the "Found by" column
+  already answers which check fired. No second "why it was not caught earlier" column is added —
+  that answer lives in the bugfix plan and in a new `BL-` item when the check itself needs fixing.
+- **Triage and bug prioritization are not automated.** Urgency is the "Impact" section of the plan
+  plus the backlog's `P1`/`P2`/`P3`; no separate severity scale is introduced.

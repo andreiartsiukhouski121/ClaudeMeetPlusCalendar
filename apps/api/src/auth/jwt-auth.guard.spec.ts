@@ -7,9 +7,9 @@ import { JwtAuthGuard, UNAUTHORIZED_MESSAGE } from './jwt-auth.guard.js';
 import type { TokenService } from './token.service.js';
 
 /**
- * Кейсы AL-UT-27 и AL-UT-28 из `e2e/regression/auth-login/auth-login.unit.cases.md`.
- * Guard — наш код с ролью в безопасности: e2e-повторы разбора заголовка удалены планом,
- * поэтому ветки «нет заголовка / не Bearer / токен не разбирается» проверяются здесь.
+ * Cases AL-UT-27 and AL-UT-28 from `e2e/regression/auth-login/auth-login.unit.cases.md`. The guard
+ * is our own security-relevant code, and the e2e duplicates of header parsing were dropped, so the
+ * "no header / not Bearer / unparseable token" branches are checked here.
  */
 describe('JwtAuthGuard', () => {
   const PAYLOAD: JwtPayload = { sub: 'usr-teacher', email: 'teacher@purpleschool.test' };
@@ -27,7 +27,7 @@ describe('JwtAuthGuard', () => {
     return { guard, context, request, verify };
   }
 
-  it('AL-UT-27 — валидный Bearer-токен: guard пропускает и кладёт в request.user только id и email', async () => {
+  it('AL-UT-27 — a valid Bearer token passes and puts only id and email on request.user', async () => {
     const { guard, context, request, verify } = createHarness('Bearer valid.jwt.token', PAYLOAD);
 
     await expect(guard.canActivate(context)).resolves.toBe(true);
@@ -37,17 +37,17 @@ describe('JwtAuthGuard', () => {
     expect(request.user).not.toHaveProperty('passwordHash');
   });
 
-  it('AL-UT-28 — нет заголовка, схема не Bearer и неразбираемый токен дают один и тот же UnauthorizedException', async () => {
+  it('AL-UT-28 — a missing header, a non-Bearer scheme and an unparseable token all give the same UnauthorizedException', async () => {
     const cases: {
       name: string;
       authorization: string | undefined;
       payload: JwtPayload | Error;
     }[] = [
-      { name: 'заголовка нет', authorization: undefined, payload: PAYLOAD },
-      { name: 'схема не Bearer', authorization: 'Basic dXNlcjpwYXNz', payload: PAYLOAD },
-      { name: 'пустой токен', authorization: 'Bearer ', payload: PAYLOAD },
+      { name: 'no header', authorization: undefined, payload: PAYLOAD },
+      { name: 'non-Bearer scheme', authorization: 'Basic dXNlcjpwYXNz', payload: PAYLOAD },
+      { name: 'empty token', authorization: 'Bearer ', payload: PAYLOAD },
       {
-        name: 'токен не разбирается',
+        name: 'unparseable token',
         authorization: 'Bearer not.a.jwt',
         payload: new Error('invalid token'),
       },

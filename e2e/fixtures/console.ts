@@ -1,13 +1,13 @@
 import type { Page } from '@playwright/test';
 
 /**
- * Next.js в dev-режиме ругается в консоль на свой HMR-сокет, когда тот не поднялся
- * (например, dev-сервер запущен на нестандартном порту — а Playwright работает именно
- * на 3100). Это шум инфраструктуры, а не ошибка приложения — иначе тест флакает
- * в зависимости от состояния dev-сервера.
+ * In dev mode Next complains to the console about its HMR socket when that socket did not come up
+ * (for instance because the dev server runs on a non-default port — and Playwright uses 3100).
+ * That is infrastructure noise, not an application error; without filtering it, tests flake with
+ * the state of the dev server.
  *
- * Паттерны перенесены из удалённого `e2e/web/home.spec.ts`, где они были проверены прогонами.
- * Не переписывать «с нуля»: без фильтра кейсы AL-FN-08 и HD-FN-10 становятся флакающими.
+ * The patterns were carried over from a deleted spec where runs had proven them. Do not rewrite
+ * them from scratch: without the filter AL-FN-08 and HD-FN-10 become flaky.
  */
 const DEV_SERVER_NOISE = [/\/_next\/hmr/, /WebSocket connection to/];
 
@@ -16,16 +16,15 @@ export function isDevServerNoise(text: string): boolean {
 }
 
 /**
- * Подписывается на `console` и `pageerror` и возвращает массив, который наполняется
- * по мере работы страницы. Подписаться нужно ДО `page.goto`, иначе ошибки первого
- * рендера в массив не попадут.
+ * Subscribes to `console` and `pageerror` and returns an array that fills up as the page runs.
+ * Subscribe BEFORE `page.goto`, or first-render errors never land in it.
  *
- * Возвращается ссылка на живой массив, а не снимок: ассерт вида `expect(problems).toEqual([])`
- * ставится в конце теста и видит всё, что накопилось. Строки префиксуются источником —
- * при падении отчёт сразу говорит, была это ошибка консоли или необработанное исключение.
+ * A live array is returned rather than a snapshot: the assertion sits at the end of the test and
+ * sees everything accumulated. Entries are prefixed with their source so a failing report says at
+ * once whether it was a console error or an unhandled exception.
  *
- * Собираются только `console.error` (не `warning`): предупреждения React о ключах и подобное
- * — не поломка поведения, а делать блокером любое из них значит превратить кейс в шумный.
+ * Only `console.error` is collected, not warnings: React key warnings and the like are not broken
+ * behaviour, and making any of them a blocker would turn the case into noise.
  */
 export function collectConsoleProblems(page: Page): string[] {
   const problems: string[] = [];

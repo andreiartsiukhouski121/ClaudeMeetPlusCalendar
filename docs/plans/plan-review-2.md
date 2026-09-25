@@ -1,185 +1,157 @@
-# Ревью планов разработки (итерация 2)
+# Development plan review (iteration 2)
 
-Ревьюируемые документы: `docs/plans/README.md`, `docs/plans/feature-plan-implementation.md`
-(далее **ИП**), `docs/plans/feature-plan-testing.md` (далее **ТП**). Предмет проверки —
-применение `docs/plans/plan-review-1.md` (далее **Р1**), новые дефекты от правок и остаточные
-блокеры.
+> **ARCHIVE.** A record of the second review pass, kept for the reasoning behind the decisions. Not
+> a source of truth: the live convention is in [`e2e/README.md`](../../e2e/README.md), the
+> invariants in [`CLAUDE.md`](../../CLAUDE.md). Translated into English in `CH-014` and condensed;
+> every blocker, finding and verified fact is preserved.
 
-Все утверждения ниже проверены на установленных зависимостях этого репозитория
-(`next@16.3.4`, `@nestjs/common@12.0.1`, `class-validator@0.15.1`, `@playwright/test@1.62.1`,
-`vitest@4.1.11`, `eslint-plugin-playwright@2.11.0`, `pnpm@10.32.1`, Node `v24.14.0`) —
-см. §8. Пробы собирались в скретчпаде, файлы репозитория не менялись.
+Documents under review: `docs/plans/README.md`, `feature-plan-implementation.md` (**IP**),
+`feature-plan-testing.md` (**TP**). The subject: how `plan-review-1.md` (**R1**) was applied, new
+defects introduced by the edits, and any residual blockers.
 
----
-
-## 1. Вердикт
-
-**План можно исполнять после устранения блокеров.**
-
-Работа по Р1 сделана честно: все 9 блокеров, 14 существенных замечаний, 10 мелочей и §5
-(14 удалений + 8 объединений) реально применены в документах, а не только записаны в журнал §10.
-Арифметика сошлась полностью — 52 e2e и 38 UT пересчитаны по таблицам кейсов, включая разбивку по
-приоритетам в каждом подразделе, итоги §6.6 и ожидаемые числа в DoD шести задач. Висячих ссылок на
-удалённые ID нет, дублей ID нет, ни один из 12 пунктов спецификации не остался без кейса.
-
-Но исполнять как есть нельзя по четырём причинам, и три из них проверены прогоном, а не рассуждением.
-Первая: скрипты `test:<feature>` из B8 не фильтруют — `pnpm -r test -- -t "AL-UT-"` прокидывает
-литеральный `--`, после которого `vitest` игнорирует `-t` и гоняет всё (проверено); то есть
-требование пользователя «проверки по каждой фиче в изоляции» для юнитов не выполнено, а DoD
-`T1.4`/`T2.3` дадут не то число. Вторая: фикстурная схема из M4 нереализуема — Playwright 1.62.1
-жёстко запрещает `test.use({ authUser })` в `describe` для worker-scoped опции, а тестовую опцию
-запрещает как зависимость worker-фикстуры; файл `home-dashboard.functional.spec.ts` не загрузится
-вовсе, и все 13 кейсов фичи 2 упадут. Третья: `CreateMeetingDto` унаследовал ровно тот дефект,
-который Р1 нашло у `ListMeetingsQueryDto` (`durationMinutes?` без `@IsOptional()`), поэтому
-`POST /meetings` из UI-формы отдаёт `400` — кнопка «Создать встречу» не работает. Четвёртая:
-дерево юнит-спеков ТП §1.1 осталось от старой редакции и противоречит ТП §4.1 и ИП §9 в том же
-вопросе, по которому ТП объявлен главным.
-
-Ни один из четырёх не требует переработки плана — все правятся точечно, тексты правок приведены.
+Every claim below was checked against this repository's installed dependencies (`next@16.3.4`,
+`@nestjs/common@12.0.1`, `class-validator@0.15.1`, `@playwright/test@1.62.1`, `vitest@4.1.11`,
+`eslint-plugin-playwright@2.11.0`, `pnpm@10.32.1`, Node `v24.14.0`) — see §8. The probes lived in a
+scratchpad; no repository file was changed.
 
 ---
 
-## 2. Таблица применения ревью 1
+## 1. Verdict
 
-Вердикт вынесен по документам, не по журналу §10 ИП.
+**The plan can be executed once the blockers are removed.**
 
-| Пункт Р1             | Вердикт                                                 | Чем подтверждён                                                                                                                                                                                                                        |
-| -------------------- | ------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| B1                   | применено                                               | ИП стр. 219–220: `@IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(100)` + абзац «`@IsOptional()` **обязателен**». Проба подтверждает: `GET /meetings` без параметра → 200 (§8)                                                 |
-| B2                   | применено                                               | ИП стр. 220 (`@Max(100)`), §2.1 стр. 200 (`limit > 100 → 400`); ТП `HD-API-09` (стр. 471), `HD-API-10` (472), `HD-API-17` (477), `SM-API-03` (540). Проба: `limit=100` → 200, `limit=101` → 400                                        |
-| B3                   | применено                                               | ТП стр. 433 (`AL-FN-02` — «Содержимое главной здесь не проверяется»), стр. 447 (`AL-FN-07` → `HD-FN-16`), стр. 514 (`HD-FN-16`); ИП `T1.9` стр. 548 DoD «`10 passed`», `T2.7` DoD стр. 632, риск 22                                    |
-| B4                   | применено (вариант SELF_EXEMPT)                         | ТП §1.6 стр. 205–213: «Правила 1–3 не применяются к самому `e2e/suite-integrity.api.spec.ts`», `const SELF_EXEMPT = ['suite-integrity.api.spec.ts']`; ИП `T0.6` стр. 466                                                               |
-| B5                   | применено (с названным отступлением)                    | ИП `T0.6` стр. 459 («Разбиение **обязательно**, а не «допустимо»»), `T0.7` стр. 472 (оговорка про красный тест убрана); ТП §3.5 стр. 542–546. `SM-API-02` вводится в `T1.5`, не `T1.4` — отступление зафиксировано в §10 ИП, решение 2 |
-| B6                   | применено                                               | ИП стр. 60 (`[удл] T0.6`), `T0.6` стр. 458, риск 22 стр. 803; ТП стр. 50 и §1.5 стр. 171. В блоке `T2.9` слова «удал\*» больше нет (проверено grep)                                                                                    |
-| B7                   | применено                                               | ТП §4.1 стр. 606–621: `AL-UT-20…22` — только `buildSessionCookieOptions`/`SESSION_MAX_AGE_SECONDS`, новый блок `api-client.spec.ts` (`AL-UT-23…26`); ИП §3.5 стр. 370 («`parseSession` … **нет**»)                                     |
-| B8                   | **применено неверно** (см. NB1)                         | Текстовая часть на месте: ТП §2 стр. 350, §1.6 правила 7–8 стр. 196–203, §6.2 шаг 4 стр. 789, скрипты ТП стр. 301–302 / ИП `T0.3` стр. 437–438. Но форма скрипта (`-- -t`) фильтр не включает (§8)                                     |
-| B9                   | применено                                               | ТП `AL-API-10` стр. 400: `TEACHER@Purpleschool.TEST` + «шаг 2 → `email` строго `teacher@purpleschool.test` (нижний регистр)»                                                                                                           |
-| M1                   | применено                                               | ИП §2.1 стр. 201–202 (строки «Битый JSON» и «Метод/путь не найден»), стр. 204 («массив строк **только** у ошибок `ValidationPipe`»)                                                                                                    |
-| M2                   | применено                                               | ТП `HD-API-10` стр. 472 — детерминированное «шаг 4 → **400**, `message` содержит `property foo should not exist`»; «или/либо» в ожиданиях `HD-API-*` нет; форма 404 — ИП §2.1                                                          |
-| M3                   | применено                                               | ТП §1.1 стр. 27 (`api.ts`), §5.5 стр. 757–762 (`API_BASE_URL` + `apiRequest`), §3.4 стр. 495–497; ИП стр. 46, `T0.6`, `T2.9` стр. 654                                                                                                  |
-| M4                   | **применено по тексту Р1, решение нерабочее** (см. NB2) | ТП §5.5 стр. 716–747 — опция `authUser` (`{ option: true, scope: 'worker' }`) + `authedState` + `authedPage` ровно как предписывало Р1. Playwright 1.62.1 такую параметризацию в `describe` отвергает (§8)                             |
-| M5                   | применено                                               | ТП `HD-FN-07` стр. 508 (шаг 4 заполняет форму, дата `2030-01-01T10:00`), `HD-API-13` стр. 474, `HD-API-17` стр. 477, §5.4 правило 5 стр. 708; ИП §3.4 стр. 318–322                                                                     |
-| M6                   | применено                                               | ТП стр. 72–74 (`plural.spec.ts` в дереве нет), §4.2 стр. 655–657; ИП `T2.8` стр. 639, §8 п. 9 стр. 830. `pluralizeMeetings` в живом тексте не встречается                                                                              |
-| M7                   | применено                                               | ИП `T0.6` стр. 462–464 (оба раздела `CLAUDE.md` + `playwright-verify/SKILL.md`), DoD стр. 467; ТП §1.5 стр. 178–184. Адреса правок совпадают с фактом: `SKILL.md` строки 24, 25, 83, 117 — это §1, §4, §5                              |
-| M8                   | применено и работает (с неточностью в описании, NM2)    | ТП §1.4 стр. 132–152, ИП `T0.6` стр. 466. Проба: три правила валидны, поднятые в `error` дают `exit 1`, `test.fixme` не задевается (§8)                                                                                                |
-| M9                   | применено                                               | ИП §7 риск 1 стр. 782: «`secure: true` сам по себе e2e **не** ломает… искать причину в риске 18 и в матчере `proxy`»                                                                                                                   |
-| M10                  | применено                                               | ТП §1.7 стр. 238–247: «**Отступление от буквы требования — названо явно**» + вариант Б с ценой                                                                                                                                         |
-| M11                  | применено                                               | ИП §3.6 стр. 379–380 («`.env` **не** читается — dotenv не подключён»), абзац стр. 385–395, `T0.4` стр. 447. Факт подтверждён: в `apps/api/package.json` нет ни `dotenv`, ни `@nestjs/config`                                           |
-| M12                  | применено                                               | ТП §4.2 стр. 643: «`create(ownerId, input)` записывает `ownerId` **из аргумента**… Подмену владельца через HTTP проверяют `HD-API-16` и `HD-API-17`»                                                                                   |
-| M13                  | применено                                               | ТП §4.1 стр. 561–563 (`AL-UT-01…03` через `login`), стр. 570 («Метода `validateUser` в архитектуре нет»)                                                                                                                               |
-| M14                  | применено                                               | ТП §4.2 стр. 651–652 (`HD-UT-15`, `HD-UT-16`), итог 13/38 пересчитан; ИП `T2.3` стр. 586–588                                                                                                                                           |
-| m1                   | применено                                               | ТП §1.9 стр. 313–318, §4.2 стр. 661; ИП §9 стр. 848 (строка про `--passWithNoTests`). Обоснование при этом фактически неверно — NM4                                                                                                    |
-| m2                   | применено                                               | ИП стр. 45–46 и `T0.6` стр. 458 (`auth.api.ts`), §9 стр. 849                                                                                                                                                                           |
-| m3                   | применено                                               | ТП §6.2 стр. 800–806 («каждый запуск `pnpm e2e …` поднимает **оба** `webServer`… ~15 с / до 3 минут»); ИП §6 стр. 757–759                                                                                                              |
-| m4                   | применено                                               | ТП §2, пример `AL-FN-03` стр. 366–370; §5.5 стр. 751                                                                                                                                                                                   |
-| m5                   | применено                                               | ИП `T0.7` стр. 470. Факт частично уже устранён: `npx prettier --check docs/plans/` красный теперь только на `plan-review-1.md` (§8)                                                                                                    |
-| m6                   | применено                                               | ТП `AL-FN-05` стр. 436 и `AL-FN-14` стр. 441 — «нативной валидации нет», «поле email — `type="text"`»; ИП `T1.8` стр. 537, риск 20 стр. 801                                                                                            |
-| m7                   | применено                                               | ИП §7 риск 24 стр. 805                                                                                                                                                                                                                 |
-| m8                   | применено                                               | `docs/plans/README.md`, раздел «CI/CD — названный пропуск»                                                                                                                                                                             |
-| m9                   | применено                                               | ТП §1.5, строка про `app.e2e-spec.ts`: «остаётся ровно для одной цели… Если файл перестанет отличаться от `SM-API-01`… удаляется»                                                                                                      |
-| m10                  | применено                                               | ИП `T0.6` DoD стр. 468: «`pnpm e2e --list` показывает ровно те спеки, что перечислены в `e2e/README.md`, и число файлов совпадает» + объяснение, почему старая проверка тавтологична (см. NM6)                                         |
-| §5.1 (14 удалений)   | применено полностью                                     | Удалены и не переиспользуются: `AL-API-12`, `16`, `17`, `18`, `19`; `HD-API-18`, `19`; `AL-FN-11`; `HD-FN-13`, `15`; `AL-UT-16`, `18`; `HD-UT-13`, `14` — 14/14. Ни один не имеет определения в §3–§4                                  |
-| §5.2 (8 объединений) | применено полностью                                     | `AL-API-04←05,06` (стр. 397); `AL-API-07←09` (398); `AL-FN-08←09` (438); `AL-FN-12+HD-FN-11` (512); `HD-API-10←11,12` (472); `HD-FN-05←12` (506); `AL-UT-09←12` (576); `HD-UT-10←12` (649) — 8/8                                       |
-| §5.4 (`HD-FN-15`)    | применено                                               | ТП §3.4 стр. 522–527 — удалён с разбором механизма; гарантия передана `HD-FN-08` шаг 5                                                                                                                                                 |
+The R1 work was done honestly: all 9 blockers, 14 substantive findings, 10 minor items and §5 (14
+deletions + 8 merges) were genuinely applied to the documents rather than merely logged. The
+arithmetic reconciles completely — 52 e2e and 38 UT recounted from the case tables, including the
+priority breakdown in every subsection, the §6.6 totals and the expected numbers in six task DoDs.
+There are no dangling references to deleted IDs, no duplicate IDs, and not one of the 12
+specification points is left without a case.
 
-**Итог:** применено полностью — 41 пункт; применено неверно — 2 (`B8` в части формы скрипта, `M4`
-в части фикстурной схемы); применено с неточностью в сопутствующем тексте — 2 (`M8` — NM2, `m1` —
-NM4). Не применённых пунктов нет.
+But it cannot be executed as is, for four reasons — three of them verified by running things rather
+than by reasoning:
 
-Отдельно про два места, где Р1 требовало именно текстовой правки, а не перестановки слов:
+1. The `test:<feature>` scripts from B8 do not filter: `pnpm -r test -- -t "AL-UT-"` passes a
+   literal `--`, after which `vitest` ignores `-t` and runs everything (verified). The user's
+   requirement "checks run per feature in isolation" is therefore unmet for units, and the DoDs of
+   `T1.4`/`T2.3` will produce the wrong number.
+2. The fixture scheme from M4 is unimplementable — Playwright 1.62.1 hard-forbids
+   `test.use({ authUser })` in a `describe` for a worker-scoped option, and forbids a test option as
+   a worker fixture dependency; `home-dashboard.functional.spec.ts` will not load at all and all 13
+   cases of feature 2 will fail.
+3. `CreateMeetingDto` inherited exactly the defect R1 found in `ListMeetingsQueryDto`
+   (`durationMinutes?` without `@IsOptional()`), so `POST /meetings` from the UI form returns `400`
+   — the "Create meeting" button does not work.
+4. The unit spec tree in TP §1.1 is left over from an older revision and contradicts TP §4.1 and IP
+   §9 on the very question TP is declared authoritative for.
 
-- **B5 («допустимо» → «обязательно»).** Проверено по существу: слово «допустимо» из `T0.6` убрано,
-  вместо него «Разбиение **обязательно**, а не «допустимо»» плюс механизм — «Файл
-  `e2e/smoke/seed.api.spec.ts` в `T0.6` не создаётся». В DoD `T0.7` появилось «**все, без
-  оговорок**». Это не переформулировка, а смена поведения исполнителя. Смягчений не осталось: grep
-  по «допустим\*» в обоих документах даёт только `test.fixme` (§6.5, легитимно) и «допустимого
-  диапазона» в заголовке `HD-API-09`.
-- **M2 (формулировки через «или»).** В ожидаемых результатах §3.1–3.5 «или/либо» осталось ровно в
-  одном месте — `HD-FN-08`: «cookie сессии в контексте отсутствует **или пуста**» (NM7). Это
-  слабее, чем требовало Р1, но не обнуляет кейс: непустая сессионная cookie проверку валит.
+None of the four requires reworking the plan; all are fixable in place, and the fix texts are given.
 
 ---
 
-## 3. Новые блокеры
+## 2. Application of review 1
 
-### NB1 — скрипты `test:<feature>` не фильтруют: `pnpm -r test -- -t "…"` отключает `-t` целиком
+Verdicts come from the documents, not from IP's §10 log.
 
-**Что не так.** ТП §1.9 стр. 301–302 и ИП `T0.3` стр. 437–438 задают:
+All 33 individual items (B1–B9, M1–M14, m1–m10) plus §5.1 (14 deletions) and §5.2 (8 merges) were
+checked one by one against line references. **Result: 41 items fully applied; 2 applied incorrectly
+(`B8` in the script form, `M4` in the fixture scheme); 2 applied with an inaccuracy in the
+surrounding text (`M8` — NM2, `m1` — NM4). No item was left unapplied.**
+
+Two places where R1 demanded a real change of behaviour rather than a rewording:
+
+- **B5 ("permissible" → "mandatory").** Verified in substance: the word "permissible" is gone from
+  `T0.6`, replaced by "the split is **mandatory**, not 'permissible'", plus a mechanism — "the file
+  `e2e/smoke/seed.api.spec.ts` is not created in `T0.6`". The `T0.7` DoD gained "**all of them,
+  without exceptions**". That is a change of implementer behaviour, not a paraphrase. No softenings
+  remain: a grep for "permissible" in both documents returns only `test.fixme` (legitimate) and
+  "the permissible range" in the `HD-API-09` title.
+- **M2 (expectations phrased with "or").** In the expected results of §3.1–3.5 an "or" survives in
+  exactly one place — `HD-FN-08`: "the session cookie is absent from the context **or empty**"
+  (NM7). That is weaker than R1 demanded but does not void the case: a non-empty session cookie
+  fails the check.
+
+---
+
+## 3. New blockers
+
+### NB1 — the `test:<feature>` scripts do not filter: `pnpm -r test -- -t "…"` disables `-t` entirely
+
+**What is wrong.** TP §1.9 and IP `T0.3` specify:
 
 ```json
 "test:auth-login": "pnpm -r test -- -t \"AL-UT-\" --passWithNoTests"
 ```
 
-`pnpm` прокидывает в скрипт пакета **литеральный `--`**, и `vitest run` получает
-`vitest run "--" "-t" "AL-UT-" "--passWithNoTests"`. В такой командной строке `-t` перестаёт быть
-опцией фильтра, и `vitest` выполняет **все** тесты пакета. Требование пользователя «проверки
-запускаются по каждой фиче в изоляции» для юнитов остаётся невыполненным — ровно та дыра, которую
-закрывал B8. Плюс ломаются DoD: `T1.4` («`pnpm test:auth-login` → `25 passed`»), `T2.3`
-(«`13 passed`») и строки §6.6 ТП — фактически придёт `39 passed`, а §6.6 объявляет несовпадение
-числа блокером.
+`pnpm` passes a **literal `--`** into the package script, so `vitest run` receives
+`vitest run "--" "-t" "AL-UT-" "--passWithNoTests"`. On such a command line `-t` stops being a
+filter option and `vitest` runs **all** of the package's tests. The user's requirement that "checks
+run per feature in isolation" therefore remains unmet for units — exactly the hole B8 was meant to
+close. It also breaks the DoDs: `T1.4` ("`pnpm test:auth-login` → `25 passed`"), `T2.3`
+("`13 passed`") and the TP §6.6 rows — in practice `39 passed` arrives, and §6.6 declares a count
+mismatch a blocker.
 
-**Чем подтверждено.** Прогон на текущем репозитории (в нём один юнит-тест с заголовком
-`should return "Hello World!"`, под фильтр `AL-UT-` он не подходит):
+**Evidence.** A run against the current repository (which holds one unit test titled
+`should return "Hello World!"`, not matching the `AL-UT-` filter):
 
 ```
 $ pnpm -r test -- -t "AL-UT-" --passWithNoTests
 apps/api test$ vitest run "--" "-t" "AL-UT-" "--passWithNoTests"
-apps/api test:  Tests  1 passed (1)          ← фильтр не применён
+apps/api test:  Tests  1 passed (1)          ← the filter was not applied
 
 $ cd apps/api && npx vitest run -t "AL-UT-"
- Tests  1 skipped (1)                        ← фильтр применён, exit 0
+ Tests  1 skipped (1)                        ← the filter was applied, exit 0
 
 $ cd apps/api && npx vitest run -- -t "AL-UT-"
- Tests  1 passed (1)                         ← фильтр отключён
+ Tests  1 passed (1)                         ← the filter is disabled
 ```
 
-Дополнительный симптом того же: с `--` меняется и охват `pnpm` — `Scope: all 5 workspace projects`
-вместо `Scope: 4 of 5`, то есть в выборку попадает корневой пакет, чей скрипт `test` — это сам
-`pnpm -r test`, и запуск рекурсивно вкладывается в себя.
+A further symptom of the same thing: with `--`, pnpm's scope changes too —
+`Scope: all 5 workspace projects` instead of `Scope: 4 of 5` — so the root package is pulled in,
+whose `test` script is `pnpm -r test` itself, and the run nests into itself recursively.
 
-**Правка.** Убрать `--` в обоих документах:
+**Fix.** Remove the `--` in both documents:
 
 ```json
 "test:auth-login": "pnpm -r test -t \"AL-UT-\" --passWithNoTests",
 "test:home-dashboard": "pnpm -r test -t \"HD-UT-\" --passWithNoTests"
 ```
 
-Проверено: `pnpm -r test -t "AL-UT-" --passWithNoTests` → `vitest run "-t" "AL-UT-"
-"--passWithNoTests"`, фильтр применяется, `Scope: 4 of 5`, exit 0. В DoD `T0.3` добавить условие,
-которое поймает регресс: «`pnpm test:auth-login` на этапе `T1.4` даёт ровно `25 passed`; если
-число совпало с полным прогоном `pnpm test` — фильтр не работает».
+Verified: the filter applies, `Scope: 4 of 5`, exit 0. Add a regression-catching condition to the
+`T0.3` DoD: "`pnpm test:auth-login` at stage `T1.4` gives exactly `25 passed`; if the number matches
+a full `pnpm test`, the filter is not working."
 
-### NB2 — фикстурная схема M4 нереализуема: Playwright запрещает `test.use({ authUser })` в `describe`
+### NB2 — the M4 fixture scheme is unimplementable: Playwright forbids `test.use({ authUser })` in a `describe`
 
-**Что не так.** ТП §5.5 стр. 740 утверждает: «`test.use({ authUser: 'organizer' })` в `describe`
-заставляет Playwright поднять под это значение **отдельный воркер**, и «один логин на воркер +
-пользователя» работает как задумано». Это неверно. Playwright 1.62.1 для **worker-scoped** опции
-такую конструкцию отвергает на этапе загрузки файла:
+**What is wrong.** TP §5.5 claims that "`test.use({ authUser: 'organizer' })` in a `describe` makes
+Playwright spin up a **separate worker** for that value, and 'one login per worker and user' works
+as intended". That is false. For a **worker-scoped** option, Playwright 1.62.1 rejects the
+construction at file load time:
 
 ```
 Cannot use({ authUser }) in a describe group, because it forces a new worker.
 Make it top-level in the test file or put in the configuration file.
 ```
 
-Ошибка не «красный ассерт», а отказ загрузить спек: падает **весь**
-`home-dashboard.functional.spec.ts`, то есть все 13 кейсов фичи 2, и DoD `T2.9` («`13 passed`»)
-недостижим. Симметричный обход тоже закрыт: если сделать `authUser` тестовой опцией
-(`{ option: true }` без `scope`), Playwright запрещает зависимость worker-фикстуры от тестовой:
+The error is not a failing assertion but a refusal to load the spec: the **whole**
+`home-dashboard.functional.spec.ts` fails, meaning all 13 cases of feature 2, and the `T2.9` DoD
+("`13 passed`") becomes unreachable. The symmetric workaround is closed too: making `authUser` a
+test option (`{ option: true }` without `scope`) makes Playwright forbid a worker fixture depending
+on a test one:
 
 ```
 worker fixture "authedState" cannot depend on a test fixture "authUser"
 ```
 
-А перенести `test.use({ authUser: 'organizer' })` на верхний уровень файла нельзя: в том же файле
-живут кейсы под `teacher` (`HD-FN-02…06`, `09`, `10`, `14`, `16`), а разбить файл на два —
-нарушить требование «на фичу 2 файла тестов» и правила §1.3/§1.6.
+And moving `test.use({ authUser: 'organizer' })` to the file's top level is impossible: the same
+file holds cases under `teacher` (`HD-FN-02…06`, `09`, `10`, `14`, `16`), and splitting the file in
+two would violate the "two test files per feature" requirement and rules §1.3/§1.6.
 
-**Чем подтверждено.** Три прогона Playwright 1.62.1 в скретчпаде (§8), плюс типы:
-`playwright/types/test.d.ts` стр. 6736 разрешает пару `{ scope: 'worker', option: true }`
-синтаксически — запрет срабатывает в рантайме, поэтому `pnpm typecheck` его не поймает.
+**Evidence.** Three Playwright 1.62.1 runs in a scratchpad (§8), plus the types:
+`playwright/types/test.d.ts` allows the pair `{ scope: 'worker', option: true }` syntactically — the
+prohibition is a runtime one, so `pnpm typecheck` will not catch it.
 
-**Правка.** Заменить в ТП §5.5 (и в ИП `T2.9` стр. 652) схему на **worker-scoped кэш, ключом
-которого служит пользователь, плюс тестовая опция**:
+**Fix.** Replace the scheme in TP §5.5 (and in IP `T2.9`) with a **worker-scoped cache keyed by
+user, plus a test option**:
 
 ```ts
 // e2e/fixtures/auth.fixture.ts
@@ -187,7 +159,7 @@ export const test = base.extend<
   { authUser: SeedUserKey; authedPage: Page },
   { authStateFor: (user: SeedUserKey) => Promise<string> }
 >({
-  // worker-scoped: значение — функция, поэтому зависимости от тестовой опции нет
+  // worker-scoped: the value is a function, so it has no dependency on the test option
   authStateFor: [
     async ({ browser }, use, workerInfo) => {
       const cache = new Map<SeedUserKey, string>();
@@ -198,90 +170,80 @@ export const test = base.extend<
     },
     { scope: 'worker' },
   ],
-  authUser: ['teacher', { option: true }], // тестовая опция — её можно менять в describe
+  authUser: ['teacher', { option: true }], // a test option — changeable inside a describe
   authedPage: async ({ browser, authStateFor, authUser }, use) => {
-    /* новый context+page из файла состояния */
+    /* a fresh context + page from the state file */
   },
 });
 ```
 
-Проверено прогоном: `test.use({ authUser: 'organizer' })` в `describe` работает, логин на каждого
-пользователя выполняется один раз на воркер (`login#1` переиспользован вторым тестом `teacher`,
-`login#2` — для `organizer`), контекст и страница создаются на каждый тест. Обоснование в §5.5
-(«почему опция, а не фикстура») заменить на «worker-фикстура не может зависеть от тестовой опции,
-поэтому worker-scoped кэшируется **функция получения состояния**, а не само состояние».
+Verified by a run: `test.use({ authUser: 'organizer' })` inside a `describe` works, the login runs
+once per worker and user, and a fresh context and page are created per test. The rationale in §5.5
+("why an option rather than a fixture") should be replaced with "a worker fixture cannot depend on a
+test option, so what is cached per worker is the **state-getter function**, not the state itself".
 
-### NB3 — `CreateMeetingDto.durationMinutes?` без `@IsOptional()`: `POST /meetings` из UI отдаёт 400
+### NB3 — `CreateMeetingDto.durationMinutes?` without `@IsOptional()`: `POST /meetings` from the UI returns 400
 
-**Что не так.** ИП §2.2 п. 5 (стр. 221): «`durationMinutes?` `@Type(() => Number) @IsInt()
-@Min(15) @Max(480)`, дефолт `60`». `@IsOptional()` не назван — то есть ровно дефект B1, но во
-второй DTO из того же нумерованного списка. При `whitelist: true, transform: true` отсутствующее
-поле проходит через `@IsInt/@Min/@Max` и даёт 400. А отправляют без него именно наши сценарии:
+**What is wrong.** IP §2.2 item 5 specifies `durationMinutes?` with
+`@Type(() => Number) @IsInt() @Min(15) @Max(480)` and a default of `60`. `@IsOptional()` is not
+named — that is exactly defect B1, in the second DTO of the same numbered list. Under
+`whitelist: true, transform: true` a missing field still runs through `@IsInt/@Min/@Max` and gives 400. And it is our own scenarios that send it without the field:
 
-- `T2.6` (стр. 609) описывает `createMeetingAction` как «`title` из формы с `trim`;
-  `startsAt = toIsoStartsAt(...)`; … `POST /meetings`» — третьего поля нет, и в форме `T2.8`
-  (стр. 641) тоже только «Название» и «Дата и время». Значит **кнопка «Создать встречу» не работает
-  никогда**, и `HD-FN-07` (P0) красный на корректном по остальным пунктам коде — а это пункт 11
-  спецификации пользователя;
-- `HD-API-17` (ТП стр. 477) шаг 2: «`POST /meetings` с уникальным title и `startsAt` =
-  `2030-01-01T10:00:00.000Z`» — `durationMinutes` не передаётся → 400 вместо 201;
-- `HD-UT-08` («`create` возвращает … `durationMinutes ?? 60`») тестирует ветку, которая по HTTP
-  недостижима.
+- `T2.6` describes `createMeetingAction` as "`title` from the form with `trim`;
+  `startsAt = toIsoStartsAt(...)`; … `POST /meetings`" — there is no third field, and the `T2.8`
+  form has only "Title" and "Date and time". So **the "Create meeting" button never works**, and
+  `HD-FN-07` (P0) is red on otherwise correct code — which is point 11 of the user specification;
+- `HD-API-17` step 2 sends only a unique title and `startsAt` → 400 instead of 201;
+- `HD-UT-08` ("`create` returns … `durationMinutes ?? 60`") tests a branch unreachable over HTTP.
 
-**Чем подтверждено.** Проба на реальных `@nestjs/common@12.0.1` + `class-validator@0.15.1` с DTO,
-списанной из плана буква в букву:
+**Evidence.** A probe on real `@nestjs/common@12.0.1` + `class-validator@0.15.1` with the DTO copied
+from the plan verbatim:
 
 ```
-POST body full                 -> OK {"title":"…","startsAt":"2030-01-01T10:00:00.000Z","durationMinutes":30}
-POST body без durationMinutes  -> 400 {"message":["durationMinutes must not be greater than 480",
-                                       "durationMinutes must not be less than 15",
-                                       "durationMinutes must be an integer number"],…}
+POST body full                    -> OK {"title":"…","startsAt":"2030-01-01T10:00:00.000Z","durationMinutes":30}
+POST body without durationMinutes -> 400 {"message":["durationMinutes must not be greater than 480",
+                                          "durationMinutes must not be less than 15",
+                                          "durationMinutes must be an integer number"],…}
 ```
 
-**Правка.** ИП §2.2 п. 5 переписать: «`CreateMeetingDto`: `title` `@IsString() @Length(3, 100)`;
-`startsAt` `@IsISO8601()`; `durationMinutes?` `@IsOptional() @Type(() => Number) @IsInt() @Min(15)
-@Max(480)`; при отсутствии поля сервис подставляет `60`. `@IsOptional()` **обязателен** — без него
-`POST /meetings` без `durationMinutes` даёт 400 (проверено пробой), то есть форма создания встречи
-из `T2.8` не работает вовсе». Заодно в §2.1 добавить строку «`durationMinutes` вне `15..480` →
-`400 {"message":["durationMinutes must not be less than 15"],…}`», а в ТП — либо шаг с явным
-`durationMinutes` в `HD-API-17`, либо (лучше) кейс `HD-API-18` в свободном номере: «`POST
-/meetings` **без** `durationMinutes` → 201, в ответе `durationMinutes` = 60» — именно он ловит
-пропущенный `@IsOptional()` на контрактном уровне, как `HD-API-10` шаг 2 ловит его у `limit`.
+**Fix.** Rewrite IP §2.2 item 5 to include `@IsOptional()` and state that it is **mandatory** —
+without it `POST /meetings` without `durationMinutes` gives 400 (verified by probe), so the meeting
+creation form does not work at all. Also add to §2.1 the line "`durationMinutes` outside `15..480`
+→ `400 {"message":["durationMinutes must not be less than 15"],…}`", and in TP either add an
+explicit `durationMinutes` step to `HD-API-17` or — better — add a case `HD-API-18` at a free number:
+"`POST /meetings` **without** `durationMinutes` → 201, with `durationMinutes` = 60 in the response".
+That is what catches a missing `@IsOptional()` at the contract level, the way `HD-API-10` step 2
+catches it for `limit`.
 
-### NB4 — дерево юнит-спеков ТП §1.1 противоречит ТП §4.1, ИП §9 и ИП `T1.4`
+### NB4 — the TP §1.1 unit spec tree contradicts TP §4.1, IP §9 and IP `T1.4`
 
-**Что не так.** ТП §1.1 стр. 54–61 перечисляет:
+**What is wrong.** TP §1.1 lists:
 
 ```
 apps/api/src/
 ├── auth/
 │   ├── auth.service.spec.ts
-│   ├── password.service.spec.ts      ← создавать запрещено
+│   ├── password.service.spec.ts      ← forbidden to create
 │   └── token.service.spec.ts
 ├── users/users.service.spec.ts
 └── meetings/meetings.service.spec.ts
 ```
 
-В том же документе, §4.1 стр. 583–585: «Отдельный `apps/api/src/auth/password.service.spec.ts`
-поэтому **не** создаётся». ИП §9 (стр. 856) и §10, решение 3, — то же. При этом в дереве §1.1
-**отсутствуют** два спека, которые кейсы требуют: `apps/api/src/common/crypto/password.spec.ts`
-(`AL-UT-09…11`) и `apps/api/src/auth/jwt-auth.guard.spec.ts` (`AL-UT-27`, `AL-UT-28`). Веб-половину
-того же дерева правки затронули (появился `api-client.spec.ts`, ушёл `plural.spec.ts`), api-половину
-— нет.
+In the same document, §4.1 says "a separate `apps/api/src/auth/password.service.spec.ts` is
+therefore **not** created". IP §9 and §10 say the same. Meanwhile the §1.1 tree is **missing** two
+specs the cases require: `apps/api/src/common/crypto/password.spec.ts` (`AL-UT-09…11`) and
+`apps/api/src/auth/jwt-auth.guard.spec.ts` (`AL-UT-27`, `AL-UT-28`). The edits touched the web half
+of the same tree (`api-client.spec.ts` appeared, `plural.spec.ts` left) but not the api half.
 
-Почему это блокер, а не опечатка: `docs/plans/README.md` объявляет ТП главным именно «по тестам
-(пути, имена файлов, состав кейсов)». Исполнитель, разрешающий расхождение по правилу приоритета,
-создаст `password.service.spec.ts` без кейсов — а это по §6.3 ТП блокер («Юнит-спек в
-`apps/**/src/**`, не упомянутый ни в одном `*.unit.cases.md`») и красное правило 8 мета-теста,
-то есть красный **шаг 1** пайплайна, который блокирует все последующие. И наоборот: два спека с
-кейсами `AL-UT-09…11`, `27`, `28` в дереве не значатся, поэтому их легко не создать — тогда красное
-правило 7.
+Why a blocker rather than a typo: `docs/plans/README.md` declares TP authoritative precisely "for
+tests (paths, file names, case composition)". An implementer resolving the divergence by the
+priority rule will create `password.service.spec.ts` without cases — which by TP §6.3 is a blocker
+("a unit spec in `apps/**/src/**` mentioned in no `*.unit.cases.md`") and a red rule 8 in the
+meta-test, that is a red **step 1** of the pipeline, which blocks every later step. And conversely:
+the two specs carrying `AL-UT-09…11`, `27`, `28` are not in the tree, so they are easy not to create
+— then rule 7 goes red.
 
-**Чем подтверждено.** ТП стр. 54–61 против ТП стр. 580–582 и ИП стр. 502 (`T1.4` перечисляет
-`common/crypto/password.spec.ts` и `auth/jwt-auth.guard.spec.ts`), ИП стр. 74, 79, 85 (дерево §1.1
-ИП — правильное), ИП стр. 856.
-
-**Правка.** Привести дерево ТП §1.1 к §4.1:
+**Fix.** Bring the TP §1.1 tree in line with §4.1:
 
 ```
 apps/api/src/
@@ -294,236 +256,194 @@ apps/api/src/
 └── meetings/meetings.service.spec.ts # HD-UT-01…09
 ```
 
-и дописать под деревом ту же фразу, что уже есть про `plural.spec.ts`: «`auth/password.service.spec.ts`
-и `meetings/meetings.mapper.spec.ts` в дереве **нет** осознанно — см. §4.1 и §9 плана
-имплементации».
+and add beneath it the same sentence already used for `plural.spec.ts`: "`auth/password.service.spec.ts`
+and `meetings/meetings.mapper.spec.ts` are deliberately **absent** — see §4.1 and §9 of the
+implementation plan."
 
 ---
 
-## 4. Новые существенные замечания
+## 4. New substantive findings
 
-**NM1 — правило 5 §1.6 не исключает `*.unit.cases.md`, хотя правило 3 исключает.** ТП стр. 194:
-«каждый ID кейса из `.cases.md` встречается в тексте парного спека». У `auth-login.unit.cases.md`
-парного спека нет по определению (правило 3 стр. 192 это признаёт: «кроме `*.unit.cases.md`»), а
-двусторонность для юнитов обеспечивает правило 7. Буквальная реализация «всех восьми правил»
-(ИП `T0.6` стр. 466) даст красный шаг 1 на первом же `*.unit.cases.md` — тот же класс отказа, что
-B4. Правка: в правило 5 дописать «— кроме `*.unit.cases.md`, для которых действует правило 7».
-Заодно определить формат «явной пометки», на которую правило 5 ссылается («ни один описанный кейс
-не остался неавтоматизированным без явной пометки»): без заданного синтаксиса мета-тест её не
-распознает.
+**NM1 — rule 5 of §1.6 does not exempt `*.unit.cases.md` although rule 3 does.** TP says "every case
+ID from a `.cases.md` appears in the text of the paired spec". `auth-login.unit.cases.md` has no
+paired spec by definition (rule 3 acknowledges that), and two-way coverage for units is provided by
+rule 7. A literal implementation of "all eight rules" gives a red step 1 on the first
+`*.unit.cases.md` — the same class of failure as B4. Fix: append to rule 5 "— except
+`*.unit.cases.md`, for which rule 7 applies", and define the format of the "explicit marker" rule 5
+refers to: without a fixed syntax the meta-test cannot recognize it.
 
-**NM2 — §6.2 шаг 2 приписывает `page.pause` уровень `error`, которого у него нет.** ТП стр. 787:
-«Ловит `test.only`, `expect` без `await`, `page.pause`, `networkidle` (в пресете это `error`)».
-Проверено: в `flat/recommended` `no-page-pause` — **`warn`**, а `no-networkidle`,
-`no-focused-test`, `missing-playwright-await` — `error`. Правка `T0.6` поднимает три других
-правила, `no-page-pause` среди них нет, значит закоммиченный `page.pause` пройдёт шаг 2 зелёным.
-Правка: либо добавить `'playwright/no-page-pause': 'error'` к трём в §1.4 и `T0.6`, либо убрать
-`page.pause` из перечисления шага 2 — но тогда назвать его в §6.3 явно, чтобы ловил ревьюер.
+**NM2 — §6.2 step 2 attributes an `error` level to `page.pause` that it does not have.** TP says the
+step "catches `test.only`, `expect` without `await`, `page.pause`, `networkidle` (which are `error`
+in the preset)". Verified: in `flat/recommended`, `no-page-pause` is **`warn`**, while
+`no-networkidle`, `no-focused-test` and `missing-playwright-await` are `error`. The `T0.6` edit
+raises three other rules, `no-page-pause` not among them, so a committed `page.pause` passes step 2
+green. Fix: either add `'playwright/no-page-pause': 'error'` to the three, or drop `page.pause` from
+the step 2 list and name it explicitly in §6.3 so a reviewer catches it.
 
-**NM3 — требование «заголовок начинается с ID» не получило исключений, которые получила
-парность.** ТП §2 стр. 350, §6.3 («юнит-тест, чей заголовок не начинается с ID кейса») и §6.4
-(«заголовок каждого теста начинается с ID кейса — **и в Playwright-спеках, и в юнит-спеках**») не
-знают про два файла, которые план сохраняет осознанно: у тестов `e2e/suite-integrity.api.spec.ts`
-ID нет по решению самого плана (§6.6: «ID-нумерации у них нет»), а у baseline-спека
-`apps/api/src/app.controller.spec.ts` заголовок — `should return "Hello World!"` (проверено
-чтением файла), и он внесён только в `UNIT_SPEC_EXEMPT`, который относится к правилу 8, а не к
-заголовкам. Формально оба — блокеры по §6.3 на каждой приёмке. Правка: в §6.3/§6.4 дописать «кроме
-файлов из `SELF_EXEMPT` и `UNIT_SPEC_EXEMPT`».
+**NM3 — the "the title starts with the ID" requirement received none of the exemptions the pairing
+rules did.** TP §2, §6.3 and §6.4 do not know about two files the plan deliberately keeps: the tests
+of `e2e/suite-integrity.api.spec.ts` have no IDs by the plan's own decision, and the scaffold
+baseline spec `apps/api/src/app.controller.spec.ts` is titled `should return "Hello World!"`
+(verified by reading it) and appears only in `UNIT_SPEC_EXEMPT`, which covers rule 8 rather than
+titles. Formally both are blockers under §6.3 at every acceptance. Fix: add "except files in
+`SELF_EXEMPT` and `UNIT_SPEC_EXEMPT`" to §6.3/§6.4.
 
-**NM4 — обоснование `--passWithNoTests` неверно, хотя сам флаг нужен.** ТП §1.9 стр. 316 и ИП
-`T0.3` стр. 435: «`vitest run` с фильтром, под который в пакете нет ни одного теста, выходит с
-кодом 1 и роняет весь скрипт». Проверено: при наличии spec-файлов и непопадании под `-t`
-`vitest run` даёт `1 skipped` и **exit 0**; код 1 бывает только когда spec-файлов нет вовсе
-(`No test files found, exiting with code 1`). То есть флаг обязателен для `apps/web` на этапе
-`T0.3` (там ещё нет спеков) и не нужен «из-за фильтра». Ложное обоснование опасно тем, что
-следующий агент, увидев `1 skipped … exit 0`, решит, что флаг лишний, и снимет его — уронив
-`T0.3`. Правка: заменить формулировку на «пакет без spec-файлов вообще (`apps/web` до `T1.4`)
-роняет `vitest run` с кодом 1; фильтр `-t` без совпадений безопасен — тесты помечаются `skipped`,
-код 0».
+**NM4 — the rationale for `--passWithNoTests` is wrong although the flag itself is needed.** TP §1.9
+and IP `T0.3` say "`vitest run` with a filter matching no test in the package exits with code 1 and
+fails the whole script". Verified: with spec files present and no `-t` match, `vitest run` gives
+`1 skipped` and **exit 0**; code 1 happens only when there are no spec files at all
+(`No test files found, exiting with code 1`). So the flag is mandatory for `apps/web` at stage
+`T0.3` (no specs there yet) and is not needed "because of the filter". A false rationale is
+dangerous: the next agent, seeing `1 skipped … exit 0`, will decide the flag is redundant and remove
+it, breaking `T0.3`. Fix: restate it as "a package with no spec files at all (`apps/web` before
+`T1.4`) fails `vitest run` with code 1; a `-t` filter with no match is safe — the tests are marked
+`skipped` and the code is 0".
 
-**NM5 — при переезде `health.spec.ts` не назван обязательный ренейм заголовка теста.** ТП §1.5
-(стр. 171) и ИП `T0.6` (стр. 458) говорят «переезжает … без изменения логики». Но текущий заголовок
-— `GET / отвечает приветствием` (проверено чтением `e2e/api/health.spec.ts`), а правило 5 §1.6 и
-§6.3 требуют, чтобы он начинался с `SM-API-01`. Иначе шаг 1 краснеет уже в `T0.6`. Правка: в §1.5
-и `T0.6` дописать «заголовок теста переименовывается в `SM-API-01 — GET / отвечает приветствием`;
-меняется только заголовок, логика — нет».
+**NM5 — the mandatory test title rename is not named when `health.spec.ts` moves.** TP §1.5 and IP
+`T0.6` say it "moves … without changing the logic". But the current title is `GET / responds with a
+greeting` (verified by reading the file), while rule 5 of §1.6 and §6.3 require it to start with
+`SM-API-01`. Otherwise step 1 goes red already in `T0.6`. Fix: add "the test title is renamed to
+`SM-API-01 — …`; only the title changes, the logic does not".
 
-**NM6 — DoD `T0.6` «число файлов совпадает с `e2e/README.md`» не сойдётся на единицу.** Таблица
-`e2e/README.md`, описанная в §1.8, перечисляет 6 спеков (2 + 2 + 2), а
-`e2e/suite-integrity.api.spec.ts` в неё не входит — он упомянут только в абзаце про добавление
-фичи. `pnpm e2e --list` покажет 7 файлов. Правка: либо добавить в таблицу §1.8 строку
-«Конвенция — `suite-integrity.api.spec.ts` — api — `pnpm e2e e2e/suite-integrity.api.spec.ts`»
-(парного `.cases.md` у него нет по `SELF_EXEMPT`), либо сформулировать DoD как «число файлов
-совпадает с таблицей `e2e/README.md` плюс мета-тест».
+**NM6 — the `T0.6` DoD "the file count matches `e2e/README.md`" will be off by one.** The
+`e2e/README.md` table described in §1.8 lists 6 specs (2 + 2 + 2), and
+`e2e/suite-integrity.api.spec.ts` is not in it — it is mentioned only in the "adding a feature"
+paragraph. `pnpm e2e --list` will show 7 files. Fix: either add a suite-convention row to the §1.8
+table (it has no paired `.cases.md` by `SELF_EXEMPT`), or word the DoD as "the file count matches
+the `e2e/README.md` table plus the meta-test".
 
-**NM7 — единственное оставшееся «или» в ожидаемом результате: `HD-FN-08`.** ТП стр. 509: «cookie
-сессии в контексте отсутствует **или пуста**». Вариативность здесь мягкая (оба исхода означают
-«сессии нет»), но по принципу M2 её лучше зафиксировать: «cookie `ps_session` в контексте
-отсутствует; если реализация оставляет её с пустым значением — значение строго пустое, и
-`GET /` всё равно даёт редирект (шаг 5)».
+**NM7 — the only remaining "or" in an expected result: `HD-FN-08`.** TP: "the session cookie is
+absent from the context **or empty**". The variance is mild (both outcomes mean "no session"), but
+by the M2 principle it is better pinned: "the `ps_session` cookie is absent from the context; if the
+implementation leaves it with an empty value, the value is strictly empty, and `GET /` still
+redirects (step 5)".
 
-**NM8 — строка §2.1 про `limit` показывает одну ошибку там, где приходят три.** ИП стр. 199:
-«`limit` вне `1..100` или не число → `{"message":["limit must not be less than 1"],…}`».
-Проверено: `?limit=abc` даёт `["limit must not be greater than 100","limit must not be less than
-1","limit must be an integer number"]`. `HD-API-08` («`message` — массив строк, упоминает `limit`»)
-это переживёт, но контракт лучше не оставлять точнее, чем он есть: дописать «при нечисловом
-значении в массиве приходят три сообщения — сравнивать по вхождению, а не по равенству».
+**NM8 — the §2.1 line about `limit` shows one error where three arrive.** IP says "`limit` outside
+`1..100` or non-numeric → `{"message":["limit must not be less than 1"],…}`". Verified:
+`?limit=abc` gives `["limit must not be greater than 100","limit must not be less than 1","limit
+must be an integer number"]`. `HD-API-08` ("`message` is an array of strings mentioning `limit`")
+survives that, but the contract should not be left more precise than it is: add "with a non-numeric
+value three messages arrive — compare by inclusion, not by equality".
 
 ---
 
-## 5. Арифметика
+## 5. Arithmetic
 
-Пересчёт сделан по таблицам кейсов §3 и спискам §4, а не по заявленным итогам:
-`grep -cE '^\| (AL|HD|SM)-(API|FN)-[0-9]{2}'` → 52; `grep -cE '^- \`(AL|HD)-UT-[0-9]{2}\`'` → 38.
+Recounted from the case tables of §3 and the lists of §4 rather than from the stated totals:
+52 e2e definition rows and 38 UT definition items.
 
-| Набор                                              | Заявлено в плане            | Пересчитано                                                                | Сходится |
-| -------------------------------------------------- | --------------------------- | -------------------------------------------------------------------------- | -------- |
-| `auth-login` API (§3.1)                            | 11 (P0 5 / P1 6 / P2 0)     | 11: `01,02,03,04,07,08,10,11,13,14,15` — 5/6/0                             | да       |
-| `auth-login` FN (§3.2)                             | 10 (P0 5 / P1 4 / P2 1)     | 10: `01…06,08,10,13,14` — 5/4/1                                            | да       |
-| `home-dashboard` API (§3.3)                        | 15 (P0 8 / P1 7 / P2 0)     | 15: `01…10,13…17` — 8/7/0                                                  | да       |
-| `home-dashboard` FN (§3.4)                         | 13 (P0 8 / P1 4 / P2 1)     | 13: `01…11,14,16` — 8/4/1                                                  | да       |
-| `smoke` (§3.5)                                     | 3                           | 3: `SM-API-01…03`                                                          | да       |
-| **e2e всего** (§3.5)                               | **52** (11+10+15+13+3)      | **52** строк-определений в таблицах                                        | да       |
-| UT `auth-login` (§4.1)                             | 25 (P0 18 / P1 6 / P2 1)    | 25: `01…11,13…15,17,19…28` — 18/6/1                                        | да       |
-| UT `home-dashboard` (§4.2)                         | 13 (P0 6 / P1 6 / P2 1)     | 13: `01…11,15,16` — 6/6/1                                                  | да       |
-| **UT всего** (§4.2)                                | **38** (25+13)              | **38** пунктов-определений                                                 | да       |
-| §6.6, строки по наборам                            | 11 / 10 / 15 / 13 / 3 / 52  | совпадает с §3.1–3.5                                                       | да       |
-| §6.6, юниты                                        | 25 / 13 / 38 + baseline     | api 27 (8+3+3+2+2+9) + web 11 (3+4+4) = 38, +1 baseline                    | да       |
-| DoD `T1.4`                                         | `25 passed`                 | 25                                                                         | да       |
-| DoD `T1.5`                                         | `11 passed`, smoke `2`      | 11; smoke в фиче 1 = `SM-API-01`+`SM-API-02` = 2                           | да       |
-| DoD `T1.9`                                         | `10 passed`                 | 10                                                                         | да       |
-| DoD `T2.3`                                         | `13 passed`, `pnpm test` 38 | 13; 38                                                                     | да       |
-| DoD `T2.4`                                         | `15 passed`, smoke `3`      | 15; 3                                                                      | да       |
-| DoD `T2.9`                                         | `13 passed`                 | 13                                                                         | да       |
-| §5.4, «48 read-only кейсов»                        | 48                          | 52 − 4 `@mutating` (`HD-API-13`, `HD-API-17`, `HD-FN-07`, `HD-FN-08`) = 48 | да       |
-| §5.5, «13 кейсов фичи 2»                           | 13                          | 13                                                                         | да       |
-| Состав в `T1.4`/`T1.5`/`T1.9`/`T2.3`/`T2.4`/`T2.9` | перечни ID                  | совпадают с §3–§4 поштучно                                                 | да       |
+| Set                         | Stated in the plan         | Recounted                                             | Agrees |
+| --------------------------- | -------------------------- | ----------------------------------------------------- | ------ |
+| `auth-login` API (§3.1)     | 11 (P0 5 / P1 6 / P2 0)    | 11: `01,02,03,04,07,08,10,11,13,14,15` — 5/6/0        | yes    |
+| `auth-login` FN (§3.2)      | 10 (P0 5 / P1 4 / P2 1)    | 10: `01…06,08,10,13,14` — 5/4/1                       | yes    |
+| `home-dashboard` API (§3.3) | 15 (P0 8 / P1 7 / P2 0)    | 15: `01…10,13…17` — 8/7/0                             | yes    |
+| `home-dashboard` FN (§3.4)  | 13 (P0 8 / P1 4 / P2 1)    | 13: `01…11,14,16` — 8/4/1                             | yes    |
+| `smoke` (§3.5)              | 3                          | 3: `SM-API-01…03`                                     | yes    |
+| **e2e total**               | **52** (11+10+15+13+3)     | **52** definition rows                                | yes    |
+| UT `auth-login` (§4.1)      | 25 (P0 18 / P1 6 / P2 1)   | 25: `01…11,13…15,17,19…28` — 18/6/1                   | yes    |
+| UT `home-dashboard` (§4.2)  | 13 (P0 6 / P1 6 / P2 1)    | 13: `01…11,15,16` — 6/6/1                             | yes    |
+| **UT total**                | **38** (25+13)             | **38** definition items                               | yes    |
+| §6.6 rows and units         | 11/10/15/13/3/52; 25/13/38 | match §3.1–3.5; api 27 + web 11 = 38, plus 1 baseline | yes    |
+| DoD of all six tasks        | 25/11/10/13/15/13 passed   | all match, smoke 2 in feature 1 and 3 in feature 2    | yes    |
+| §5.4 "48 read-only cases"   | 48                         | 52 − 4 `@mutating` = 48                               | yes    |
+| Task compositions vs §3–§4  | ID lists                   | match item by item                                    | yes    |
 
-Расхождение с §5.5 Р1 (там обещали 53 e2e и 29 UT) объяснено в §10 ИП, решения 1 и 3, и объяснение
-верное: у Р1 в §5.5 не сходилась собственная арифметика, а `+4` кейса `api-client` (B7), `+2` по
-M14 и `+2` кейса guard'а Р1 в итог не заложило. Расхождений внутри планов нет ни одного.
+The divergence from R1 §5.5 (which promised 53 e2e and 29 UT) is explained in IP §10, and the
+explanation is correct: R1's own §5.5 arithmetic did not add up, and it never accounted for the
+`+4` `api-client` cases (B7), the `+2` from M14 and the `+2` guard cases. There is no divergence
+inside the plans.
 
 ---
 
-## 6. Висячие ссылки и дубли ID
+## 6. Dangling references and duplicate IDs
 
-**Дублей нет.** Ни один ID не определён дважды: 52 строки-определения в таблицах §3 уникальны,
-38 пунктов §4 уникальны (проверено `sort | uniq -c | awk '$1>1'` — пусто).
+**No duplicates.** No ID is defined twice: the 52 definition rows in §3 and the 38 items in §4 are
+unique.
 
-**Висячих ссылок нет.** Все удалённые/переехавшие ID упоминаются исключительно в пояснительных
-абзацах «что стало с номерами» и в журналах §9/§10, ни один не стоит в живой позиции — ни в матрице
-§7, ни в §6.6, ни в DoD задач, ни в разделах рисков:
+**No dangling references.** Every deleted or relocated ID appears exclusively in explanatory "what
+happened to these numbers" paragraphs and in the §9/§10 logs; none sits in a live position — not in
+the §7 matrix, not in §6.6, not in a task DoD, not in the risk sections. All 22 such IDs were
+checked individually.
 
-| ID                                             | Где встречается                       | Позиция                                      |
-| ---------------------------------------------- | ------------------------------------- | -------------------------------------------- |
-| `AL-API-05`, `AL-API-06`                       | ТП стр. 397                           | в заголовке `AL-API-04` «покрывает бывшие …» |
-| `AL-API-09`                                    | ТП стр. 398                           | в заголовке `AL-API-07` «покрывает бывший …» |
-| `AL-API-12`, `AL-API-18`, `AL-API-19`          | ТП стр. 412, 416                      | абзац «что и почему выпало»                  |
-| `AL-API-16`, `AL-API-17`                       | ТП стр. 414, 596–597                  | абзац «выпало» + обоснование `AL-UT-27/28`   |
-| `AL-FN-07`                                     | ТП стр. 447, 530–531                  | «переехал в `HD-FN-16`»                      |
-| `AL-FN-09`, `AL-FN-11`, `AL-FN-12`             | ТП стр. 438, 449–453, 512, 924        | «объединён/удалён» + заголовки-приёмники     |
-| `HD-API-11`, `HD-API-12`                       | ТП стр. 472                           | в заголовке `HD-API-10` «покрывает бывшие …» |
-| `HD-API-18`, `HD-API-19`                       | ТП стр. 484–486                       | абзац «не переиспользуются»                  |
-| `HD-FN-12`, `HD-FN-13`, `HD-FN-15`             | ТП стр. 506, 520–527, 925–928         | «объединён/удалён» + §7 «что изменилось»     |
-| `AL-UT-12`, `HD-UT-12`                         | ТП стр. 576, 649                      | «покрывает бывший …» в тексте приёмника      |
-| `AL-UT-16`, `AL-UT-18`, `HD-UT-13`, `HD-UT-14` | ТП стр. 628–631, 655–657; ИП стр. 830 | только как номера в объяснении дырок         |
-
-Фактический состав удалений совпал со §5.1 Р1 (14 из 14) и §5.2 (8 из 8) — расшифровка в §2.
-
-Единственная «висячая ссылка» иного рода — не ID, а путь: ТП §1.1 ссылается на спек
-`auth/password.service.spec.ts`, которого по решению плана не будет, и не ссылается на два, которые
-будут (NB4).
+The only "dangling reference" of another kind is not an ID but a path: TP §1.1 refers to
+`auth/password.service.spec.ts`, which by the plan's own decision will not exist, and omits two that
+will (NB4).
 
 ---
 
-## 7. Матрица полноты
+## 7. Completeness matrix
 
-12 пунктов требований пользователя; в клетках — только существующие после сокращения ID.
+Twelve points of the user requirements; the cells hold only the IDs that survived the reduction. All
+twelve are covered — **no empty cells**. The dashes in the API and Unit columns are the ones already
+accepted in R1 (a form has no HTTP contract; component rendering is deliberately outside Vitest;
+sign-out never calls Nest). Point 11 is covered but `HD-FN-07`/`HD-API-17` are red because of NB3.
 
-| №   | Пункт спецификации                 | API                                       | Функциональные                     | Юнит                                     | Пусто?                                                |
-| --- | ---------------------------------- | ----------------------------------------- | ---------------------------------- | ---------------------------------------- | ----------------------------------------------------- |
-| 1   | `/auth/login`: поля email и пароль | —                                         | `AL-FN-01`, `AL-FN-10`, `AL-FN-14` | —                                        | не пусто                                              |
-| 2   | Кнопка «Войти»                     | —                                         | `AL-FN-01`, `AL-FN-02`             | —                                        | не пусто                                              |
-| 3   | Ссылка на регистрацию              | —                                         | `AL-FN-06`                         | —                                        | не пусто                                              |
-| 4   | Подключена к `POST /auth/login`    | `AL-API-01`, `04`, `07`, `08`, `10`, `11` | `AL-FN-02`, `HD-FN-11`             | `AL-UT-01`, `04`, `05`, `06`, `23…26`    | не пусто                                              |
-| 5   | После логина редирект на `/`       | —                                         | `AL-FN-02`, `HD-FN-16`             | `AL-UT-20…22`                            | не пусто                                              |
-| 6   | Ошибка при неверных данных         | `AL-API-02`, `AL-API-03`                  | `AL-FN-03`, `04`, `05`, `08`, `14` | `AL-UT-02`, `03`, `08`, `26`             | не пусто                                              |
-| 7   | `/` только для авторизованных      | `HD-API-02`, `AL-API-14`, `AL-API-15`     | `HD-FN-01`, `HD-FN-08`, `HD-FN-16` | `AL-UT-27`, `AL-UT-28`                   | не пусто                                              |
-| 8   | Приветствие с email                | `AL-API-13`                               | `HD-FN-02`, `HD-FN-09`, `HD-FN-16` | `AL-UT-19`                               | не пусто                                              |
-| 9   | Количество встреч                  | `HD-API-05`, `HD-API-07`, `HD-API-10`     | `HD-FN-03`, `HD-FN-09`             | `HD-UT-03`, `HD-UT-05`                   | не пусто                                              |
-| 10  | Список последних 3 встреч          | `HD-API-01`, `03`, `04`, `10`             | `HD-FN-04`, `HD-FN-05`, `HD-FN-14` | `HD-UT-01`, `02`, `06`, `09`, `10`, `11` | не пусто                                              |
-| 11  | Кнопка «Создать встречу»           | `HD-API-13…HD-API-17`                     | `HD-FN-06`, `HD-FN-07`, `HD-FN-09` | `HD-UT-07`, `08`, `15`, `16`             | не пусто, но `HD-FN-07`/`HD-API-17` красные из-за NB3 |
-| 12  | Кнопка выхода из аккаунта          | —                                         | `HD-FN-08`, `HD-FN-14`             | `AL-UT-20`, `AL-UT-21`                   | не пусто                                              |
+Specifically on what the task asked to check:
 
-**Пустых клеток по пунктам нет.** Прочерки в колонках «API» и «Юнит» — те же, что признаны
-допустимыми в Р1 (у формы нет HTTP-контракта; рендер компонентов сознательно вне Vitest; логаут к
-Nest не обращается).
+- **Point 12 after `HD-FN-15` was deleted.** `HD-FN-08` covers the requirement **in full**: step 3
+  (the button with role `button` and the name is visible), step 4 (the click gives URL
+  `/auth/login` and no session cookie), step 5 (a repeat `page.goto('/')` redirects again), plus
+  "the email greeting is displayed at no step after sign-out". The accessible name is additionally
+  checked by `HD-FN-14`. Only the "browser back" check is gone, and that is router-cache behaviour
+  rather than a requirement.
+- **Point 2 after `AL-FN-11` was deleted.** It rests on `AL-FN-01` (the button is visible with the
+  exact name) and `AL-FN-02` (the click logs in). Sufficient.
+- **Point 9.** The three-level `total ≠ items.length` coverage is fully preserved: `HD-UT-03`
+  (service), `HD-API-05` (contract, `total` = 5 with `items` = 3), `HD-FN-03` (the UI compared with
+  the API), plus the `T2.10` control experiment.
+- **Point 6.** The indistinguishability of a wrong password from an unknown email is preserved at
+  all three levels: `AL-UT-02`/`AL-UT-03`, `AL-API-02`/`AL-API-03`, `AL-FN-03`/`AL-FN-04`.
 
-Отдельно про то, что задание просило проверить особо:
-
-- **Пункт 12 после удаления `HD-FN-15`.** `HD-FN-08` покрывает требование **целиком**: шаг 3 —
-  «видна кнопка с ролью `button` и именем «Выйти»» (наличие), шаг 4 — клик даёт URL `/auth/login`
-  и отсутствие cookie сессии (работоспособность), шаг 5 — повторный `page.goto('/')` снова
-  редиректит (последствие), плюс «приветствие с email ни на одном шаге после выхода не
-  отображается». Доступное имя дополнительно проверяет `HD-FN-14`. Ушла только проверка «назад в
-  истории», и это действительно поведение router-кэша, а не требование. Замечаний нет.
-- **Пункт 2 после удаления `AL-FN-11`.** Держится на `AL-FN-01` (кнопка видна, имя точное) и
-  `AL-FN-02` (клик логинит). Достаточно.
-- **Пункт 9.** Трёхуровневое `total ≠ items.length` сохранено полностью: `HD-UT-03` (сервис),
-  `HD-API-05` (контракт, `total` = 5 при `items` = 3), `HD-FN-03` (UI сверяется с API), плюс
-  контрольный опыт `T2.10`. Требование §5.3 Р1 соблюдено.
-- **Пункт 6.** Неотличимость сообщений при неверном пароле и неизвестном email сохранена на всех
-  трёх уровнях: `AL-UT-02`/`AL-UT-03`, `AL-API-02`/`AL-API-03`, `AL-FN-03`/`AL-FN-04`.
-
-Единственная слабость полноты — не пустота, а этапность: в колонке «Функциональные» пункты 4 и 7
-частично опираются на `HD-FN-11`/`HD-FN-16`, то есть на фичу 2. Для приёмки фичи 1 (`T1.10`) это
-означает, что BFF-контракт и обратный редирект проверены не будут; в `T1.9` это названо явно, так
-что дефектом не считаю.
+The only weakness in completeness is not emptiness but staging: in the functional column, points 4
+and 7 partly rest on `HD-FN-11`/`HD-FN-16`, that is on feature 2. For feature 1's acceptance that
+means the BFF contract and the reverse redirect will not be checked; `T1.9` names this explicitly,
+so it is not counted as a defect.
 
 ---
 
-## 8. Проверенные факты
+## 8. Verified facts
 
-| Утверждение плана                                                                                                           | Как проверял                                                                                                                     | Фактический результат                                                                                                                                                                                                             | Вердикт                                                                                                |
-| --------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| `"test:auth-login": "pnpm -r test -- -t \"AL-UT-\" --passWithNoTests"` фильтрует юниты по фиче                              | `pnpm -r test -- -t "AL-UT-" --passWithNoTests` в корне                                                                          | `vitest run "--" "-t" "AL-UT-" "--passWithNoTests"` → `Tests 1 passed (1)` — фильтр не применён; охват вырос до `all 5 workspace projects`                                                                                        | **опровергнуто** (NB1)                                                                                 |
-| То же без `--` работает                                                                                                     | `pnpm -r test -t "AL-UT-" --passWithNoTests`; `pnpm --filter @purpleschool/api test -t "AL-UT-"`                                 | `vitest run "-t" "AL-UT-"` → `Tests 1 skipped (1)`, exit 0, `Scope: 4 of 5`                                                                                                                                                       | правка NB1 подтверждена                                                                                |
-| `vitest run` с фильтром без совпадений выходит с кодом 1 (обоснование `--passWithNoTests`)                                  | `cd apps/api && npx vitest run -t "AL-UT-"`                                                                                      | `1 skipped`, **exit 0**                                                                                                                                                                                                           | **опровергнуто** (NM4)                                                                                 |
-| `--passWithNoTests` нужен пакету без спеков                                                                                 | `cd apps/web && npx vitest run` и `… --passWithNoTests`                                                                          | `No test files found, exiting with code 1` → exit 1; с флагом exit 0                                                                                                                                                              | подтверждено (флаг обязателен)                                                                         |
-| `ListMeetingsQueryDto` с `@IsOptional() … @Max(100)` даёт поведение `HD-API-01…10`                                          | изолированная проба: `ValidationPipe({whitelist,forbidNonWhitelisted,transform})` + DTO из ИП §2.2 п. 4, `@nestjs/common@12.0.1` | без параметра → OK `{}`; `limit=3` → `{"limit":3}` (number); `limit=100` → OK; `limit=101` → 400 «must not be greater than 100»; `limit=0`/`-1` → 400; `abc` → 400 (3 сообщения); `foo=bar` → 400 «property foo should not exist» | подтверждено (B1, B2)                                                                                  |
-| `CreateMeetingDto` из ИП §2.2 п. 5 принимает тело без `durationMinutes`                                                     | та же проба, DTO списана буква в букву                                                                                           | `400 {"message":["durationMinutes must not be greater than 480","… must not be less than 15","… must be an integer number"],…}`                                                                                                   | **опровергнуто** (NB3)                                                                                 |
-| `LoginDto` даёт ожидания `AL-API-04`, `07`, `08`                                                                            | проба с `@IsEmail`/`@IsString @IsNotEmpty`                                                                                       | `{email}` → 400 про `password`; `{password}` → 400 про `email`; пустые → 400 по обоим; `not-an-email` → 400 про формат; `password:12345` → 400 «must be a string»; `role:'admin'` → 400 «property role should not exist»          | подтверждено                                                                                           |
-| `test.use({ authUser: 'organizer' })` в `describe` поднимает отдельный воркер (§5.5)                                        | Playwright 1.62.1, спек с worker-scoped опцией `authUser` и `test.use` внутри `describe`                                         | `Cannot use({ authUser }) in a describe group, because it forces a new worker. Make it top-level in the test file or put in the configuration file.` — файл не загружается                                                        | **опровергнуто** (NB2)                                                                                 |
-| Обход «сделать `authUser` тестовой опцией» работает                                                                         | тот же прогон, `authUser: ['teacher', { option: true }]` + worker-scoped `authedState`                                           | `worker fixture "authedState" cannot depend on a test fixture "authUser"`                                                                                                                                                         | **опровергнуто** (NB2)                                                                                 |
-| `test.use` для worker-опции на верхнем уровне файла работает                                                                | тот же прогон, `test.use` вне `describe`                                                                                         | `1 passed`, `state-organizer-w0`                                                                                                                                                                                                  | подтверждено (но файлу фичи 2 не подходит)                                                             |
-| Правка NB2 (worker-кэш «функция от пользователя» + тестовая опция) работает                                                 | Playwright 1.62.1, 3 теста, `--workers=1`                                                                                        | `3 passed`; `login#1` переиспользован вторым тестом `teacher`, `login#2` — для `organizer`; `test.use` в `describe` принят                                                                                                        | подтверждено                                                                                           |
-| `{ scope: 'worker', option: true }` — валидная пара по типам                                                                | `grep -n "option?: boolean" playwright/types/test.d.ts`                                                                          | стр. 6736: `{ scope: 'worker', auto?, option?, … }` — синтаксически валидно, запрет только в рантайме                                                                                                                             | подтверждено (typecheck NB2 не поймает)                                                                |
-| Имена правил `no-wait-for-timeout` / `no-skipped-test` / `no-conditional-in-test` валидны в `eslint-plugin-playwright@2.11` | `node --input-type=module -e "import p from 'eslint-plugin-playwright'; …Object.keys(p.rules)…"`                                 | все три существуют; в `flat/recommended` — `warn`                                                                                                                                                                                 | подтверждено (M8 корректен)                                                                            |
-| Поднятие трёх правил в `error` действительно роняет линт                                                                    | скретчпад-конфиг из §1.4 ТП + спек с `waitForTimeout`, `test.skip`, `if` в тесте, `test.fixme`, `page.pause`; `eslint`           | `3 errors, 5 warnings`, exit 1; `test.fixme` **не** помечен; `page.pause` — `warning`                                                                                                                                             | подтверждено; `page.pause` — NM2                                                                       |
-| `page.pause` ловится шагом 2 («в пресете это `error`»)                                                                      | тот же прогон + чтение пресета                                                                                                   | `no-page-pause: warn` → сам по себе даёт exit 0                                                                                                                                                                                   | **опровергнуто** (NM2)                                                                                 |
-| `pnpm format:check` красный на трёх документах планов (m5)                                                                  | `npx prettier --check docs/plans/`                                                                                               | красный только на `plan-review-1.md`; оба плана уже отформатированы                                                                                                                                                               | подтверждено с уточнением                                                                              |
-| `apps/api` не читает `.env` (§3.6, M11)                                                                                     | `cat apps/api/package.json`, `cat apps/api/src/main.ts`                                                                          | ни `dotenv`, ни `@nestjs/config`; `process.env.PORT ?? 3001` напрямую                                                                                                                                                             | подтверждено                                                                                           |
-| `CLAUDE.md` и `playwright-verify/SKILL.md` действительно содержат старые пути (M7)                                          | `grep -n 'e2e/web\|e2e/api' CLAUDE.md .claude/skills/playwright-verify/SKILL.md`                                                 | `CLAUDE.md` стр. 39, 52, 53; `SKILL.md` стр. 24, 25, 83, 117 — адреса правок `T0.6` указаны верно (§1, §4, §5 скила)                                                                                                              | подтверждено                                                                                           |
-| baseline-спек не мешает нумерации (§6.6 «38 + baseline»)                                                                    | `cat apps/api/src/app.controller.spec.ts`                                                                                        | один тест, заголовок `should return "Hello World!"` — без ID (NM3), но в счёт 38 не входит                                                                                                                                        | подтверждено с оговоркой                                                                               |
-| `vitest` в `apps/web` ещё не установлен (`T0.3`)                                                                            | `cat apps/web/package.json`                                                                                                      | `vitest ^4.1.11` **уже** в `devDependencies`, скрипта `test` нет                                                                                                                                                                  | уточнение: `T0.3` сводится к скрипту и конфигу; `pnpm add -D vitest@^4.1.2` сузит уже стоящий диапазон |
-| `proxy.ts` из `T2.7` согласован с `HD-FN-16` и с POST Server Action                                                         | чтение кода `T2.7` (стр. 618–632) против `HD-FN-16` (ТП стр. 528)                                                                | матчер `['/', '/auth/login']` покрывает оба пути; редирект ограничен `request.method === 'GET'`, POST `loginAction` проходит; авторизованный GET `/auth/login` → 307 на `/`, где `page.tsx` рендерит приветствие                  | противоречий нет                                                                                       |
-| §1.6 не оставляет правил, которые мета-тест нарушит на `e2e/fixtures/*.ts` или `e2e/README.md` (B4)                         | чтение §1.6 против дерева §1.1                                                                                                   | фикстуры не заканчиваются на `.spec.ts`, `README.md` — не `.cases.md`; правила 1–3 к ним не применяются. Но правило 5 не исключает `*.unit.cases.md`                                                                              | B4 применён; отдельный дефект — NM1                                                                    |
+| Claim                                                                                    | Result                                                                                                                    | Verdict                                                    |
+| ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| `pnpm -r test -- -t "AL-UT-" …` filters units by feature                                 | `vitest run "--" "-t" …` → `Tests 1 passed (1)`, filter not applied; scope grew to all 5 projects                         | **refuted** (NB1)                                          |
+| The same without `--` works                                                              | `vitest run "-t" "AL-UT-"` → `1 skipped`, exit 0, `Scope: 4 of 5`                                                         | the NB1 fix is confirmed                                   |
+| `vitest run` with a non-matching filter exits 1                                          | `1 skipped`, **exit 0**                                                                                                   | **refuted** (NM4)                                          |
+| `--passWithNoTests` is needed by a package with no specs                                 | `No test files found, exiting with code 1` → exit 1; with the flag exit 0                                                 | confirmed (the flag is required)                           |
+| `ListMeetingsQueryDto` with `@IsOptional() … @Max(100)` behaves as `HD-API-01…10` expect | no parameter → OK; `limit=3` → number; `limit=100` → OK; `101`/`0`/`-1` → 400; `abc` → 400 (3 messages); `foo=bar` → 400  | confirmed (B1, B2)                                         |
+| `CreateMeetingDto` accepts a body without `durationMinutes`                              | `400` with three messages                                                                                                 | **refuted** (NB3)                                          |
+| `LoginDto` yields the `AL-API-04`, `07`, `08` expectations                               | every branch returns the documented 400 message                                                                           | confirmed                                                  |
+| `test.use({ authUser })` in a `describe` spins up a separate worker                      | `Cannot use({ authUser }) in a describe group…` — the file does not load                                                  | **refuted** (NB2)                                          |
+| The "make `authUser` a test option" workaround works                                     | `worker fixture "authedState" cannot depend on a test fixture "authUser"`                                                 | **refuted** (NB2)                                          |
+| `test.use` for a worker option at file top level works                                   | `1 passed`                                                                                                                | confirmed (but unsuitable for feature 2's file)            |
+| The NB2 fix (a worker cache of a per-user function + a test option) works                | `3 passed`; `login#1` reused by the second `teacher` test, `login#2` for `organizer`; `test.use` accepted in a `describe` | confirmed                                                  |
+| `{ scope: 'worker', option: true }` is a valid type pair                                 | syntactically valid; the prohibition is runtime only                                                                      | confirmed (typecheck will not catch NB2)                   |
+| The three ESLint rule names are valid in `eslint-plugin-playwright@2.11`                 | all three exist; in `flat/recommended` they are `warn`                                                                    | confirmed (M8 is correct)                                  |
+| Raising the three rules to `error` really fails the lint                                 | `3 errors, 5 warnings`, exit 1; `test.fixme` **not** flagged; `page.pause` a warning                                      | confirmed; `page.pause` is NM2                             |
+| `page.pause` is caught by step 2 ("it is `error` in the preset")                         | `no-page-pause: warn` → exit 0 on its own                                                                                 | **refuted** (NM2)                                          |
+| `pnpm format:check` is red on the three plan documents (m5)                              | red only on `plan-review-1.md`; both plans are already formatted                                                          | confirmed with a correction                                |
+| `apps/api` does not read `.env` (M11)                                                    | neither `dotenv` nor `@nestjs/config`; `process.env.PORT ?? 3001` directly                                                | confirmed                                                  |
+| `CLAUDE.md` and `playwright-verify/SKILL.md` do contain the old paths (M7)               | the line references in `T0.6` are correct                                                                                 | confirmed                                                  |
+| The baseline spec does not disturb the numbering ("38 + baseline")                       | one test titled `should return "Hello World!"` — no ID (NM3), but not counted in the 38                                   | confirmed with a caveat                                    |
+| `vitest` is not yet installed in `apps/web` (`T0.3`)                                     | `vitest ^4.1.11` is **already** in devDependencies, only the `test` script is missing                                     | clarification: `T0.3` reduces to the script and the config |
+| `proxy.ts` from `T2.7` agrees with `HD-FN-16` and with the POST Server Action            | the matcher covers both paths; the redirect is limited to `GET`, so the POST `loginAction` passes                         | no contradictions                                          |
+| §1.6 leaves no rule that the meta-test would break on the fixtures (B4)                  | fixtures do not end in `.spec.ts` and `README.md` is not a `.cases.md`; but rule 5 does not exempt `*.unit.cases.md`      | B4 applied; NM1 is a separate defect                       |
 
 ---
 
-## 9. Что делать дальше
+## 9. What to do next
 
-Порядок правок (все — в документы, кода они не касаются):
+All edits are to the documents; none touch code.
 
-1. **NB1** — убрать `--` из двух скриптов в ТП §1.9 и ИП `T0.3`, усилить DoD `T0.3`.
-2. **NB2** — переписать решение ТП §5.5 на worker-кэш «функция от пользователя» + тестовую опцию;
-   поправить ИП `T2.9` в части `test.use`.
-3. **NB3** — добавить `@IsOptional()` в `CreateMeetingDto` (ИП §2.2 п. 5), строку в §2.1 и кейс на
-   `POST /meetings` без `durationMinutes`.
-4. **NB4** — привести дерево юнит-спеков ТП §1.1 к §4.1.
-5. NM1–NM8 — по тексту §4; NM1, NM3, NM5 стоит закрыть вместе с NB4, потому что все четыре бьют в
-   один и тот же шаг 1 пайплайна.
+1. **NB1** — remove the `--` from the two scripts in TP §1.9 and IP `T0.3`, and strengthen the
+   `T0.3` DoD.
+2. **NB2** — rewrite the TP §5.5 solution as a worker cache of a per-user function plus a test
+   option; fix IP `T2.9` where it describes `test.use`.
+3. **NB3** — add `@IsOptional()` to `CreateMeetingDto` (IP §2.2 item 5), add the line to §2.1 and a
+   case for `POST /meetings` without `durationMinutes`.
+4. **NB4** — bring the TP §1.1 unit spec tree in line with §4.1.
+5. NM1–NM8 per §4; NM1, NM3 and NM5 are worth closing together with NB4, because all four hit the
+   same step 1 of the pipeline.
 
-После этого пересчёт итогов не потребуется нигде, кроме случая, если NB3 закрывают добавлением
-нового кейса `HD-API-18`: тогда `home-dashboard` API станет 16, e2e всего — 53, и это надо
-провести по §3.3, §6.6, DoD `T2.4` и матрице §7.
+Afterwards no totals need recomputing, except if NB3 is closed by adding a new `HD-API-18` case:
+then `home-dashboard` API becomes 16, the e2e total becomes 53, and that must be carried through
+§3.3, §6.6, the `T2.4` DoD and the §7 matrix.

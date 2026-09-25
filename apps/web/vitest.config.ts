@@ -1,19 +1,17 @@
 import { defineConfig } from 'vitest/config';
 
 /**
- * Юниты web — только чистые хелперы из src/lib (форматирование дат, сборка опций cookie,
- * resolveApiUrl). React-компоненты покрыты Playwright, поэтому ни jsdom, ни
- * @testing-library здесь не нужны — environment остаётся 'node'.
+ * Web units cover only the pure helpers in src/lib (date formatting, cookie options,
+ * resolveApiUrl). React components are covered by Playwright, so neither jsdom nor
+ * @testing-library is needed and the environment stays 'node'.
  *
- * Глобалы (describe/it) НЕ включаем, в отличие от apps/api: иначе пришлось бы дописывать
- * `types` в apps/web/tsconfig.json и спорить с eslint-config-next. В спеках —
- * `import { describe, expect, it } from 'vitest'`.
+ * Globals are OFF, unlike apps/api: enabling them would mean adding `types` to
+ * apps/web/tsconfig.json and arguing with eslint-config-next. Specs import from 'vitest'.
  *
- * Файлы с `import 'server-only'` (session.ts, dal.ts) юнитами не покрываются: Next алиасит
- * этот импорт на next/dist/compiled/server-only, которого в node_modules нет, и Vitest его
- * не резолвит. Всё тестируемое обязано лежать в файле без такого импорта.
+ * Invariant 14: files importing 'server-only' (session.ts, dal.ts) have no units — Next aliases
+ * that import to a compiled module Vitest cannot resolve.
  */
 export default defineConfig({
-  resolve: { tsconfigPaths: true }, // как в apps/api — даёт алиас @/*
+  resolve: { tsconfigPaths: true }, // same as apps/api — provides the @/* alias
   test: { environment: 'node', include: ['src/**/*.spec.ts'] },
 });

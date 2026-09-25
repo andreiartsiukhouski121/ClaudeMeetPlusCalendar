@@ -9,22 +9,22 @@ import type { PasswordService } from './password.service.js';
 import type { TokenService } from './token.service.js';
 
 /**
- * Кейсы AL-UT-01…08 из `e2e/regression/auth-login/auth-login.unit.cases.md`.
+ * Cases AL-UT-01…08 and AL-UT-31 from `e2e/regression/auth-login/auth-login.unit.cases.md`.
  *
- * Зависимости передаются вручную, без `Test.createTestingModule`: юниту нужны моки, а не
- * контейнер, и так тест не зависит от эмиссии метаданных декораторов в транспайлере.
+ * Dependencies are passed by hand instead of `Test.createTestingModule`: a unit needs mocks, not a
+ * container, and this keeps the test independent of decorator metadata emission.
  */
 describe('AuthService', () => {
   const PLAIN_PASSWORD = 'Passw0rd!';
   const TEACHER: User = {
     id: 'usr-teacher',
     email: 'teacher@purpleschool.test',
-    name: 'Анна Преподаватель',
+    name: 'Anna Teacher',
     passwordHash: `scrypt$${'aa'.repeat(16)}$${'bb'.repeat(64)}`,
   };
 
   interface HarnessOptions {
-    /** `null` — «пользователь не найден»: `undefined` в опциях означал бы «взять дефолт». */
+    /** `null` means "user not found": `undefined` would mean "take the default". */
     user?: User | null;
     findByEmailError?: Error;
     passwordValid?: boolean;
@@ -43,15 +43,13 @@ describe('AuthService', () => {
       }
       return user ?? undefined;
     });
-    // Аргументы записываются, а не читаются из `verify.mock.calls`: мок без типизированных
-    // параметров даёт пустой кортеж аргументов, и `calls[0][1]` не проходит tsc (как у `sign`).
+    // Arguments are recorded rather than read back from `.mock.calls`: a mock without typed
+    // parameters gets an empty argument tuple, and `calls[0][1]` fails tsc.
     const verifiedHashes: string[] = [];
     const verify = vi.fn((_plain: string, stored: string) => {
       verifiedHashes.push(stored);
       return passwordValid;
     });
-    // Payload запоминается, а не читается из `sign.mock.calls`: мок без параметров типизирован
-    // пустым кортежем аргументов, и `calls[0][0]` не проходит tsc.
     const signedPayloads: JwtPayload[] = [];
     const sign = vi.fn((payload: JwtPayload) => {
       signedPayloads.push(payload);
@@ -67,7 +65,7 @@ describe('AuthService', () => {
     return { service, findByEmail, verify, sign, signedPayloads, verifiedHashes };
   }
 
-  it('AL-UT-01 — login с верным email и паролем возвращает accessToken и user без passwordHash', async () => {
+  it('AL-UT-01 — login with a valid email and password returns accessToken and a user without passwordHash', async () => {
     const { service } = createHarness();
 
     const result = await service.login({ email: TEACHER.email, password: PLAIN_PASSWORD });
@@ -78,7 +76,7 @@ describe('AuthService', () => {
     expect(JSON.stringify(result)).not.toContain('scrypt');
   });
 
-  it('AL-UT-02 — неверный пароль бросает UnauthorizedException с сообщением о неверных данных', async () => {
+  it('AL-UT-02 — a wrong password throws UnauthorizedException with the invalid-credentials message', async () => {
     const { service } = createHarness({ passwordValid: false });
 
     const failure = service.login({ email: TEACHER.email, password: 'wrong-password' });
@@ -87,7 +85,7 @@ describe('AuthService', () => {
     await expect(failure).rejects.toThrow(INVALID_CREDENTIALS_MESSAGE);
   });
 
-  it('AL-UT-03 — неизвестный email бросает то же исключение с тем же сообщением, что и неверный пароль', async () => {
+  it('AL-UT-03 — an unknown email throws the same exception with the same message as a wrong password', async () => {
     const wrongPassword = await createHarness({ passwordValid: false })
       .service.login({ email: TEACHER.email, password: 'wrong-password' })
       .catch((error: unknown) => error);
@@ -97,12 +95,12 @@ describe('AuthService', () => {
 
     expect(unknownEmail).toBeInstanceOf(UnauthorizedException);
     expect(wrongPassword).toBeInstanceOf(UnauthorizedException);
-    // По ответу нельзя определить, существует ли аккаунт: одно сообщение на оба случая.
+    // The response must not reveal whether the account exists: one message for both cases.
     expect((unknownEmail as Error).message).toBe((wrongPassword as Error).message);
     expect((unknownEmail as Error).message).toBe(INVALID_CREDENTIALS_MESSAGE);
   });
 
-  it('AL-UT-04 — accessToken получен вызовом сервиса токенов, а не собран строкой', async () => {
+  it('AL-UT-04 — accessToken comes from the token service, it is not assembled as a string', async () => {
     const { service, sign } = createHarness({ token: 'token-from-token-service' });
 
     const result = await service.login({ email: TEACHER.email, password: PLAIN_PASSWORD });
@@ -111,7 +109,7 @@ describe('AuthService', () => {
     expect(result.accessToken).toBe('token-from-token-service');
   });
 
-  it('AL-UT-05 — email нормализуется (trim + lowercase) перед поиском пользователя', async () => {
+  it('AL-UT-05 — the email is normalized (trim + lowercase) before the user lookup', async () => {
     const { service, findByEmail } = createHarness();
 
     await service.login({ email: '  TEACHER@Purpleschool.TEST  ', password: PLAIN_PASSWORD });
@@ -119,7 +117,7 @@ describe('AuthService', () => {
     expect(findByEmail).toHaveBeenCalledWith(TEACHER.email);
   });
 
-  it('AL-UT-06 — пароль сверяется verify-функцией с хешем из хранилища, а не сравнением с plaintext', async () => {
+  it('AL-UT-06 — the password is checked by the verify function against the stored hash, not compared to plaintext', async () => {
     const { service, verify } = createHarness();
 
     await service.login({ email: TEACHER.email, password: PLAIN_PASSWORD });
@@ -128,7 +126,7 @@ describe('AuthService', () => {
     expect(verify).toHaveBeenCalledWith(PLAIN_PASSWORD, TEACHER.passwordHash);
   });
 
-  it('AL-UT-07 — payload токена содержит sub и email и не содержит хеша пароля', async () => {
+  it('AL-UT-07 — the token payload carries sub and email and no password hash', async () => {
     const { service, signedPayloads } = createHarness();
 
     await service.login({ email: TEACHER.email, password: PLAIN_PASSWORD });
@@ -142,30 +140,30 @@ describe('AuthService', () => {
     expect(JSON.stringify(payload)).not.toContain('scrypt');
   });
 
-  it('AL-UT-08 — ошибка хранилища прокидывается как есть, а не превращается в 401', async () => {
+  it('AL-UT-08 — a storage failure propagates as is instead of turning into a 401', async () => {
     const storageFailure = new Error('users storage is down');
     const { service } = createHarness({ findByEmailError: storageFailure });
 
     const failure = service.login({ email: TEACHER.email, password: PLAIN_PASSWORD });
 
-    // Падение хранилища не должно выглядеть как неверный пароль: иначе инцидент неотличим
-    // от обычной опечатки пользователя.
+    // A storage outage must not look like a wrong password, or the incident becomes
+    // indistinguishable from an ordinary typo.
     await expect(failure).rejects.toBe(storageFailure);
     await expect(failure).rejects.not.toBeInstanceOf(UnauthorizedException);
   });
-  it('AL-UT-31 — при неизвестном email пароль всё равно сверяется: время ответа выровнено', async () => {
+
+  it('AL-UT-31 — an unknown email still verifies a password, keeping response time flat', async () => {
     const { service, verify, verifiedHashes } = createHarness({ user: null });
 
     const failure = service.login({ email: 'nobody@purpleschool.test', password: PLAIN_PASSWORD });
     await expect(failure).rejects.toBeInstanceOf(UnauthorizedException);
 
-    // Без этого вызова неизвестный email отвечает быстрее, чем неверный пароль, и одинакового
-    // текста сообщения уже недостаточно: аккаунты перечисляются по времени ответа.
-    // Замер до правки: 52 мс против 86–114 мс (SEC-API-05).
+    // Without this call an unknown email answers faster than a wrong password and the identical
+    // message stops being enough. Measured before the fix: 52 ms vs 86–114 ms (SEC-API-05).
     expect(verify).toHaveBeenCalledTimes(1);
     expect(verifiedHashes).toHaveLength(1);
-    // Сверка идёт по хешу-пустышке настоящего формата, а не по пустой строке: иначе `verify`
-    // отвергнет вход по формату мгновенно и выравнивание не сработает.
+    // The dummy hash has a real format: an empty string would be rejected on format instantly and
+    // the timing would not line up.
     expect(verifiedHashes[0]).toMatch(/^scrypt\$[0-9a-f]{32}\$[0-9a-f]{128}$/);
     expect(verifiedHashes[0]).not.toBe(TEACHER.passwordHash);
   });

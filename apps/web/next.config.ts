@@ -1,8 +1,8 @@
 import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
-  // E2E-прогон Playwright ходит на 127.0.0.1 (а не localhost — тот на Windows резолвится в ::1).
-  // Без этой строки dev-сервер считает такие запросы cross-origin и пишет предупреждение.
+  // Playwright hits 127.0.0.1 (not localhost — that resolves to ::1 on Windows). Without this the
+  // dev server treats such requests as cross-origin and logs a warning.
   allowedDevOrigins: ['127.0.0.1'],
 };
 

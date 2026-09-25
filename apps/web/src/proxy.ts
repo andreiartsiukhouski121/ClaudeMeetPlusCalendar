@@ -3,16 +3,16 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { SESSION_COOKIE_NAME } from './lib/session-cookie';
 
 /**
- * Гейт неавторизованных на `/` и обратный редирект с `/auth/login` для тех, у кого сессия
- * уже есть (задача `T2.7`).
+ * Gate for unauthenticated visitors on `/`, plus a bounce off `/auth/login` for anyone who already
+ * has a session.
  *
- * Файл называется `proxy.ts`, а не `middleware.ts`: в Next 16 конвенция `middleware.ts`
- * помечена deprecated и переименована, экспорт — `proxy` (§0, риск 2). `runtime` в config
- * задавать запрещено — proxy и так работает на Node.js-рантайме.
+ * Invariant 9: the file is `proxy.ts`, not `middleware.ts` — Next 16 deprecated and renamed that
+ * convention, and the export is `proxy`. Setting `runtime` in the config is forbidden; proxy
+ * already runs on the Node.js runtime.
  *
- * **Это «оптимистичная» проверка, а не безопасность.** Здесь видно только наличие cookie:
- * просрочен ли токен и существует ли пользователь, знает Nest. Настоящая проверка — в
- * `lib/dal.ts` (`getCurrentUser`) и внутри каждого Server Action.
+ * Invariant 10: **this is an optimistic check, not security.** All it sees is that a cookie
+ * exists; whether the token expired or the user still exists is Nest's business. The real check
+ * lives in `lib/dal.ts` and inside every Server Action.
  */
 export function proxy(request: NextRequest) {
   const hasSession = request.cookies.has(SESSION_COOKIE_NAME);
@@ -22,8 +22,8 @@ export function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL('/auth/login', request.url));
   }
 
-  // Только GET: POST на `/auth/login` — это Server Action `loginAction`, и редирект вместо
-  // его выполнения означал бы, что логин перестал работать (риск 3).
+  // GET only: a POST to `/auth/login` is the `loginAction` Server Action, and redirecting instead
+  // of running it would mean login stopped working.
   if (hasSession && request.method === 'GET' && pathname.startsWith('/auth/login')) {
     return NextResponse.redirect(new URL('/', request.url));
   }
@@ -32,7 +32,7 @@ export function proxy(request: NextRequest) {
 }
 
 /**
- * Матчер узкий и явный. Без него proxy срабатывает на `_next/static`, `_next/image` и
- * содержимое `public/`, то есть ломает загрузку CSS и картинок.
+ * The matcher is narrow and explicit. Without it the proxy fires on `_next/static`, `_next/image`
+ * and the contents of `public/`, breaking CSS and image loading.
  */
 export const config = { matcher: ['/', '/auth/login'] };

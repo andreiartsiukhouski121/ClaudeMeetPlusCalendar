@@ -1,70 +1,54 @@
-# Планы разработки
+# Development plans
 
-| Документ                                                         | Чем владеет                                                                                                     |
-| ---------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| [TEMPLATE.md](TEMPLATE.md)                                       | **Шаблон плана фичи** — 100–150 строк, спайк допущений в первом разделе; `pnpm plan:new <slug>`                 |
-| [TEMPLATE-BUGFIX.md](TEMPLATE-BUGFIX.md)                         | **Шаблон плана багфикса** — воспроизведение, причина, влияние, «почему не поймали»; `pnpm plan:new … --bug`     |
-| [feature-plan-implementation.md](feature-plan-implementation.md) | **Архив.** Как были сделаны две первые фичи: архитектура, контракт, модель данных, задачи `T0`/`T1`/`T2`        |
-| [feature-plan-testing.md](feature-plan-testing.md)               | **Архив.** Как был устроен сьют в первой итерации: конвенция, перечень кейсов, спецификация `regression-verify` |
+| Document                                                         | What it owns                                                                                                 |
+| ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| [TEMPLATE.md](TEMPLATE.md)                                       | **The feature plan template** — 100–150 lines, the assumption spike first; `pnpm plan:new <slug>`            |
+| [TEMPLATE-BUGFIX.md](TEMPLATE-BUGFIX.md)                         | **The bugfix plan template** — reproduction, cause, impact, "why it was not caught"; `pnpm plan:new … --bug` |
+| [feature-plan-implementation.md](feature-plan-implementation.md) | **Archive.** How the first two features were built: architecture, contract, data model, tasks                |
+| [feature-plan-testing.md](feature-plan-testing.md)               | **Archive.** How the suite looked in the first iteration: convention, case list, acceptance spec             |
 
-**Оба больших плана — архив, а не источник истины.** Живая конвенция сьюта (имена, теги, правила
-устойчивости, состав кейсов, экономика прогонов) — в [`e2e/README.md`](../../e2e/README.md);
-инварианты — в [`CLAUDE.md`](../../CLAUDE.md); порядок приёмки — в скиле `regression-verify`.
-Ссылаться на планы за конвенцией нельзя: они уже расходились с реальностью в числах и делали
-приёмку невыполнимой (`FX-013`, `FX-027`). Читать их стоит ради **почему**, а не ради **как
-сейчас**.
+**Both large plans are an archive, not a source of truth.** The live suite convention (names, tags,
+robustness rules, case composition, run economics) is in [`e2e/README.md`](../../e2e/README.md); the
+invariants are in [`CLAUDE.md`](../../CLAUDE.md); the acceptance order is in the `regression-verify`
+skill. They must not be cited for conventions: they already drifted from reality in their numbers
+and made acceptance impossible (`FX-013`, `FX-027`). Read them for **why**, not for **how it works
+now**.
 
-## Что реализуем
+## What was built
 
-Две фичи:
+Two features:
 
-1. **`/auth/login`** — форма email + пароль, кнопка «Войти», ссылка на регистрацию, подключение к
-   `POST /auth/login`, редирект на `/` после входа, видимая ошибка при неверных данных.
-2. **`/`** — доступна только авторизованным, приветствие с email, количество встреч, список
-   последних 3 встреч, кнопка «Создать встречу», кнопка выхода.
+1. **`/auth/login`** — an email and password form, a sign-in button, a link to sign-up, a call to
+   `POST /auth/login`, a redirect to `/` after signing in, and a visible error on bad credentials.
+2. **`/`** — available only to authenticated users: a greeting with the email, the meeting count,
+   the three most recent meetings, a "Create meeting" button and a sign-out button.
 
-## Порядок работ
+## Order of work
 
-Строго последовательный: фича 1 целиком (реализация → проверка → **отдельная задача на фиксы** →
-повторная проверка до зелёного → мерж), только потом фича 2. План и тест-кейсы при обнаружении
-проблем не переписываются — создаётся отдельная задача на фикс.
+Strictly sequential: feature 1 end to end (implementation → verification → **a separate fix task**
+→ re-verification until green → merge), and only then feature 2. Neither the plan nor the test
+cases are rewritten when a problem is found; a separate fix task is filed instead.
 
-Remote у репозитория нет, поэтому «PR» — это локальная ветка (`feat/auth-login`,
-`feat/home-dashboard`) и `git merge --no-ff` в `master` после зелёного пайплайна. Следующая ветка
-не начинается до мержа предыдущей.
+## Why these two plans are the size they are
 
-## CI/CD — названный пропуск
+`feature-plan-implementation.md` and `feature-plan-testing.md` are a **historical record**: they
+describe how the first two features were built and, together with `plan-review-*.md`, show what
+changed and why. They are not a model to follow.
 
-**CI-пайплайна в репозитории нет, и этот план его не создаёт:** нет remote, `.github/workflows`
-отсутствует (в `playwright.config.ts` есть только ветки по `isCI` — `forbidOnly`, `retries: 2`,
-`workers: 1`). Требование «последовательность проверок в рамках CI/CD и PR» выполняется **локальным
-пайплайном** §6 тест-плана через скил `regression-verify`: он обязателен перед каждым мержем, его
-шаги 1–8 не переставляются, а пропуск любого шага — блокер. Это осознанная замена, а не упущение.
+Two simple features took about three hours, of which **100 minutes went to planning and
+proofreading the plan against 85 for the code**. The two documents grew to ~2000 lines, and that
+cost more than it saved:
 
-Когда remote появится, заводится `.github/workflows/ci.yml` с теми же шагами 1–8 (плюс
-`pnpm install --frozen-lockfile` и `npx playwright install --with-deps chromium`) — **отдельной
-задачей**, не внутри фичи: смешивать настройку CI с продуктовым диффом означает отлаживать пайплайн
-и фичу одним циклом обратной связи.
+- four of the five most expensive review findings were library behaviour (`@IsOptional()` on two
+  fields, the `@Max` boundary against a case value, Playwright refusing a spec with a worker-scoped
+  option) — each provable by a twenty-line probe in minutes, yet described in the plan and only
+  found on the third proofreading pass;
+- three of the nine blockers in the second review and **both** blockers in the third were not
+  architectural defects but bookkeeping introduced by edits to the document itself: totals drifting
+  apart, a reused case number, a broken table row;
+- 69 test cases were listed in the plan, cut to 53 by review — and rewritten a second time anyway
+  in `e2e/regression/**/*.cases.md`.
 
-## Про объём этих двух планов
-
-`feature-plan-implementation.md` и `feature-plan-testing.md` — **исторический документ**: они
-описывают, как были сделаны две первые фичи, и вместе с `plan-review-*.md` показывают, что и почему
-менялось. Как образец для подражания их брать не надо.
-
-На две простые фичи ушло около трёх часов, из них **100 минут на планирование и вычитку плана
-против 85 на код**. Два документа выросли до ~2000 строк, и это обошлось дороже, чем сэкономило:
-
-- четыре из пяти самых дорогих находок ревью были поведением библиотек (`@IsOptional()` у двух
-  полей, граница `@Max` против значения в кейсе, отказ Playwright грузить спек с worker-scoped
-  опцией) — каждое доказывается пробой в 20 строк за минуты, но было описано в плане и найдено
-  только на третьей итерации вычитки;
-- три из девяти блокеров второго ревью и **оба** блокера третьего оказались не дефектами
-  архитектуры, а бухгалтерией, внесённой правками самого документа: разъехавшиеся итоги,
-  переиспользованный номер кейса, сломанная строка таблицы;
-- 69 тест-кейсов были перечислены в плане, сокращены ревью до 53 — и всё равно переписаны второй
-  раз в `e2e/regression/**/*.cases.md`.
-
-Отсюда порядок работ для следующих фич: **спайк допущений выброшенным кодом → компактный план по
-[TEMPLATE.md](TEMPLATE.md) → одно ревью → параллельная реализация → приёмка одним `pnpm verify`**.
-Подробно, с бюджетом времени по этапам, — в скиле `feature-pipeline`.
+Hence the order of work for later features: **a spike of assumptions in throwaway code → a compact
+plan from [TEMPLATE.md](TEMPLATE.md) → one review → implementation → acceptance through a single
+`pnpm verify`**. The detail, with a time budget per stage, is in the `feature-pipeline` skill.

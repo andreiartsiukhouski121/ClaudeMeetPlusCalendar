@@ -4,11 +4,11 @@ import { authHeadersFor, loginApi } from '../fixtures/auth.api.js';
 import { SEED_USERS, SEED_USER_KEYS, TEACHER_MEETINGS } from '../fixtures/seed.js';
 
 /**
- * Смоук сида: половина сьюта опирается на конкретных пользователей и их встречи, поэтому
- * их отсутствие должно падать здесь, отдельным понятным кейсом, а не пятнадцатью красными
- * кейсами фичи. Сообщение падения обязано указывать на сид, а не на проверяемую фичу.
+ * Seed smoke: half the suite relies on specific users and their meetings, so their absence must
+ * fail here as one clear case rather than as fifteen red feature cases. The failure message must
+ * point at the seed, not at the feature under test.
  *
- * Кейсы — в парном `seed.api.cases.md`.
+ * Cases live in the paired `seed.api.cases.md`.
  */
 
 interface MeetingsPageBody {
@@ -16,43 +16,45 @@ interface MeetingsPageBody {
   total?: number;
 }
 
-test.describe('Смоук: сид на месте', { tag: '@smoke' }, () => {
-  test('SM-API-02 — сид-пользователи на месте', { tag: '@p0' }, async ({ request }) => {
+test.describe('Smoke: seed is in place', { tag: '@smoke' }, () => {
+  test('SM-API-02 — seeded users are in place', { tag: '@p0' }, async ({ request }) => {
     for (const key of SEED_USER_KEYS) {
       const { email } = SEED_USERS[key];
 
-      // loginApi сам ожидает 200 и внятно сообщает, что виноват сид, а не кейс.
+      // loginApi expects 200 itself and says clearly that the seed is at fault, not the case.
       const token = await loginApi(request, key);
 
       expect(
         token.split('.'),
-        `Сид-пользователь ${key} (${email}) залогинился, но accessToken не похож на JWT. ` +
-          'Это проблема сида или подписи токена, а не проверяемой фичи: сверь ' +
-          'apps/api/src/users/users.seed.ts с e2e/fixtures/seed.ts.',
+        `Seeded user ${key} (${email}) logged in, but accessToken does not look like a JWT. ` +
+          'This is a seed or token signing problem, not the feature under test: compare ' +
+          'apps/api/src/users/users.seed.ts with e2e/fixtures/seed.ts.',
       ).toHaveLength(3);
     }
   });
 
-  test('SM-API-03 — сид-встречи на месте', { tag: '@p0' }, async ({ request }) => {
+  test('SM-API-03 — seeded meetings are in place', { tag: '@p0' }, async ({ request }) => {
     const seedProblem =
-      'Это проблема сида встреч, а не проверяемой фичи: сверь ' +
-      'apps/api/src/meetings/meetings.seed.ts с e2e/fixtures/seed.ts.';
+      'This is a meeting seed problem, not the feature under test: compare ' +
+      'apps/api/src/meetings/meetings.seed.ts with e2e/fixtures/seed.ts.';
 
-    // limit=100 — «отдай всё»: верхняя граница контракта (`@Max(100)`), а не магическое число.
+    // limit=100 means "give me everything": the contract's upper bound, not a magic number.
     const teacher = await request.get('/meetings?limit=100', {
       headers: await authHeadersFor(request, 'teacher'),
     });
 
-    expect(teacher.status(), `GET /meetings под teacher не ответил 200. ${seedProblem}`).toBe(200);
+    expect(teacher.status(), `GET /meetings as teacher did not answer 200. ${seedProblem}`).toBe(
+      200,
+    );
 
     const teacherBody = (await teacher.json()) as MeetingsPageBody;
     const titles = (teacherBody.items ?? []).map((item) => item.title);
 
     expect(
       teacherBody.total,
-      `У teacher должно быть ${String(TEACHER_MEETINGS.total)} встреч. ${seedProblem}`,
+      `teacher must have ${String(TEACHER_MEETINGS.total)} meetings. ${seedProblem}`,
     ).toBe(TEACHER_MEETINGS.total);
-    expect(titles, `Названия встреч teacher разошлись с сидом. ${seedProblem}`).toEqual(
+    expect(titles, `teacher meeting titles drifted from the seed. ${seedProblem}`).toEqual(
       expect.arrayContaining([...TEACHER_MEETINGS.latestTitles, ...TEACHER_MEETINGS.omittedTitles]),
     );
 
@@ -60,13 +62,15 @@ test.describe('Смоук: сид на месте', { tag: '@smoke' }, () => {
       headers: await authHeadersFor(request, 'student'),
     });
 
-    expect(student.status(), `GET /meetings под student не ответил 200. ${seedProblem}`).toBe(200);
+    expect(student.status(), `GET /meetings as student did not answer 200. ${seedProblem}`).toBe(
+      200,
+    );
 
     const studentBody = (await student.json()) as MeetingsPageBody;
 
     expect(
       studentBody.total,
-      `student — граничный случай «нет встреч», total обязан быть 0. ${seedProblem}`,
+      `student is the "no meetings" edge case, total must be 0. ${seedProblem}`,
     ).toBe(SEED_USERS.student.meetingsCount);
     expect(studentBody.items).toEqual([]);
   });

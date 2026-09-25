@@ -1,15 +1,14 @@
 #!/usr/bin/env node
 /**
- * Создаёт план новой задачи из шаблона: `pnpm plan:new <slug> [--bug]`.
+ * Creates a plan from a template: `pnpm plan:new <slug> [--bug]`.
  *
- * Зачем: чтобы путь «сделать правильно» был короче пути «сделать в обход». Файл сразу получает
- * имя `<slug>.plan.md`, а значит попадает под `pnpm check:orientation` — который стоит в хуке
- * коммита. Начал задачу этой командой — забыть про ориентацию уже нельзя.
+ * The point is to make the right path shorter than the workaround. The file is named
+ * `<slug>.plan.md` straight away, which puts it under `pnpm check:orientation` — and that runs in
+ * the commit hook. Start a task with this command and skipping orientation stops being possible.
  *
- * Шаблонов два, потому что потока работ два (скилы `feature-pipeline` и `bugfix-pipeline`):
- * фичевый проектирует новое поведение, багфикс восстанавливает заявленное. Разделы «Контракт» и
- * «Данные» второму не нужны, а «Воспроизведение», «Причина», «Влияние» и «Почему не поймали
- * раньше» первому — не о чем. Раздел 0 у них общий по форме: его парсит check-orientation.
+ * Two templates because there are two workflows (`feature-pipeline`, `bugfix-pipeline`): a feature
+ * designs new behaviour, a bugfix restores promised behaviour. Section 0 is identical in form —
+ * check-orientation parses it.
  */
 
 import { copyFileSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
@@ -17,13 +16,13 @@ import { join, dirname } from 'node:path';
 
 const PLANS_DIR = 'docs/plans';
 
-/** Шаблон на поток работ. `header` — строка, в которой подменяется имя задачи. */
+/** One template per workflow. `header` is the line where the task name is substituted. */
 const TEMPLATES = {
-  feature: { path: 'docs/plans/TEMPLATE.md', header: '# План: <фича>', title: 'План' },
+  feature: { path: 'docs/plans/TEMPLATE.md', header: '# Plan: <feature>', title: 'Plan' },
   bugfix: {
     path: 'docs/plans/TEMPLATE-BUGFIX.md',
-    header: '# Багфикс: <короткое имя дефекта>',
-    title: 'Багфикс',
+    header: '# Bugfix: <short defect name>',
+    title: 'Bugfix',
   },
 };
 
@@ -36,7 +35,7 @@ function repoRoot() {
     }
     const parent = dirname(dir);
     if (parent === dir) {
-      throw new Error('Не найден корень монорепозитория (pnpm-workspace.yaml)');
+      throw new Error('Monorepo root not found (pnpm-workspace.yaml)');
     }
     dir = parent;
   }
@@ -48,10 +47,10 @@ const slug = args.find((arg) => !arg.startsWith('--'));
 
 if (slug === undefined || !/^[a-z0-9][a-z0-9-]*$/.test(slug)) {
   console.error(
-    'Использование: pnpm plan:new <slug> [--bug]\n' +
-      'slug в kebab-case, как у каталога фичи в e2e/regression/ — так план, сьют и теги\n' +
-      'называются одинаково: pnpm plan:new meeting-editing\n' +
-      '--bug создаёт план багфикса вместо плана фичи: pnpm plan:new login-timing --bug',
+    'Usage: pnpm plan:new <slug> [--bug]\n' +
+      'slug in kebab-case, same as the feature directory in e2e/regression/ — that way the plan,\n' +
+      'the suite and the tags share a name: pnpm plan:new meeting-editing\n' +
+      '--bug creates a bugfix plan instead of a feature plan: pnpm plan:new login-timing --bug',
   );
   process.exit(1);
 }
@@ -61,22 +60,22 @@ const root = repoRoot();
 const target = join(root, PLANS_DIR, `${slug}.plan.md`);
 
 if (existsSync(target)) {
-  console.error(`План уже существует: ${PLANS_DIR}/${slug}.plan.md`);
-  console.error('Правь его, а не создавай второй: два плана на одну задачу разойдутся.');
+  console.error(`Plan already exists: ${PLANS_DIR}/${slug}.plan.md`);
+  console.error('Edit it instead of creating a second one: two plans for one task will diverge.');
   process.exit(1);
 }
 
 copyFileSync(join(root, template.path), target);
 
-// Подставляем slug в заголовок, чтобы файл не выглядел неначатым.
+// Substitute the slug into the heading so the file does not look untouched.
 const content = readFileSync(target, 'utf8').replace(
   template.header,
   `# ${template.title}: ${slug}`,
 );
 writeFileSync(target, content, { encoding: 'utf8' });
 
-console.log(`Создан ${PLANS_DIR}/${slug}.plan.md (${isBug ? 'багфикс' : 'фича'})
+console.log(`Created ${PLANS_DIR}/${slug}.plan.md (${isBug ? 'bugfix' : 'feature'})
 
-Первым делом — раздел 0 «Ориентация»: прочитай docs/CHANGELOG.md и docs/BACKLOG.md и заполни
-четыре ответа. Без них коммит не пройдёт: pnpm check:orientation стоит в .husky/pre-commit.
-Порядок работ целиком — скил ${isBug ? 'bugfix-pipeline' : 'feature-pipeline'}.`);
+Start with section 0 "Orientation": read docs/CHANGELOG.md and docs/BACKLOG.md and answer the four
+questions. Without them the commit will not pass: pnpm check:orientation runs in .husky/pre-commit.
+The full order of work is the ${isBug ? 'bugfix-pipeline' : 'feature-pipeline'} skill.`);

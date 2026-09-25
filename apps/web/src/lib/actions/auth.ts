@@ -8,11 +8,11 @@ import { createSession, destroySession } from '../session';
 import type { LoginFormState, PublicUser } from '../types';
 
 /**
- * Server Actions аутентификации.
+ * Authentication Server Actions.
  *
- * Файл экспортирует ТОЛЬКО async-функции: `'use server'` не разрешает экспорт констант и
- * типов (риск 19). Поэтому `LoginFormState` лежит в `lib/types.ts`, а `SESSION_COOKIE_NAME`
- * — в `lib/session-cookie.ts`.
+ * Invariant 13: this file exports ONLY async functions — `'use server'` forbids exporting
+ * constants and types. Hence `LoginFormState` lives in `lib/types.ts` and `SESSION_COOKIE_NAME` in
+ * `lib/session-cookie.ts`.
  */
 
 interface LoginResponse {
@@ -21,14 +21,15 @@ interface LoginResponse {
 }
 
 /**
- * Логин из формы (`useActionState`). Возвращает состояние с текстом ошибки — или уводит на `/`.
+ * Login from the form (`useActionState`). Returns a state carrying the error text, or redirects
+ * to `/`.
  *
- * `redirect('/')` стоит СТРОГО после `try/catch` (риск 18): он реализован через выброс
- * `NEXT_REDIRECT`, и `catch` внутри блока перехватил бы его — cookie уже выставлена, а
- * пользователь остался бы на форме с непонятной ошибкой. Симптом «логин ничего не делает».
+ * Invariant 11: `redirect('/')` sits STRICTLY outside `try/catch` — it works by throwing
+ * `NEXT_REDIRECT`, and a `catch` inside the block would swallow it, leaving the cookie set and the
+ * user staring at the form. The symptom is "login does nothing".
  *
- * Валидация — только серверная: у полей формы нет ни `required`, ни `type="email"` (риск 20),
- * иначе браузер не отправил бы форму и ветки ниже никогда бы не выполнились.
+ * Validation is server-side only: the form fields carry neither `required` nor `type="email"`
+ * (invariant 15), otherwise the browser would never submit and the branches below would never run.
  */
 export async function loginAction(
   _prevState: LoginFormState,
@@ -37,7 +38,7 @@ export async function loginAction(
   const { email, password } = readLoginCredentials(formData);
 
   if (hasEmptyCredential({ email, password })) {
-    return { error: 'Введите email и пароль', email };
+    return { error: 'Enter your email and password', email };
   }
 
   try {
@@ -47,26 +48,24 @@ export async function loginAction(
     });
     await createSession(result.accessToken);
   } catch (error) {
-    // 401 — «неверный email или пароль», одна и та же формулировка на оба случая: UI не
-    // должен подсказывать, существует ли аккаунт (это же требование у AL-API-03).
+    // 401 — one wording for both cases: the UI must not hint whether the account exists
+    // (the same requirement as AL-API-03).
     if (error instanceof ApiError && error.status === 401) {
-      return { error: 'Неверный email или пароль', email };
+      return { error: 'Invalid email or password', email };
     }
-    // 400 — ValidationPipe отверг payload; для формы логина это всегда формат email.
+    // 400 — ValidationPipe rejected the payload; for the login form that is always the email.
     if (error instanceof ApiError && error.status === 400) {
-      return { error: 'Проверьте формат email', email };
+      return { error: 'Check the email format', email };
     }
-    // Всё остальное (Nest не поднят, 500) — не наша ветка: пусть падает в error boundary,
-    // а не превращается в «неверный пароль».
+    // Anything else (Nest down, 500) is not our branch: let it reach the error boundary instead of
+    // turning into "wrong password".
     throw error;
   }
 
   redirect('/');
 }
 
-/**
- * Выход. `redirect` — тоже вне любого `try` по той же причине (риск 18).
- */
+/** Sign out. `redirect` is outside any `try` for the same reason (invariant 11). */
 export async function logoutAction(): Promise<void> {
   await destroySession();
 
