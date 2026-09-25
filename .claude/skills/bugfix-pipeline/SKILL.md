@@ -1,6 +1,6 @@
 ---
 name: bugfix-pipeline
-description: Order of work for a defect — reproduction, cause, impact, a red test before the fix, the fix, acceptance, an FX- entry. Use when something is broken, when the user says "bug", "it does not work", "fix it", "figure out why", "a test failed", "regression", or when a defect is found during acceptance. For new functionality, use the feature-pipeline skill.
+description: Order of work for a defect — reproduction, cause, impact, a red test before the fix, the fix, acceptance, an FX- entry — and which role of the agent team owns each step. Use when something is broken, when the user says "bug", "it does not work", "fix it", "figure out why", "a test failed", "regression", or when a defect is found during acceptance. For new functionality, use the feature-pipeline skill.
 ---
 
 The flow for a defect. It differs from `feature-pipeline` in that it **designs nothing**: the
@@ -9,28 +9,38 @@ to bring the code back to it. That is why there are no Contract and Data section
 other ones instead: reproduction, cause, impact, and why it was not caught earlier.
 
 Invariants, ports and "who runs what" live in `CLAUDE.md`; the suite convention in `e2e/README.md`;
-the acceptance rules in `regression-verify`. This file holds only the order of steps.
+the acceptance rules in `regression-verify`; the role contract in `team-roles`; the documents each
+role works from in `project-context`. This file holds only the order of steps.
 
 ## Seven steps
 
-| #   | Step               | Input                 | Output                                           |
-| --- | ------------------ | --------------------- | ------------------------------------------------ |
-| 1   | Orientation        | a defect report       | new, known (`BL-`) or a regression (`FX-`)       |
-| 2   | Reproduction       | orientation done      | a command that goes red **now**                  |
-| 3   | Cause              | the defect reproduces | the cause plus what proved it                    |
-| 4   | Impact             | the cause found       | what else rests on it, urgency, is a plan needed |
-| 5   | Red test           | a decision to fix     | a case in the suite, red on current code         |
-| 6   | Fix                | the red test          | a minimal edit at the cause; the test goes green |
-| 7   | Acceptance + entry | the fix is ready      | a green `pnpm verify`, an `FX-` entry            |
+| #   | Step               | Role                               | Input                 | Output                                           |
+| --- | ------------------ | ---------------------------------- | --------------------- | ------------------------------------------------ |
+| 1   | Orientation        | `planner` (or the fixer, if short) | a defect report       | new, known (`BL-`) or a regression (`FX-`)       |
+| 2   | Reproduction       | the `tester-*` for that level      | orientation done      | a command that goes red **now**                  |
+| 3   | Cause              | `implementer-api` / `-web`         | the defect reproduces | the cause plus what proved it                    |
+| 4   | Impact             | `planner`                          | the cause found       | what else rests on it, urgency, is a plan needed |
+| 5   | Red test           | the `tester-*` for that level      | a decision to fix     | a case in the suite, red on current code         |
+| 6   | Fix                | `implementer-api` / `-web`         | the red test          | a minimal edit at the cause; the test goes green |
+| 7   | Acceptance + entry | `tester-acceptance`, then `lead`   | the fix is ready      | a green `pnpm verify`, an `FX-` entry            |
 
 The order never changes. The most common and most expensive swap is fixing before step 5: then
 there is nothing to prove you fixed the right thing and nothing to stop it coming back.
 
+**The test and the fix are different roles on purpose.** Whoever writes the fix has already decided
+what the problem is; a test written by the same agent tends to check that decision rather than the
+promised behaviour (`ADR-0014`). For a one-line fix with a known cause the short path in §4 applies
+and the whole team is not assembled — but even there, the red test comes first.
+
 ## 1. Orientation — like a feature, only shorter
 
 Read [`docs/CHANGELOG.md`](../../../docs/CHANGELOG.md) and
-[`docs/BACKLOG.md`](../../../docs/BACKLOG.md). Three possible answers, and all three change what
-happens next:
+[`docs/BACKLOG.md`](../../../docs/BACKLOG.md), and — for the area the defect is in — the corpus that
+says what the behaviour was supposed to be: `docs/api-contract.md`, `docs/data-model.md`,
+`docs/architecture.md`, `docs/adr/`. A defect is a gap between a promise and the code, so you need
+the promise in writing before you can call anything a defect.
+
+Three possible answers, and all three change what happens next:
 
 - **the defect was fixed before** (an `FX-` exists) — this is a **regression**, and the first
   question is not "how do I fix it" but "why did the previous fix's test not hold". Fixing without
@@ -40,8 +50,9 @@ happens next:
   remembered it;
 - **new** — continue with the steps.
 
-If it reaches a written plan (§4), those answers go into section 0 — the same form as a feature,
-read by `pnpm check:orientation`.
+If it reaches a written plan (§4), those answers go into section 0 — the same five-question form as a
+feature, **Architecture impact** included, read by `pnpm check:orientation`. If the fix turns out to
+change a decision rather than restore one, it is not a bugfix: it needs an ADR and the feature flow.
 
 ## 2. Reproduction — before anything else
 
@@ -92,9 +103,9 @@ against 85 of code. A document for a one-line fix costs more than the fix.
 
 ## 5. The red test — before the fix, not after
 
-The test is written **first** and must fail on current code. It is the same control experiment as
-in acceptance, only reversed: there the code is broken to check the test, here the code is already
-broken and the test is checked by it.
+The test is written **first**, by a tester rather than by whoever will fix it, and must fail on
+current code. It is the same control experiment as in acceptance, only reversed: there the code is
+broken to check the test, here the code is already broken and the test is checked by it.
 
 Where it goes is decided by `e2e/README.md`: behaviour over HTTP → `<feature>.api.spec.ts`, UI →
 `*.functional.spec.ts`, a pure function → a unit next to the code. A new case needs an ID, a row in
@@ -131,6 +142,9 @@ checking the wrong place; go back to step 3.
   nothing to catch it with. One fix closes one defect; a repaired check closes a class.
 - If the defect was known as a `BL-` item, that item is marked closed with a reference to the `FX-`
   entry and is **not deleted**.
+- If the cause was a document rather than the code — the contract said one thing and the code another
+  — the document is corrected in the same change, and the `FX-` entry says which one. A corpus that
+  is wrong twice stops being read.
 
 ## What this flow deliberately lacks
 

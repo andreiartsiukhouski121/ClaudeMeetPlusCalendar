@@ -12,9 +12,11 @@
 ## 0. Orientation: what the project already has
 
 Filled in **first**, before the spike. Sources: [`docs/CHANGELOG.md`](../CHANGELOG.md) (what was
-done, defects included), [`docs/BACKLOG.md`](../BACKLOG.md) (planned and rejected), then the code.
+done, defects included), [`docs/BACKLOG.md`](../BACKLOG.md) (planned and rejected), the architecture
+corpus ([`architecture.md`](../architecture.md), [`adr/`](../adr/README.md),
+[`data-model.md`](../data-model.md), [`api-contract.md`](../api-contract.md)), then the code.
 
-Four answers. **Do not change the form** — `pnpm check:orientation` reads it and sits in
+Five answers. **Do not change the form** — `pnpm check:orientation` reads it and sits in
 `.husky/pre-commit`: an empty or brush-off answer fails the commit.
 
 - **Duplicate:** has this been done already? Cite `FT-`/`CH-`/`FX-` entries that close the task in
@@ -23,6 +25,8 @@ Four answers. **Do not change the form** — `pnpm check:orientation` reads it a
   changes.
 - **Conflicts with planned:** which `BL-` items the task overlaps, blocks or makes redundant, or
   "no matches".
+- **Architecture impact:** which `ADR-` decisions the task touches, confirms or would change, and
+  which of the four corpus documents must be updated. Cite ADR IDs, or say "no matches" and why.
 - **Open questions:** terms already used in this project with a different meaning; what to confirm
   with the customer.
 
@@ -30,8 +34,11 @@ Also check the **Rejected** section of the backlog: if the task is there, it was
 Either name the new reason, or do not take it.
 
 Rejected by the check: emptiness, `—`, `TODO`, `no`, answers under 20 characters, references to
-non-existent ledger entries, and — for the duplicate and planned questions — any answer without an
-ID and without an explicit "no matches".
+non-existent ledger entries or non-existent ADRs, and — for the duplicate, planned and architecture
+questions — any answer without an ID and without an explicit "no matches".
+
+**A decision that changes an ADR is written as a new ADR first** (`pnpm adr:new <slug>`), and this
+section cites it. An ADR written after the code is a justification, not a decision.
 
 **If orientation shows a duplicate or a conflict, stop and say so.** "Already done in `FX-007`" is
 a result, not a refusal.
@@ -92,15 +99,20 @@ not an omission — it is a misreported result.
 
 ## How to use this
 
-1. **Orientation** (~5 min) — read the ledger and backlog, fill section 0. Duplicate or conflict:
-   stop and say so.
-2. **Spike** (~7 min) — prove the assumptions with throwaway code.
-3. **Plan** (~10 min) — this template, on top of the spike's facts.
-4. **One review** (~12 min) — completeness against the spec, task dependencies, and whether the
-   plan contradicts the spike. Library behaviour is not reviewed; the spike settled it. A second
-   review happens only if the first found an architecture-changing blocker.
-5. **Implementation** — parallel only where files do not overlap, each agent in its own worktree.
-6. **Acceptance** — skill `regression-verify`, one `pnpm verify`, then the ledger entry.
+1. **Orientation** (~5 min, `planner`) — read the ledger, the backlog and the corpus, fill
+   section 0. Duplicate or conflict: stop and say so.
+2. **Spike** (~7 min, `planner`) — prove the assumptions with throwaway code.
+3. **Plan** (~10 min, `planner`) — this template, on top of the spike's facts.
+4. **Plan review — gate** (~12 min, `plan-reviewer`) — completeness against the spec, task
+   dependencies, conformance to the ADRs, and whether the plan contradicts the spike. Library
+   behaviour is not reviewed; the spike settled it. A second review happens only if the first found
+   an architecture-changing blocker.
+5. **Implementation** (`implementer-api` / `implementer-web`) — parallel only where files do not
+   overlap, each agent in its own worktree. Tests come from the `tester-*` roles.
+6. **Code review — gate** (`code-reviewer`) — the diff against the plan, the invariants and the
+   corpus.
+7. **Acceptance** (`tester-acceptance`) — skill `regression-verify`, one `pnpm verify`, then the
+   ledger entry.
 
 Baseline for a "page plus two endpoints" feature: about 70 minutes, and that is the floor. Twice
 that usually means the plan grew or the review iterated, not that the code was hard. The full order

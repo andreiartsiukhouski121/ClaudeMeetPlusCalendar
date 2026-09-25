@@ -13,6 +13,9 @@ not show that the page rendered or that the endpoint answered. Check it two ways
 browser (see it with your own eyes now) and with a spec file (so the same thing is checked
 forever after).
 
+In the team flow this is the `tester-functional` and `tester-api` procedure: they own the specs and
+the runs, and they report a failure rather than fixing it (`team-roles`).
+
 Ports, the `127.0.0.1` addresses and the "stop `pnpm dev` before `pnpm e2e`" rule are in
 `CLAUDE.md` and are not repeated here. The consequence that matters for the order of work:
 **an interactive check and a spec run are mutually exclusive in one tree.** Run the specs first,

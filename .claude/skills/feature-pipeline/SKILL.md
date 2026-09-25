@@ -1,6 +1,6 @@
 ---
 name: feature-pipeline
-description: Order of work for NEW functionality — orientation, assumption spike, requirements and architecture, task breakdown, one review, implementation, acceptance. Use when starting a new feature or a set of features, when planning implementation, when asked "plan this feature", "implement the feature", "build the features from this screenshot", or when a multi-agent pipeline is requested. For a defect, use the bugfix-pipeline skill.
+description: Order of work for NEW functionality — orientation, assumption spike, requirements and architecture, task breakdown, plan review, implementation, code review, acceptance — and which role of the agent team owns each stage. Use when starting a new feature or a set of features, when planning implementation, when asked "plan this feature", "implement the feature", "build the features from this screenshot", or when a multi-agent pipeline is requested. For a defect, use the bugfix-pipeline skill.
 ---
 
 This skill came out of reviewing the first iteration: two simple features (a login page and a
@@ -14,25 +14,31 @@ invariant and the code does not match it, that is a defect and the flow is diffe
 restores it, which is why a bugfix has no Contract and Data sections but does have Reproduction,
 Cause and Impact.
 
-Neighbours: `regression-verify` for feature acceptance, `playwright-verify` for a single change.
+Neighbours: `team-roles` for who does each stage, `project-context` for the documents they work
+from, `regression-verify` for feature acceptance, `playwright-verify` for a single change.
 Invariants, ports, "who runs what" and the ledger process live in `CLAUDE.md`; the suite convention
 and run economics in `e2e/README.md`. They are deliberately not restated here: a copy of a rule
 drifts from the original silently, which is how this repository earned `FX-023` and `FX-027`.
 
 ## Phases
 
-| Phase                             | Where | Input             | Output                                              |
-| --------------------------------- | ----- | ----------------- | --------------------------------------------------- |
-| Orientation                       | §0    | a task            | four answers in section 0; or "this is a duplicate" |
-| Assumption spike                  | §1    | orientation done  | a table of assumption → how proven → fact           |
-| Requirements, architecture, tasks | §2    | the spike's facts | a 100–150 line plan: contract, data, tasks          |
-| One plan review                   | §3    | the plan          | blockers, or "go ahead"                             |
-| Implementation                    | §4    | the plan accepted | code; parallel parts each in their own worktree     |
-| Acceptance                        | §6    | code ready        | a green `pnpm verify` and a report with numbers     |
-| Ledger entry                      | §10   | acceptance passed | an `FT-`/`CH-` row, closed `BL-` items              |
+| Phase                             | Where | Role                     | Input             | Output                                              |
+| --------------------------------- | ----- | ------------------------ | ----------------- | --------------------------------------------------- |
+| Orientation                       | §0    | `planner`                | a task            | five answers in section 0; or "this is a duplicate" |
+| Assumption spike                  | §1    | `planner`                | orientation done  | a table of assumption → how proven → fact           |
+| Requirements, architecture, tasks | §2    | `planner`                | the spike's facts | a 100–150 line plan: contract, data, tasks          |
+| Plan review — **gate**            | §3    | `plan-reviewer`          | the plan          | blockers, or verdict `accept`                       |
+| Implementation                    | §4    | `implementer-api`/`-web` | the plan accepted | code; parallel parts each in their own worktree     |
+| Tests per level                   | §4    | the `tester-*` roles     | code ready        | cases plus green runs at each level touched         |
+| Code review — **gate**            | §5    | `code-reviewer`          | the diff          | blockers, or verdict `accept`                       |
+| Acceptance                        | §6    | `tester-acceptance`      | review passed     | a green `pnpm verify` and a report with numbers     |
+| Ledger entry                      | §10   | `lead`                   | acceptance passed | an `FT-`/`CH-` row, closed `BL-` items              |
 
-Sections §5 and §7–§9 are cross-cutting: which model per role, what not to cut, the budget, and
-reporting as you go.
+The `lead` sequences all of it and holds the gates; it writes nothing. Sections §7–§9 are
+cross-cutting: what not to cut, the budget, and reporting as you go.
+
+**A gate is passed by an artifact, not by an assurance.** No implementation before the plan review's
+verdict; no acceptance before the code review's; no "done" before a green `pnpm verify`.
 
 Phases are never reordered or skipped, but they **shrink with the task**: for a one-line change the
 spike is a single run and the plan is three rows in the task section. A skipped phase is named out
@@ -41,9 +47,16 @@ loud rather than assumed.
 ## 0. Orientation — before anything else
 
 **5 minutes.** Read [`docs/CHANGELOG.md`](../../../docs/CHANGELOG.md) and
-[`docs/BACKLOG.md`](../../../docs/BACKLOG.md), the Rejected section included, then the code in the
-affected area. Answer the four questions of section 0 in writing — the form is in
+[`docs/BACKLOG.md`](../../../docs/BACKLOG.md), the Rejected section included, then the architecture
+corpus for the area you are touching — `docs/architecture.md`, `docs/adr/README.md`,
+`docs/data-model.md`, `docs/api-contract.md` (what each owns is in `project-context`) — and only then
+the code. Answer the five questions of section 0 in writing; the form is in
 [`docs/plans/TEMPLATE.md`](../../../docs/plans/TEMPLATE.md), and it is what gets checked.
+
+The fifth answer, **Architecture impact**, cites the ADR IDs the change touches or says "no
+matches". It is there because re-deriving architecture from code gives you the current behaviour and
+never the decision: the code cannot tell you that CORS is off deliberately, or that the third session
+check is not redundant (`ADR-0015`).
 
 The step is enforced: a plan is created with `pnpm plan:new <slug>`, and `pnpm check:orientation`
 runs in `.husky/pre-commit` and in `pnpm verify`. An empty answer, a brush-off (`—`, `TODO`, `no`),
@@ -105,9 +118,11 @@ spike's facts. Three things it must pin down, and why those three:
   Without that column, "independent" tasks collide at merge time — which is what happened in the
   first iteration.
 
-Architectural decisions that are hard to undo later (the session scheme, module boundaries, the
-contract format) are the one case where a separate reviewer is worth calling
-(`requesting-code-review`).
+**An architectural decision is written as an ADR before the code, not after.** `pnpm adr:new <slug>`
+takes the next number; the plan then cites the ID, and the code reviewer checks the implementation
+against it. An ADR written afterwards is a justification, not a decision (`ADR-0015`). What counts as
+architectural: the session scheme, module boundaries, the contract format, storage, a refused
+dependency, a process rule everyone must follow.
 
 What must **not** be in the plan: a list of test cases (they are written once, straight into
 `e2e/regression/<feature>/*.cases.md`), a coverage matrix (that is
@@ -117,14 +132,16 @@ The longer the plan, the more of it is work unrelated to the feature: three of t
 the second review and **both** blockers in the third were bookkeeping introduced by edits to the
 document itself — totals drifting apart, a reused case number, a broken table row.
 
-## 3. One plan review
+## 3. Plan review — the first gate
 
-**12 minutes. The review has four questions:**
+**12 minutes, by the `plan-reviewer` agent — read-only, `opus`. The review has four questions:**
 
 1. Completeness against the specification: every point has a task and will have a test.
 2. Task dependencies: does a task of feature 1 need artifacts of feature 2 (in the first iteration
    three functional login cases needed the dashboard — their DoD was unreachable).
-3. Does the plan contradict the spike's facts.
+3. Conformance to the corpus and to the spike's facts: does the plan contradict an accepted ADR
+   without superseding it, re-introduce something from the "refused" table in
+   `docs/architecture.md`, or invent a second home for a fact that already has one.
 4. Security of the new entry points: every endpoint has a guard and a DTO without owner or role
    fields; every protected page is checked in `proxy.ts` **and** in the server layer; every Server
    Action checks the session itself. Four questions, not a full audit — `e2e/security/**` catches
@@ -134,9 +151,9 @@ Library behaviour is **not** reviewed; the spike settled it. A second review hap
 first found an architecture-changing blocker: the "fixed it → rechecked → fixed it again" loop on
 paper is more expensive than the same edits on live code, where a run catches them.
 
-Who to call as a reviewer and how is in `requesting-code-review`. In short: one review per feature,
-the reviewer is **read-only** (`Read`, `Grep`, `Glob`) and returns a report as text rather than an
-edit.
+Who to call and how is in `requesting-code-review` and `team-roles`. In short: one plan review per
+feature, the reviewer holds `Read`, `Grep` and `Glob` only, and returns a report as text rather than
+an edit. Blockers go back to the `planner` unedited — the lead does not soften a verdict.
 
 ## 4. Implementation: parallelism means worktrees, and nothing else
 
@@ -173,35 +190,38 @@ side of one feature both needed to edit `e2e/README.md` and the unit cases doc, 
 `app.module.ts` was edited by both features. Such files are either assigned to one agent or edited
 after the merge.
 
-## 5. Roles that run sequentially
+**Implementers write product code; testers write the tests.** `apps/**/src/**` that is not a spec
+belongs to `implementer-api` / `implementer-web`; `e2e/**`, `**/*.spec.ts` and `*.cases.md` belong to
+the `tester-*` roles (`ADR-0014`). The two run against each other rather than the same agent grading
+its own homework, and the split is by file, so it is checkable. An implementer who notices a missing
+case reports it; they do not add it.
 
-The spike, the plan review, editing a document against review notes, reading run output — none of
-these need their own tree or running servers, and they are done by in-process subagents of the
-`Agent` tool in the current tree. A different rule applies here.
+## 5. Code review — the second gate
 
-**Pass `model` explicitly.** In the first iteration all ten agents inherited the parent's model
-because the parameter was never passed: a mechanical markdown edit (288k tokens) and proofreading
-ran on the same model as writing code. Plan review with its follow-ups came to 1,005,347 tokens —
-46% of the whole spend — without a line of product code.
+By the `code-reviewer` agent: read-only, `opus`, one review per feature, **after** the implementers
+and the testers are done and **before** acceptance. It reads the diff against the accepted plan, the
+nineteen invariants and the corpus, and answers whether the code does what was planned, whether a
+deviation is an improvement or a problem, and whether the documents stayed behind. The full
+checklist is in the agent definition; when to call one at all is in `requesting-code-review`.
 
-| Role                        | Model    | Why                                                              |
-| --------------------------- | -------- | ---------------------------------------------------------------- |
-| Assumption spike            | `sonnet` | Writes probes and reads output; makes no architectural decisions |
-| Plan author                 | `opus`   | The one role where a mistake costs a whole iteration             |
-| Plan reviewer               | `opus`   | Adversarial reading is where a cheap model loses most visibly    |
-| Editing a document to notes | `sonnet` | Markdown surgery with renumbering: needs care, not invention     |
-| Reading run output          | `sonnet` | Mechanics: run it, read the numbers, compare with expectations   |
+It reviews, it does not run. Runs are the testers' step, and their reports are inputs to this one.
 
-**Pick the agent type by permissions, not by name.** `Plan` is read-only: the first iteration's
-planners physically could not write a file, and the lead agent retyped ~2000 lines of plan by hand.
-A plan author needs a type with `Write`. A reviewer needs **read-only**: extra permissions mean it
-can "fix things while it is there", which `regression-verify` §5 forbids in words while only a tool
-restriction makes it a mechanism.
+## Roles, models and permissions
 
-A sturdier solution is definitions in `.claude/agents/*.md` with the model and the tool set fixed
-per role, so routing does not depend on the orchestrator remembering a parameter. That is the open
-`BL-014`: the frontmatter schema has to be verified on this environment first, and guessing at it
-means a silently broken config.
+Roles are **files**, not parameters: `.claude/agents/*.md` fixes each role's tool list and model, so
+routing does not depend on the orchestrator remembering to pass one. The contract — who owns which
+files, who may not do what, and how a brief is handed over — is in the `team-roles` skill.
+
+Why it is a file and not a convention: in the first iteration all ten agents inherited the parent's
+model because the parameter was never passed, and a mechanical markdown edit ran on the most
+expensive model available; plan review reached 1,005,347 tokens, 46% of the spend, without a line of
+product code. Separately, an audit found the reviewer holding write access to every file — because
+"do not fix things while you are there" lived only in prose. A tool list is the mechanism (`ADR-0014`,
+closing `BL-014`).
+
+Not every stage needs its own worktree. The spike, the reviews and reading run output are in-process
+subagents in the current tree; only stages that **run the application** need isolation, and then the
+unit of isolation is a git worktree (§4).
 
 ## 6. Acceptance
 

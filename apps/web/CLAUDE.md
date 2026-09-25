@@ -7,6 +7,11 @@ repository earned `FX-023`. Read rules 9–15 before editing — each cost its o
 
 The `README.md` in this package is the stock `create-next-app` one and is not a source of truth.
 
+Before changing behaviour, read the corpus for this side of the system: the BFF layout and the layer
+rules in [`docs/architecture.md`](../../docs/architecture.md), and the flows — sign-in, dashboard
+render, meeting creation, session end — in [`docs/data-model.md`](../../docs/data-model.md).
+[`docs/api-contract.md`](../../docs/api-contract.md) says what you are calling and what it answers.
+
 ## Map
 
 | Path                            | What is there                                                                     |

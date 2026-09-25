@@ -24,33 +24,35 @@ an improvement done in passing.
 
 ## Open
 
-| ID     | P   | Area     | What                                                                                                   | Depends on        | Conflicts with                                                                                          |
-| ------ | --- | -------- | ------------------------------------------------------------------------------------------------------ | ----------------- | ------------------------------------------------------------------------------------------------------- |
-| BL-018 | P3  | process  | Drop the `multer` override from `pnpm-workspace.yaml` once `@nestjs/platform-express` raises its range | a Nest release    | no; the override only raises a version inside the range and changes no behaviour                        |
-| BL-017 | P3  | process  | Update the actions once Node 24 versions ship (a Node 20 deprecation warning is shown now)             | action releases   | no; a warning, not an error — the run is green                                                          |
-| BL-016 | P2  | process  | Real CD: pick a platform, add secrets and a deployment job                                             | customer decision | no; the `build` job already produces an artifact and a deploy would follow it                           |
-| BL-015 | P2  | process  | Branch protection on `main`: a green `verify` required before merging                                  | `CH-008`          | no; a repository setting rather than code                                                               |
-| BL-014 | P3  | process  | Verify the `.claude/agents/*.md` frontmatter schema and define role→model agents                       | —                 | no; until then `model` is passed as an `Agent` parameter (see `feature-pipeline` §5)                    |
-| BL-013 | P3  | process  | Tooling for a worktree per agent: creation, ports, teardown                                            | —                 | no                                                                                                      |
-| BL-012 | P2  | security | Scan for secrets across git **history** (`SEC-API-10` only looks at the working tree)                  | —                 | no; extends `SEC-API-10` rather than replacing it                                                       |
-| BL-011 | P3  | security | Dependency licence checks / SBOM                                                                       | —                 | no                                                                                                      |
-| BL-009 | P3  | web      | Display time zone from the user profile instead of hard-pinned UTC                                     | —                 | **yes:** `HD-UT-10`…`HD-UT-12` and `formatMeetingDateTime` depend on `timeZone: 'UTC'`; change together |
-| BL-008 | P2  | feature  | Real sign-up: an `/auth/register` page plus `POST /auth/register`                                      | —                 | **yes:** `/auth/register` is a placeholder checked by `AL-FN-06`; the case will need rewriting          |
-| BL-007 | P2  | feature  | Editing and deleting a meeting                                                                         | —                 | **yes:** `PROTECTED_ROUTES` and the endpoint list in `apps/api/README.md` will need extending           |
-| BL-006 | P2  | security | Remove the default `JWT_SECRET` from the code for production builds                                    | `BL-010`          | no                                                                                                      |
-| BL-005 | P2  | security | Security headers (CSP, HSTS, `X-Frame-Options`)                                                        | real hosting      | no                                                                                                      |
-| BL-004 | P2  | security | Seed → migration with pre-computed hashes instead of plaintext in `users.seed.ts`                      | a database        | **yes:** `e2e/fixtures/seed.ts` mirrors the seed; change both or `SM-API-02` goes red                   |
-| BL-003 | P3  | security | A dedicated CSRF token instead of relying on Server Action protection and `sameSite=lax`               | —                 | no                                                                                                      |
-| BL-002 | P2  | security | Refresh tokens: the session currently lives an hour, then requires signing in again                    | —                 | **yes:** `SESSION_MAX_AGE_SECONDS` must match `JWT_EXPIRES_IN` (`AL-UT-22`)                             |
-| BL-001 | P1  | security | **Rate limiting on `POST /auth/login`** — brute force is currently unlimited                           | —                 | no                                                                                                      |
+| ID     | P   | Area     | What                                                                                                             | Depends on        | Conflicts with                                                                                          |
+| ------ | --- | -------- | ---------------------------------------------------------------------------------------------------------------- | ----------------- | ------------------------------------------------------------------------------------------------------- |
+| BL-020 | P3  | process  | Enforce the role file-ownership split mechanically (implementers vs testers) rather than by tool list and review | `CH-016`          | no; it would tighten `ADR-0014` rather than change it                                                   |
+| BL-019 | P3  | process  | Drift check for `docs/data-model.md` against the DTO and entity types, the way `AR-API-05` checks routes         | `CH-015`          | no; extends the architecture meta-test                                                                  |
+| BL-018 | P3  | process  | Drop the `multer` override from `pnpm-workspace.yaml` once `@nestjs/platform-express` raises its range           | a Nest release    | no; the override only raises a version inside the range and changes no behaviour                        |
+| BL-017 | P3  | process  | Update the actions once Node 24 versions ship (a Node 20 deprecation warning is shown now)                       | action releases   | no; a warning, not an error — the run is green                                                          |
+| BL-016 | P2  | process  | Real CD: pick a platform, add secrets and a deployment job                                                       | customer decision | no; the `build` job already produces an artifact and a deploy would follow it                           |
+| BL-015 | P2  | process  | Branch protection on `main`: a green `verify` required before merging                                            | `CH-008`          | no; a repository setting rather than code                                                               |
+| BL-013 | P3  | process  | Tooling for a worktree per agent: creation, ports, teardown                                                      | —                 | no                                                                                                      |
+| BL-012 | P2  | security | Scan for secrets across git **history** (`SEC-API-10` only looks at the working tree)                            | —                 | no; extends `SEC-API-10` rather than replacing it                                                       |
+| BL-011 | P3  | security | Dependency licence checks / SBOM                                                                                 | —                 | no                                                                                                      |
+| BL-009 | P3  | web      | Display time zone from the user profile instead of hard-pinned UTC                                               | —                 | **yes:** `HD-UT-10`…`HD-UT-12` and `formatMeetingDateTime` depend on `timeZone: 'UTC'`; change together |
+| BL-008 | P2  | feature  | Real sign-up: an `/auth/register` page plus `POST /auth/register`                                                | —                 | **yes:** `/auth/register` is a placeholder checked by `AL-FN-06`; the case will need rewriting          |
+| BL-007 | P2  | feature  | Editing and deleting a meeting                                                                                   | —                 | **yes:** `PROTECTED_ROUTES` and the endpoint list in `apps/api/README.md` will need extending           |
+| BL-006 | P2  | security | Remove the default `JWT_SECRET` from the code for production builds                                              | `BL-010`          | no                                                                                                      |
+| BL-005 | P2  | security | Security headers (CSP, HSTS, `X-Frame-Options`)                                                                  | real hosting      | no                                                                                                      |
+| BL-004 | P2  | security | Seed → migration with pre-computed hashes instead of plaintext in `users.seed.ts`                                | a database        | **yes:** `e2e/fixtures/seed.ts` mirrors the seed; change both or `SM-API-02` goes red                   |
+| BL-003 | P3  | security | A dedicated CSRF token instead of relying on Server Action protection and `sameSite=lax`                         | —                 | no                                                                                                      |
+| BL-002 | P2  | security | Refresh tokens: the session currently lives an hour, then requires signing in again                              | —                 | **yes:** `SESSION_MAX_AGE_SECONDS` must match `JWT_EXPIRES_IN` (`AL-UT-22`)                             |
+| BL-001 | P1  | security | **Rate limiting on `POST /auth/login`** — brute force is currently unlimited                                     | —                 | no                                                                                                      |
 
 ## Closed
 
 Never deleted: the history of decisions is worth more than a short file.
 
-| ID     | What it was                                             | Closed by |
-| ------ | ------------------------------------------------------- | --------- |
-| BL-010 | CI: `.github/workflows/ci.yml` with `pnpm verify` steps | `CH-008`  |
+| ID     | What it was                                                                      | Closed by |
+| ------ | -------------------------------------------------------------------------------- | --------- |
+| BL-010 | CI: `.github/workflows/ci.yml` with `pnpm verify` steps                          | `CH-008`  |
+| BL-014 | Verify the `.claude/agents/*.md` frontmatter schema and define role→model agents | `CH-016`  |
 
 `BL-001` is the only item I consider a production blocker. Everything else under security is a
 deliberate concession of a demo without a database, listed in [security.md](security.md).

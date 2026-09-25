@@ -21,11 +21,12 @@ const CHECKER = 'scripts/check-orientation.mjs';
 /** Templates are found by name, not by a list: the list is exactly what is under test here. */
 const TEMPLATE_NAME = /^TEMPLATE.*\.md$/;
 
-/** The same four labels `check-orientation.mjs` reads. They diverge, the check diverges. */
+/** The same five labels `check-orientation.mjs` reads. They diverge, the check diverges. */
 const REQUIRED_LABELS = [
   'Duplicate',
   'Conflicts with shipped',
   'Conflicts with planned',
+  'Architecture impact',
   'Open questions',
 ];
 

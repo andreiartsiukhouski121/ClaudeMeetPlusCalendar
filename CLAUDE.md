@@ -21,6 +21,7 @@ Commits before that entry are in Russian and are not rewritten.
 | `pnpm test:<feature>`         | one feature's units: `test:auth-login`, `test:home-dashboard`                |
 | `pnpm plan:new <slug>`        | create a feature plan from the template                                      |
 | `pnpm plan:new <slug> --bug`  | create a bugfix plan: reproduction, cause, impact                            |
+| `pnpm adr:new <slug>`         | record an architecture decision; takes the next free number                  |
 | `pnpm check:orientation`      | section 0 of the plans is filled in substance (in pre-commit and verify)     |
 | `pnpm verify`                 | **the whole check on a single server start**: lint + typecheck + units + e2e |
 | `pnpm e2e`                    | E2E through Playwright on ports 3100/3101; it starts the servers itself      |
@@ -88,6 +89,53 @@ in about fifteen minutes, a contract or an invariant is touched, security is inv
 one module is affected. Otherwise the flow is shorter: a red test, the fix, an `FX-` entry. A
 document for a one-line fix costs more than the fix — exactly what `CH-004` moved away from.
 
+## Architecture: the corpus every task starts from
+
+Four documents hold the facts this project runs on. They are **read, not re-derived**: code shows
+current behaviour and never the decision behind it — it cannot tell you that CORS is off on purpose,
+or that the third session check is not redundant.
+
+| Document                                       | Owns                                                               |
+| ---------------------------------------------- | ------------------------------------------------------------------ |
+| [`docs/architecture.md`](docs/architecture.md) | the shape of the system, layer rules, patterns used and refused    |
+| [`docs/adr/`](docs/adr/README.md)              | one immutable record per decision: context, decision, consequences |
+| [`docs/data-model.md`](docs/data-model.md)     | entities, formats, lifetimes, seed, and the flows between layers   |
+| [`docs/api-contract.md`](docs/api-contract.md) | every endpoint: request, response, error bodies, internal logic    |
+
+They are **disjoint**: a fact lives in one of them and the others link. Two copies of a rule drift
+silently — that is `FX-023` and `FX-027`. Which role reads which, and what a behaviour change must
+update, is in the `project-context` skill.
+
+**An architectural decision is written as an ADR before the code** (`pnpm adr:new <slug>`), and the
+plan cites the ID. Written afterwards it is a justification, not a decision. An accepted ADR is
+never edited in substance: a changed decision is a **new** record that supersedes the old one.
+
+Two things hold this in place mechanically: section 0 of every plan answers **Architecture impact**
+with ADR IDs or "no matches" (`pnpm check:orientation`), and
+`e2e/architecture/architecture.api.spec.ts` compares the Routes table in `docs/api-contract.md`
+against the Nest controllers in both directions, the guarded ones against `PROTECTED_ROUTES`, and
+the ADR log against itself. The prose is not machine-checkable and is held by review.
+
+## The agent team
+
+Work larger than a one-line fix is done by roles, not by one agent doing everything. Each role is a
+file in `.claude/agents/`, and its limits are its **tool list** rather than its prompt: prose has
+already failed here — the reviewer was found holding write access while the rules forbade it in
+words.
+
+| Role                                                             | Does                                        | Cannot, by tools              |
+| ---------------------------------------------------------------- | ------------------------------------------- | ----------------------------- |
+| `lead`                                                           | sequences, dispatches, holds gates, reports | write files                   |
+| `planner`                                                        | the plan and the ADRs                       | run the app, review, dispatch |
+| `implementer-api`, `implementer-web`                             | product code                                | write tests, dispatch         |
+| `plan-reviewer`, `code-reviewer`                                 | verdicts, in text                           | edit or run anything          |
+| `tester-unit`, `-api`, `-functional`, `-security`, `-acceptance` | tests and runs                              | touch product code, dispatch  |
+
+Two boundaries are choices rather than consequences: **test artifacts belong to the testers**
+(`e2e/**`, `**/*.spec.ts`, `*.cases.md`) and product code to the implementers; and **reviewers are
+read-only** in the literal sense. The full contract — models per role, the handoff format, when the
+team is the wrong tool — is the `team-roles` skill.
+
 ## What has been done: the ledger and the backlog
 
 **Two files are read before planning any task**, not after:
@@ -99,16 +147,17 @@ document for a one-line fix costs more than the fix — exactly what `CH-004` mo
 - [`docs/BACKLOG.md`](docs/BACKLOG.md) — what is ahead (with the "Conflicts with" column) and a
   **Rejected** section with reasons: it exists so the same idea is not proposed again.
 
-The orientation form is section 0 of [`docs/plans/TEMPLATE.md`](docs/plans/TEMPLATE.md): four
-written answers about duplication, conflicts with shipped work, conflicts with planned work, and
-open questions.
+The orientation form is section 0 of [`docs/plans/TEMPLATE.md`](docs/plans/TEMPLATE.md): five
+written answers about duplication, conflicts with shipped work, conflicts with planned work,
+architecture impact, and open questions.
 
 **The step cannot be skipped technically.** A plan is created with `pnpm plan:new <slug>`, and
 `pnpm check:orientation` runs in `.husky/pre-commit` and in `pnpm verify`: an empty answer, a
 brush-off (`—`, `TODO`, `no`), an answer under 20 characters, untouched template text, and a
 reference to a non-existent ledger entry all **fail the commit**. For the duplication and planned
-questions the answer must either cite an existing ID or say "no matches" outright — otherwise there
-is no telling whether the ledger was opened at all.
+questions the answer must either cite an existing ID or say "no matches" outright, and the
+architecture question must cite `ADR-` IDs the same way — otherwise there is no telling whether the
+ledger and the decision log were opened at all.
 
 If the task turns out to be a duplicate, say so and stop: "already done in `FX-007`" is a complete
 result, not a refusal to work.
@@ -235,9 +284,10 @@ the hook runs the units against different content — exactly what will go into 
 
 ## Skills: our own and external
 
-There are eight in `.claude/skills/`. Four are ours — `feature-pipeline`, `bugfix-pipeline`,
-`playwright-verify`, `regression-verify`. The other four are **adapters** to external sets:
-`git-commit`, `nestjs-best-practices`, `requesting-code-review`, `vercel-react-best-practices`.
+There are ten in `.claude/skills/`. Six are ours — `feature-pipeline`, `bugfix-pipeline`,
+`team-roles`, `project-context`, `playwright-verify`, `regression-verify`. The other four are
+**adapters** to external sets: `git-commit`, `nestjs-best-practices`, `requesting-code-review`,
+`vercel-react-best-practices`.
 
 **An external skill is wired in through an adapter, never a copy.** A copied rule drifts from the
 original silently (`FX-023`), and an external set is updated without us besides. An adapter holds
@@ -270,7 +320,8 @@ reviewer read-only".
   `<feature>.api.cases.md` + `<feature>.api.spec.ts` and `<feature>.functional.cases.md` +
   `<feature>.functional.spec.ts` — plus `<feature>.unit.cases.md` referencing the unit specs.
   `e2e/smoke/` is "the infrastructure is alive", `e2e/fixtures/` is the seed and helpers, and
-  `e2e/suite-integrity.api.spec.ts` is the convention meta-test. The suite index with run commands
+  `e2e/suite-integrity.api.spec.ts`, `e2e/ledger/`, `e2e/process/` and `e2e/architecture/` are the
+  meta-tests that hold the conventions, the ledger, the plan templates and the corpus. The suite index with run commands
   is `e2e/README.md`.
 - **The Playwright project is chosen by the filename suffix, not by the directory:**
   `*.api.spec.ts` → project `api` (the `request` fixture, `:3101`), `*.functional.spec.ts` →

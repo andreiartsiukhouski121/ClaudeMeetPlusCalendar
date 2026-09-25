@@ -18,6 +18,7 @@ possible. A process task — it touches no product code.
   worktrees as the only path to parallelism but builds no tooling, so the item stays open;
   `BL-014` (`.claude/agents/*.md` definitions) stays open and is now referenced by the rewritten
   `feature-pipeline` §5. No other matches.
+- **Architecture impact:** confirms `ADR-0012` — the parallelism contradiction in the skills was resolved by making the worktree the only supported path, which is what that decision already says. Also touches `ADR-0010`: the restoration of external skill sets was made verifiable (`treeHash`) rather than trusted. Recorded retrospectively in `CH-015`.
 - **Open questions:** the term "parallel development" is used for two different mechanisms —
   worktree agents (separate processes with no shared context) and in-process subagents of the
   `Agent` tool. The customer chose the first as the only one; the second stays for sequential

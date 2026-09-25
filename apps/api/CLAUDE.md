@@ -7,6 +7,13 @@ repository earned `FX-023`. The endpoint contract, the seeded user table and the
 variables are in the neighbouring [`README.md`](README.md). This file holds only what you need to
 know **before** editing the code.
 
+Before changing behaviour, read the corpus for this side of the system:
+[`docs/api-contract.md`](../../docs/api-contract.md) (every endpoint and its logic),
+[`docs/data-model.md`](../../docs/data-model.md) (shapes, formats, seed) and the layer rules in
+[`docs/architecture.md`](../../docs/architecture.md). A route added or renamed without its row in
+the contract document fails `AR-API-05`; a guarded one missing from `PROTECTED_ROUTES` fails
+`AR-API-06`.
+
 ## Map
 
 | Path                   | What is there                                                               |

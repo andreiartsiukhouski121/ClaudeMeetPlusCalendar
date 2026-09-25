@@ -1,5 +1,11 @@
 # Development plans
 
+**The plans are not where the project is described.** Architecture, decisions, data and the API
+contract live in the corpus — [`architecture.md`](../architecture.md), [`adr/`](../adr/README.md),
+[`data-model.md`](../data-model.md), [`api-contract.md`](../api-contract.md) — and a plan cites them
+rather than restating them. Section 0 of every plan answers **Architecture impact** with ADR IDs,
+and `pnpm check:orientation` fails the commit without it.
+
 | Document                                                         | What it owns                                                                                                 |
 | ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
 | [TEMPLATE.md](TEMPLATE.md)                                       | **The feature plan template** — 100–150 lines, the assumption spike first; `pnpm plan:new <slug>`            |

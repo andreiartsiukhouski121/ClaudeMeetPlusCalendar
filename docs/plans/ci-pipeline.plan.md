@@ -16,6 +16,7 @@ plus delivery of the build as an artifact.
   this task and becomes doable afterwards; `BL-011` (licences/SBOM) and `BL-012` (secrets in git
   history) are the natural next steps that will join the same workflow, so the file must stay
   extensible rather than monolithic.
+- **Architecture impact:** confirms `ADR-0010` (a convention that matters is executable) and `ADR-0011` — CI runs the same step list as the local `pnpm verify`, gates included, so neither register can be satisfied by skipping the other. Changes no decision and adds none; recorded retrospectively when section 0 gained this question in `CH-015`.
 - **Open questions:** the term "CD" has no subject in this project yet — there is no deployment
   platform and no secrets for one. Confirm with the customer where to deploy; until then delivery
   stops at a production build and an artifact, and that is said out loud rather than faked.
