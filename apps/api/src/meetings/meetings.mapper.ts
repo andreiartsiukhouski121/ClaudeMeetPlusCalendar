@@ -1,13 +1,12 @@
 import type { Meeting, MeetingDto } from './meeting.types.js';
 
 /**
- * Единственный способ отдать встречу наружу. Поля перечислены явно, а не через
- * rest-деструктуризацию: новое внутреннее поле в `Meeting` не утечёт в ответ само.
+ * The only way a meeting leaves the server. Fields are listed explicitly rather than removed by
+ * rest destructuring, so a new internal field on `Meeting` cannot leak on its own; `HD-API-01`
+ * checks the resulting key set.
  *
- * `ownerId` в результат не попадает — это и проверяет `HD-API-01` по набору ключей элемента.
- * Отдельного `meetings.mapper.spec.ts` нет намеренно (тест-план §1.1, план §9): функция —
- * одна строка, а её результат проверяется на контрактном уровне; спек без кейса в
- * `*.unit.cases.md` уронил бы мета-тест (правило 8 §1.6).
+ * No `meetings.mapper.spec.ts` on purpose: the function is one line, its result is checked at the
+ * contract level, and a spec missing from `*.unit.cases.md` would fail the meta-test (rule 8).
  */
 export function toMeetingDto(meeting: Meeting): MeetingDto {
   return {

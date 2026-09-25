@@ -1,4 +1,4 @@
-/* Выход — форма с Server Action, поэтому работает и без клиентского JS. */
+/* Sign-out is a form with a Server Action, so it works without client JS. */
 
 .form {
   display: flex;

@@ -1,12 +1,11 @@
 /**
- * Типы данных веб-слоя (план имплементации §3.5).
+ * Web-layer data types.
  *
- * Держатся здесь, а не в файлах с `'use server'`: такой файл может экспортировать **только**
- * async-функции, экспорт интерфейса или константы оттуда ломает сборку (риск 19). Поэтому
- * `LoginFormState` живёт тут, а не рядом с `loginAction`.
+ * They live here rather than in `'use server'` files: invariant 13 — such a file may export
+ * **only** async functions, and exporting an interface or a constant breaks the build.
  */
 
-/** Профиль пользователя в том виде, в каком его отдаёт Nest: `passwordHash` срезан на сервере. */
+/** The user profile as Nest returns it: `passwordHash` was stripped server-side. */
 export interface PublicUser {
   id: string;
   email: string;
@@ -16,20 +15,20 @@ export interface PublicUser {
 export interface Meeting {
   id: string;
   title: string;
-  /** ISO 8601 UTC — ровно то, что пришло от Nest, без локальных преобразований. */
+  /** ISO 8601 UTC — exactly what Nest sent, with no local conversion. */
   startsAt: string;
   durationMinutes: number;
 }
 
 export interface MeetingsPage {
   items: Meeting[];
-  /** Полное число встреч владельца, а не длина `items`: список отсечён лимитом. */
+  /** The owner's full meeting count, not the length of `items`: the list is cut by the limit. */
   total: number;
 }
 
 /**
- * Состояние формы логина для `useActionState`. `email` возвращается вместе с ошибкой, чтобы
- * пользователю не приходилось перенабирать его после неудачной попытки.
+ * Login form state for `useActionState`. The `email` comes back with the error so the user does
+ * not have to retype it after a failed attempt.
  */
 export interface LoginFormState {
   error?: string;
@@ -40,7 +39,7 @@ export interface CreateMeetingFormState {
   error?: string;
 }
 
-/** Пара из формы логина после разбора `FormData` (см. `login-credentials.ts`). */
+/** The login form pair after `FormData` parsing (see `login-credentials.ts`). */
 export interface LoginCredentials {
   email: string;
   password: string;

@@ -4,19 +4,19 @@ import { authHeaders, loginApi } from '../../fixtures/auth.api.js';
 import { SEED_USERS } from '../../fixtures/seed.js';
 
 /**
- * Контракт `POST /auth/login` и `GET /auth/me`. Кейсы — в парном
- * `auth-login.api.cases.md`; заголовок каждого теста начинается с ID кейса.
+ * Contract of `POST /auth/login` and `GET /auth/me`. Cases live in the paired
+ * `auth-login.api.cases.md`; every test title starts with its case ID.
  *
- * Проект `api`: фикстура `request`, `baseURL = http://127.0.0.1:3101`, браузер не поднимается.
- * Пути относительные — абсолютный URL в спеке обходит `baseURL` проекта и уводит прогон
- * на чужой порт.
+ * Project `api`: the `request` fixture, `baseURL = http://127.0.0.1:3101`, no browser. Paths are
+ * relative — an absolute URL in a spec bypasses the project `baseURL` and sends the run to another
+ * port.
  *
- * Логины и пароли берутся только из `fixtures/seed.ts`: хардкод — блокер (тест-план §5.6).
+ * Logins and passwords come only from `fixtures/seed.ts`: hard-coding them is a blocker.
  */
 
 const TEACHER = SEED_USERS.teacher;
 
-/** Форма тела ошибки Nest, выведенная из `HttpException.createBody` (план имплементации §2.1). */
+/** Nest error body shape, derived from `HttpException.createBody`. */
 interface ErrorBody {
   message: string | string[];
   error: string;
@@ -28,17 +28,17 @@ interface LoginBody {
   user?: { id?: unknown; email?: unknown; name?: unknown };
 }
 
-const INVALID_CREDENTIALS = 'Неверный email или пароль';
-const UNAUTHORIZED = 'Требуется авторизация';
+const INVALID_CREDENTIALS = 'Invalid email or password';
+const UNAUTHORIZED = 'Authentication required';
 
-test.describe('Логин: контракт API', { tag: ['@regression', '@auth-login'] }, () => {
-  test('AL-API-01 — успешный логин возвращает токен', { tag: '@p0' }, async ({ request }) => {
+test.describe('Login: API contract', { tag: ['@regression', '@auth-login'] }, () => {
+  test('AL-API-01 — a successful login returns a token', { tag: '@p0' }, async ({ request }) => {
     const response = await request.post('/auth/login', {
       data: { email: TEACHER.email, password: TEACHER.password },
     });
 
-    // Именно 200, а не 201: Nest отвечает на POST кодом 201 по умолчанию, и без
-    // @HttpCode(HttpStatus.OK) контракт нарушен.
+    // 200, not 201: Nest answers POST with 201 by default, and without
+    // @HttpCode(HttpStatus.OK) the contract is broken.
     expect(response.status()).toBe(200);
     expect(response.headers()['content-type']).toContain('application/json');
 
@@ -50,7 +50,7 @@ test.describe('Логин: контракт API', { tag: ['@regression', '@auth-
   });
 
   test(
-    'AL-API-02 — неверный пароль даёт 401 в стандартной форме ошибки',
+    'AL-API-02 — a wrong password gives 401 in the standard error shape',
     { tag: '@p0' },
     async ({ request }) => {
       const response = await request.post('/auth/login', {
@@ -61,7 +61,7 @@ test.describe('Логин: контракт API', { tag: ['@regression', '@auth-
 
       const body = (await response.json()) as ErrorBody & LoginBody;
 
-      // `message` здесь строка, а не массив: массив бывает только у ошибок ValidationPipe.
+      // `message` is a string here, not an array: arrays only come from ValidationPipe errors.
       expect(typeof body.message).toBe('string');
       expect(body).toEqual({
         message: INVALID_CREDENTIALS,
@@ -77,7 +77,7 @@ test.describe('Логин: контракт API', { tag: ['@regression', '@auth-
   );
 
   test(
-    'AL-API-03 — неизвестный email даёт 401 с тем же сообщением',
+    'AL-API-03 — an unknown email gives 401 with the same message',
     { tag: '@p0' },
     async ({ request }) => {
       const unknownEmail = await request.post('/auth/login', {
@@ -93,20 +93,20 @@ test.describe('Логин: контракт API', { tag: ['@regression', '@auth-
       const unknownBody = (await unknownEmail.json()) as ErrorBody;
       const wrongBody = (await wrongPassword.json()) as ErrorBody;
 
-      // По ответу нельзя определить, существует ли аккаунт — требование безопасности.
+      // The response must not reveal whether the account exists — a security requirement.
       expect(unknownBody.message).toBe(wrongBody.message);
       expect(unknownBody.message).toBe(INVALID_CREDENTIALS);
     },
   );
 
-  test('AL-API-04 — отсутствующие и пустые поля дают 400', async ({ request }) => {
+  test('AL-API-04 — missing and empty fields give 400', async ({ request }) => {
     const withoutPassword = await request.post('/auth/login', { data: { email: TEACHER.email } });
     const withoutEmail = await request.post('/auth/login', {
       data: { password: TEACHER.password },
     });
     const bothEmpty = await request.post('/auth/login', { data: { email: '', password: '' } });
 
-    // Валидация срабатывает раньше аутентификации, поэтому ни 401, ни 500 здесь быть не может.
+    // Validation runs before authentication, so neither 401 nor 500 is possible here.
     expect(withoutPassword.status()).toBe(400);
     expect(withoutEmail.status()).toBe(400);
     expect(bothEmpty.status()).toBe(400);
@@ -124,7 +124,7 @@ test.describe('Логин: контракт API', { tag: ['@regression', '@auth-
     expect(bothEmptyBody.message.toString()).toContain('password');
   });
 
-  test('AL-API-07 — невалидный формат email и неверный тип пароля дают 400', async ({
+  test('AL-API-07 — an invalid email format and a wrong password type give 400', async ({
     request,
   }) => {
     const badEmail = await request.post('/auth/login', {
@@ -146,7 +146,7 @@ test.describe('Логин: контракт API', { tag: ['@regression', '@auth-
     expect(numericPasswordBody.message.toString()).toContain('password must be a string');
   });
 
-  test('AL-API-08 — лишнее поле отвергается forbidNonWhitelisted', async ({ request }) => {
+  test('AL-API-08 — an extra field is rejected by forbidNonWhitelisted', async ({ request }) => {
     const response = await request.post('/auth/login', {
       data: { email: TEACHER.email, password: TEACHER.password, role: 'admin' },
     });
@@ -159,7 +159,7 @@ test.describe('Логин: контракт API', { tag: ['@regression', '@auth-
     expect(body.accessToken).toBeUndefined();
   });
 
-  test('AL-API-10 — email нечувствителен к регистру', async ({ request }) => {
+  test('AL-API-10 — the email is case insensitive', async ({ request }) => {
     const response = await request.post('/auth/login', {
       data: { email: TEACHER.email.toUpperCase(), password: TEACHER.password },
     });
@@ -174,19 +174,19 @@ test.describe('Логин: контракт API', { tag: ['@regression', '@auth-
     expect(me.status()).toBe(200);
 
     const meBody = (await me.json()) as { email?: unknown };
-    // Отдаётся канонический email из сида, а не то, что прислал клиент.
+    // The canonical seeded email is returned, not whatever the client sent.
     expect(meBody.email).toBe(TEACHER.email);
   });
 
-  test('AL-API-11 — ответ не содержит пароль', { tag: '@p0' }, async ({ request }) => {
+  test('AL-API-11 — the response carries no password', { tag: '@p0' }, async ({ request }) => {
     const response = await request.post('/auth/login', {
       data: { email: TEACHER.email, password: TEACHER.password },
     });
 
     expect(response.status()).toBe(200);
 
-    // Именно текст ответа, а не разобранный объект: сериализованный хеш мог бы уехать
-    // во вложенном поле, которого ассерт по ключам не заметит.
+    // The response text rather than the parsed object: a serialized hash could hide in a nested
+    // field that a key-based assertion would miss.
     const text = await response.text();
 
     expect(text.toLowerCase()).not.toContain('password');
@@ -194,7 +194,7 @@ test.describe('Логин: контракт API', { tag: ['@regression', '@auth-
     expect(text).not.toContain('scrypt');
   });
 
-  test('AL-API-13 — GET /auth/me с валидным токеном отдаёт профиль', async ({ request }) => {
+  test('AL-API-13 — GET /auth/me with a valid token returns the profile', async ({ request }) => {
     const token = await loginApi(request, 'teacher');
 
     const response = await request.get('/auth/me', { headers: authHeaders(token) });
@@ -209,21 +209,25 @@ test.describe('Логин: контракт API', { tag: ['@regression', '@auth-
     expect(body).not.toHaveProperty('passwordHash');
   });
 
-  test('AL-API-14 — GET /auth/me без токена даёт 401', { tag: '@p0' }, async ({ request }) => {
-    const response = await request.get('/auth/me');
+  test(
+    'AL-API-14 — GET /auth/me without a token gives 401',
+    { tag: '@p0' },
+    async ({ request }) => {
+      const response = await request.get('/auth/me');
 
-    expect(response.status()).toBe(401);
+      expect(response.status()).toBe(401);
 
-    const body = (await response.json()) as ErrorBody & { email?: unknown };
+      const body = (await response.json()) as ErrorBody & { email?: unknown };
 
-    expect(body).toEqual({ message: UNAUTHORIZED, error: 'Unauthorized', statusCode: 401 });
-    expect(body.email).toBeUndefined();
-  });
+      expect(body).toEqual({ message: UNAUTHORIZED, error: 'Unauthorized', statusCode: 401 });
+      expect(body.email).toBeUndefined();
+    },
+  );
 
-  test('AL-API-15 — невалидный токен на /auth/me даёт 401, а не 500', async ({ request }) => {
+  test('AL-API-15 — an invalid token on /auth/me gives 401, not 500', async ({ request }) => {
     const response = await request.get('/auth/me', { headers: authHeaders('not.a.jwt') });
 
-    // Именно 401: битый токен — это отказ в доступе, а не сбой сервера.
+    // 401 specifically: a broken token is a refusal, not a server fault.
     expect(response.status()).toBe(401);
 
     const body = (await response.json()) as ErrorBody;

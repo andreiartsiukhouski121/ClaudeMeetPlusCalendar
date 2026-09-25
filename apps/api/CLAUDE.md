@@ -1,53 +1,54 @@
 # apps/api — Nest.js 12
 
-Дополнение к корневому [`CLAUDE.md`](../../CLAUDE.md), а не его копия. Инварианты Nest (правила
-1–8), разделение прогонов («Кто что гоняет») и процесс реестра описаны **там** и сюда не
-переписаны намеренно: копия правила расходится с оригиналом молча — так репозиторий уже получил
-`FX-023`. Контракт эндпоинтов, таблица сид-пользователей и переменные окружения — в соседнем
-[`README.md`](README.md). Здесь только то, что нужно знать **до** правки кода.
+An addition to the root [`CLAUDE.md`](../../CLAUDE.md), not a copy of it. The Nest invariants
+(rules 1–8), the split of runs ("Who runs what") and the ledger process are described **there** and
+deliberately not restated here: a copied rule drifts from the original silently, which is how this
+repository earned `FX-023`. The endpoint contract, the seeded user table and the environment
+variables are in the neighbouring [`README.md`](README.md). This file holds only what you need to
+know **before** editing the code.
 
-## Карта
+## Map
 
-| Путь                   | Что там                                                                          |
-| ---------------------- | -------------------------------------------------------------------------------- |
-| `src/main.ts`          | bootstrap; `x-powered-by` выключен, CORS и префикс отсутствуют — см. шапку файла |
-| `src/app.module.ts`    | сборка модулей и **`ValidationPipe` провайдером `APP_PIPE`**                     |
-| `src/auth/`            | контроллер, `AuthService`, `TokenService`, `JwtAuthGuard`, `@CurrentUser()`      |
-| `src/meetings/`        | контроллер, сервис с in-memory store, DTO, маппер, сид                           |
-| `src/users/`           | сервис пользователей, сид (плейнтекст паролей → `scrypt` при старте)             |
-| `src/common/crypto/`   | `scrypt`-хеширование и сравнение с постоянным временем                           |
-| `src/config/`          | чтение `JWT_SECRET` / `JWT_EXPIRES_IN` из окружения                              |
-| `test/app.e2e-spec.ts` | supertest ровно для одного: `AppModule` поднимается в тестовом модуле            |
+| Path                   | What is there                                                               |
+| ---------------------- | --------------------------------------------------------------------------- |
+| `src/main.ts`          | bootstrap; `x-powered-by` off, no CORS and no prefix — see the file head    |
+| `src/app.module.ts`    | module wiring and **`ValidationPipe` as an `APP_PIPE` provider**            |
+| `src/auth/`            | controller, `AuthService`, `TokenService`, `JwtAuthGuard`, `@CurrentUser()` |
+| `src/meetings/`        | controller, the in-memory service, DTOs, mapper, seed                       |
+| `src/users/`           | user service and seed (plaintext passwords → `scrypt` at startup)           |
+| `src/common/crypto/`   | `scrypt` hashing and constant-time comparison                               |
+| `src/config/`          | reads `JWT_SECRET` / `JWT_EXPIRES_IN` from the environment                  |
+| `test/app.e2e-spec.ts` | supertest, for exactly one thing: `AppModule` boots in a test module        |
 
-## Чем этот пакет отличается от привычного Nest
+## How this package differs from ordinary Nest
 
-- **Чистый ESM.** `"type": "module"`, поэтому каждый относительный импорт пишется с расширением
-  `.js` — `import { AppService } from './app.service.js'`, хотя рядом лежит `.ts`. Импорт без
-  расширения соберётся типами и упадёт в рантайме.
-- **Базы нет, репозитории in-memory.** `nest start --watch` перезапускается на каждой правке и
-  обнуляет всё, что создали тесты. Отсюда правило сьюта: ни один тест не опирается на данные,
-  созданные другим, а под мутации у каждого spec-файла свой владелец.
-- **`.env` не читается** — ни `dotenv`, ни `@nestjs/config` не подключены. Переменные приходят из
-  окружения процесса, `.env.example` описывает контракт.
-- **Секрет JWT — стабильная константа по умолчанию**, а не случайная строка при старте: со
-  `--watch` случайный секрет обнулял бы выданные токены при каждой правке.
+- **Pure ESM.** `"type": "module"`, so every relative import carries a `.js` extension —
+  `import { AppService } from './app.service.js'` — even though the file next to it is `.ts`. An
+  import without the extension type-checks and fails at runtime.
+- **No database, in-memory repositories.** `nest start --watch` restarts on every edit and wipes
+  anything the tests created. Hence the suite rule: no test relies on data created by another, and
+  each mutating spec file has its own owner.
+- **`.env` is not read** — neither `dotenv` nor `@nestjs/config` is wired in. Variables come from
+  the process environment, and `.env.example` documents the contract.
+- **The JWT secret has a stable constant default** rather than a random string at startup: with
+  `--watch`, a random secret would invalidate issued tokens on every edit.
 
-## Куда писать тесты
+## Where tests go
 
-- **Юнит** — рядом с кодом, `*.spec.ts`, заголовок начинается с ID кейса (`AL-UT-09 — …`), иначе не
-  работают ни `pnpm test:<фича>`, ни проверка парности мета-тестом.
-- **HTTP-контракт** — в корневой `e2e/regression/<фича>/<фича>.api.spec.ts`, **не** в
-  `test/app.e2e-spec.ts`: иначе покрытие разъедется по двум наборам разной свежести.
-- **Новый защищённый эндпоинт** — строкой в `PROTECTED_ROUTES` (`e2e/security/security.api.spec.ts`),
-  иначе межфичевой security-сьют молча перестанет покрывать новое.
+- **Units** — next to the code, `*.spec.ts`, with the title starting with the case ID
+  (`AL-UT-09 — …`), or neither `pnpm test:<feature>` nor the meta-test pairing check works.
+- **HTTP contract** — in the root `e2e/regression/<feature>/<feature>.api.spec.ts`, **not** in
+  `test/app.e2e-spec.ts`, or coverage spreads across two sets of differing freshness.
+- **A new protected endpoint** — a line in `PROTECTED_ROUTES` (`e2e/security/security.api.spec.ts`),
+  or the cross-feature security suite silently stops covering what is new.
 
-## Команды
+## Commands
 
 ```bash
-pnpm dev:api                              # из корня, watch на 3001
-pnpm --filter @purpleschool/api test      # юниты этого пакета
-pnpm --filter @purpleschool/api test:e2e  # supertest-проверка сборки модуля
+pnpm dev:api                              # from the root, watch mode on 3001
+pnpm --filter @purpleschool/api test      # this package's units
+pnpm --filter @purpleschool/api test:e2e  # the supertest module-boot check
 ```
 
-Юниты руками гонять обычно не нужно: они входят в `pnpm verify` и в хук `pre-commit` — см.
-«Кто что гоняет» в корневом `CLAUDE.md`.
+The units usually need no manual run: they are part of `pnpm verify` and of the `pre-commit` hook —
+see "Who runs what" in the root `CLAUDE.md`.

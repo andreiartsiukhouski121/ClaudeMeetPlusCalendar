@@ -1,69 +1,70 @@
 # apps/web — Next.js 16 (App Router)
 
-Дополнение к корневому [`CLAUDE.md`](../../CLAUDE.md), а не его копия. Инварианты Next (правила
-9–15), разделение прогонов («Кто что гоняет») и процесс реестра описаны **там** и сюда не
-переписаны намеренно: копия правила расходится с оригиналом молча — так репозиторий уже получил
-`FX-023`. Прочитай правила 9–15 до правки — каждое из них стоило отдельного разбора.
+An addition to the root [`CLAUDE.md`](../../CLAUDE.md), not a copy of it. The Next invariants
+(rules 9–15), the split of runs ("Who runs what") and the ledger process are described **there** and
+deliberately not restated here: a copied rule drifts from the original silently, which is how this
+repository earned `FX-023`. Read rules 9–15 before editing — each cost its own investigation.
 
-`README.md` в этом пакете — стоковый от `create-next-app`, источником истины он не является.
+The `README.md` in this package is the stock `create-next-app` one and is not a source of truth.
 
-## Карта
+## Map
 
-| Путь                            | Что там                                                                |
-| ------------------------------- | ---------------------------------------------------------------------- |
-| `src/proxy.ts`                  | гейт неавторизованных (в Next 16 вместо `middleware.ts`), узкий матчер |
-| `src/app/`                      | страницы: `/`, `/auth/login`, заглушка `/auth/register`                |
-| `src/app/auth/session-expired/` | Route Handler, стирающий негодную cookie (правило 17 корня)            |
-| `src/components/`               | клиентские компоненты форм и списка встреч + CSS-модули                |
-| `src/lib/actions/`              | Server Actions: логин, выход, создание встречи                         |
-| `src/lib/dal.ts`, `session.ts`  | `server-only`: чтение сессии и проверка доступа                        |
-| `src/lib/api-client.ts`         | серверный `fetch` к Nest — единственная дверь в API                    |
+| Path                            | What is there                                                                     |
+| ------------------------------- | --------------------------------------------------------------------------------- |
+| `src/proxy.ts`                  | the gate for unauthenticated visitors (Next 16's `middleware.ts`), narrow matcher |
+| `src/app/`                      | pages: `/`, `/auth/login`, the `/auth/register` placeholder                       |
+| `src/app/auth/session-expired/` | the Route Handler that erases a broken cookie (root rule 17)                      |
+| `src/components/`               | client form and list components plus CSS modules                                  |
+| `src/lib/actions/`              | Server Actions: login, sign-out, meeting creation                                 |
+| `src/lib/dal.ts`, `session.ts`  | `server-only`: reading the session and checking access                            |
+| `src/lib/api-client.ts`         | the server-side `fetch` to Nest — the only door into the API                      |
 
-## Схема BFF: три слоя, а не один
+## The BFF layout: three layers, not one
 
-Браузер к Nest не ходит вообще. Токен живёт в httpOnly cookie, и проверка сессии продублирована
-трижды: `proxy.ts` (оптимистичная, видит только наличие cookie) → `lib/dal.ts` → **внутри каждого
-Server Action**. Убрать любой из трёх слоёв нельзя: первый — не безопасность, а UX, третий — то,
-что реально защищает мутацию.
+The browser never talks to Nest. The token lives in an httpOnly cookie, and the session check is
+duplicated three times: `proxy.ts` (optimistic, sees only that a cookie exists) → `lib/dal.ts` →
+**inside every Server Action**. None of the three can be removed: the first is UX rather than
+security, and the third is what actually protects a mutation.
 
-## Что покрывается юнитами, а что нет
+## What has units and what does not
 
-Vitest **не резолвит** `import 'server-only'`, поэтому его импортируют ровно два файла — `dal.ts` и
-`session.ts`, и юнитов у них нет (их поведение проверяют функциональные e2e-кейсы). Всё
-тестируемое обязано лежать в модуле без этого импорта: `api-client.ts`, `session-cookie.ts`,
-`format-date.ts`, `login-credentials.ts`. Появилась логика в `session.ts` — выноси её в соседний
-чистый модуль, а не тащи `server-only` в тест.
+Vitest **cannot resolve** `import 'server-only'`, so exactly two files import it — `dal.ts` and
+`session.ts` — and they have no units (their behaviour is checked by functional e2e cases).
+Everything testable must live in a module without that import: `api-client.ts`,
+`session-cookie.ts`, `format-date.ts`, `login-credentials.ts`. If logic appears in `session.ts`,
+move it into a neighbouring pure module rather than dragging `server-only` into a test.
 
-Заголовок юнит-теста начинается с ID кейса (`AL-UT-20 — …`). Глобалы здесь **не** включены, в
-отличие от `apps/api`: `describe`/`it`/`expect` импортируются из `vitest`.
+A unit test title starts with its case ID (`AL-UT-20 — …`). Globals are **off** here, unlike
+`apps/api`: `describe`/`it`/`expect` are imported from `vitest`.
 
-## Мелочи, на которых уже ломались
+## Small things that have already broken
 
-- `next.config.ts` → `allowedDevOrigins: ['127.0.0.1']`. Адреса пишутся как `127.0.0.1`: на Windows
-  `localhost` резолвится в `::1`, куда `next dev` не слушает.
-- Отображение даты прибито к `timeZone: 'UTC'` — иначе юнит и e2e зависят от таймзоны машины.
-- **Новая закрытая страница** — строкой в `PROTECTED_PAGES`
-  (`e2e/security/security.functional.spec.ts`), иначе security-сьют её не покрывает.
-- UI-изменение проверяется в браузере по скилу `playwright-verify`, а поведенческое — ещё и новым
-  спеком в `e2e/regression/<фича>/`.
+- `next.config.ts` → `allowedDevOrigins: ['127.0.0.1']`. Addresses are written as `127.0.0.1`: on
+  Windows `localhost` resolves to `::1`, where `next dev` does not listen.
+- Date display is pinned to `timeZone: 'UTC'`, or the units and the e2e depend on the machine's
+  time zone.
+- **A new protected page** — a line in `PROTECTED_PAGES`
+  (`e2e/security/security.functional.spec.ts`), or the security suite does not cover it.
+- A UI change is verified in the browser through the `playwright-verify` skill, and a behavioural
+  one also gets a new spec in `e2e/regression/<feature>/`.
 
-## Команды
+## Commands
 
 ```bash
-pnpm dev:web                              # из корня, 127.0.0.1:3000
-pnpm --filter @purpleschool/web test      # юниты этого пакета
+pnpm dev:web                              # from the root, 127.0.0.1:3000
+pnpm --filter @purpleschool/web test      # this package's units
 pnpm --filter @purpleschool/web typecheck # next typegen + tsc
 ```
 
-Юниты руками гонять обычно не нужно: они входят в `pnpm verify` и в хук `pre-commit`. Перед
-`pnpm e2e` останови `pnpm dev`: Next 16 держит dev-сервер по каталогу проекта, и второй не
-поднимется ни на каком порту.
+The units usually need no manual run: they are part of `pnpm verify` and of the `pre-commit` hook.
+Stop `pnpm dev` before `pnpm e2e`: Next 16 registers its dev server per project directory, and a
+second one starts on no port at all.
 
-## AGENTS.md рядом — не наш файл
+## The AGENTS.md next door is not ours
 
-`next dev` дописывает в `AGENTS.md` свой блок с маркерами `BEGIN/END:nextjs-agent-rules` и
-пересоздаёт его, если блока нет; этот `CLAUDE.md` он не трогает, пока блок живёт в `AGENTS.md`
-(`node_modules/next/dist/server/lib/generate-agent-files.js`). Появился такой diff — коммить его
-вместе с работой, удалять бессмысленно.
+`next dev` writes its own block into `AGENTS.md` between `BEGIN/END:nextjs-agent-rules` markers and
+recreates it if the block is missing; it leaves this `CLAUDE.md` alone as long as the block lives in
+`AGENTS.md` (`node_modules/next/dist/server/lib/generate-agent-files.js`). If such a diff appears,
+commit it with your work — deleting it is pointless.
 
 @AGENTS.md

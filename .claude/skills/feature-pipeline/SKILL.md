@@ -1,244 +1,254 @@
 ---
 name: feature-pipeline
-description: Порядок работ для НОВОЙ функциональности — ориентация, спайк допущений, требования и архитектура, нарезка задач, одно ревью, реализация, приёмка. Use when starting a new feature or a set of features, when planning implementation, when asked "запланируй фичу", "реализуй фичу", "сделай фичи по скрину", or when a multi-agent pipeline is requested. Для дефекта — скил bugfix-pipeline.
+description: Order of work for NEW functionality — orientation, assumption spike, requirements and architecture, task breakdown, one review, implementation, acceptance. Use when starting a new feature or a set of features, when planning implementation, when asked "plan this feature", "implement the feature", "build the features from this screenshot", or when a multi-agent pipeline is requested. For a defect, use the bugfix-pipeline skill.
 ---
 
-Скил появился как разбор первой итерации: две простые фичи (страница логина и дашборд с тремя
-встречами) заняли около трёх часов, из которых **100 минут ушло на планирование и вычитку плана и
-85 — на код**. Ниже то, что убирает эти 100 минут, не теряя проверок.
+This skill came out of reviewing the first iteration: two simple features (a login page and a
+dashboard with three meetings) took about three hours, of which **100 minutes went to planning and
+proofreading the plan and 85 to code**. What follows removes those 100 minutes without losing any
+checks.
 
-Это поток для **новой функциональности**. Если поведение уже заявлено кейсом или инвариантом, а код
-ему не соответствует, — это дефект, и поток другой: скил `bugfix-pipeline`. Различие не
-косметическое: фича проектирует поведение, багфикс его восстанавливает, поэтому у багфикса нет
-разделов «Контракт» и «Данные», зато есть «Воспроизведение», «Причина» и «Влияние».
+This is the flow for **new functionality**. If the behaviour is already promised by a case or an
+invariant and the code does not match it, that is a defect and the flow is different: the
+`bugfix-pipeline` skill. The distinction is not cosmetic — a feature designs behaviour, a bugfix
+restores it, which is why a bugfix has no Contract and Data sections but does have Reproduction,
+Cause and Impact.
 
-Смежное: `regression-verify` — приёмка фичи; `playwright-verify` — проверка одного изменения.
-Инварианты, порты, «кто что гоняет» и процесс реестра — в `CLAUDE.md`; конвенция сьюта и экономика
-прогонов — в `e2e/README.md`. Здесь они не пересказаны намеренно: копия правила расходится с
-оригиналом молча, так репозиторий уже получил `FX-023` и `FX-027`.
+Neighbours: `regression-verify` for feature acceptance, `playwright-verify` for a single change.
+Invariants, ports, "who runs what" and the ledger process live in `CLAUDE.md`; the suite convention
+and run economics in `e2e/README.md`. They are deliberately not restated here: a copy of a rule
+drifts from the original silently, which is how this repository earned `FX-023` and `FX-027`.
 
-## Фазы
+## Phases
 
-| Фаза                            | Где | Вход                | Выход                                                  |
-| ------------------------------- | --- | ------------------- | ------------------------------------------------------ |
-| Ориентация                      | §0  | задача от заказчика | четыре ответа в разделе 0 плана; или «это дубль, стоп» |
-| Спайк допущений                 | §1  | ориентация пройдена | таблица «допущение → как проверено → факт»             |
-| Требования, архитектура, задачи | §2  | факты спайка        | план 100–150 строк: контракт, данные, задачи с файлами |
-| Одно ревью плана                | §3  | план готов          | блокеры или «можно брать в работу»                     |
-| Реализация                      | §4  | план принят         | код; параллельные части — каждая в своём worktree      |
-| Приёмка                         | §6  | код готов           | зелёный `pnpm verify`, отчёт с цифрами                 |
-| Запись в реестр                 | §10 | приёмка пройдена    | строка `FT-`/`CH-`, закрытые пункты `BL-`              |
+| Phase                             | Where | Input             | Output                                              |
+| --------------------------------- | ----- | ----------------- | --------------------------------------------------- |
+| Orientation                       | §0    | a task            | four answers in section 0; or "this is a duplicate" |
+| Assumption spike                  | §1    | orientation done  | a table of assumption → how proven → fact           |
+| Requirements, architecture, tasks | §2    | the spike's facts | a 100–150 line plan: contract, data, tasks          |
+| One plan review                   | §3    | the plan          | blockers, or "go ahead"                             |
+| Implementation                    | §4    | the plan accepted | code; parallel parts each in their own worktree     |
+| Acceptance                        | §6    | code ready        | a green `pnpm verify` and a report with numbers     |
+| Ledger entry                      | §10   | acceptance passed | an `FT-`/`CH-` row, closed `BL-` items              |
 
-Разделы §5, §7–§9 — сквозные: кому какая модель, что не сокращать, бюджет и отчётность по ходу.
+Sections §5 and §7–§9 are cross-cutting: which model per role, what not to cut, the budget, and
+reporting as you go.
 
-Фазы не переставляются и не пропускаются, но **сжимаются по размеру задачи**: для правки в одну
-строку спайк — это один запуск, а план — три строки в разделе задач. Пропуск фазы называется вслух,
-а не подразумевается.
+Phases are never reordered or skipped, but they **shrink with the task**: for a one-line change the
+spike is a single run and the plan is three rows in the task section. A skipped phase is named out
+loud rather than assumed.
 
-## 0. Ориентация — до всего остального
+## 0. Orientation — before anything else
 
-**5 минут.** Прочитай [`docs/CHANGELOG.md`](../../../docs/CHANGELOG.md) и
-[`docs/BACKLOG.md`](../../../docs/BACKLOG.md), включая раздел «Отклонено», затем код в затронутой
-области. Ответь письменно на четыре вопроса раздела 0 плана — форма в
-[`docs/plans/TEMPLATE.md`](../../../docs/plans/TEMPLATE.md), она же и проверяется.
+**5 minutes.** Read [`docs/CHANGELOG.md`](../../../docs/CHANGELOG.md) and
+[`docs/BACKLOG.md`](../../../docs/BACKLOG.md), the Rejected section included, then the code in the
+affected area. Answer the four questions of section 0 in writing — the form is in
+[`docs/plans/TEMPLATE.md`](../../../docs/plans/TEMPLATE.md), and it is what gets checked.
 
-Шаг принудительный: план создаётся `pnpm plan:new <slug>`, а `pnpm check:orientation` стоит в
-`.husky/pre-commit` и в `pnpm verify`. Пустой ответ, отписка (`—`, `TODO`, `нет`), ответ короче
-20 символов и ссылка на несуществующую запись реестра роняют коммит. Чего проверка **не** умеет —
-понять, что задача дубль по сути: она гарантирует, что ориентацию провели и записали, смысл
-ответов оценивает ревью. Граница проведена намеренно: проверка, притворяющаяся умнее, чем она
-есть, вреднее отсутствующей.
+The step is enforced: a plan is created with `pnpm plan:new <slug>`, and `pnpm check:orientation`
+runs in `.husky/pre-commit` and in `pnpm verify`. An empty answer, a brush-off (`—`, `TODO`, `no`),
+an answer under 20 characters, or a reference to a non-existent ledger entry fails the commit. What
+the check **cannot** do is tell that a task duplicates another in substance: it proves the
+orientation was done and written down, and review judges the answers. The line is drawn on purpose
+— a check pretending to be smarter than it is does more harm than no check at all.
 
-**Если ориентация показала дубль или конфликт — остановись и скажи это**, а не планируй дальше.
-«Уже сделано в `FX-007`» — полноценный результат работы, а не отказ от неё.
+**If orientation shows a duplicate or a conflict, stop and say so** rather than planning on.
+"Already done in `FX-007`" is a result, not a refusal.
 
-Почему шаг обязателен: в реестре уже два десятка дефектов, и половина — про то, чего не видно в
-диффе (вакуумно проходящий мета-тест, правила линта в `warn`, тайминговый оракул, бесконечный
-редирект при негодной cookie). Конкретный пример: `BL-009` (часовой пояс из профиля) конфликтует с
-прибитым UTC, на котором стоят три юнит-кейса, — увидеть это можно только из бэклога.
+Why it is mandatory: the ledger already holds two dozen defects, and half of them are invisible in
+a diff (a vacuously passing meta-test, lint rules left at `warn`, a timing oracle, an endless
+redirect on a broken cookie). A concrete example: `BL-009` (time zone from the profile) conflicts
+with the pinned UTC that three unit cases rest on — visible only from the backlog.
 
-## 1. Спайк допущений — до плана, не после
+## 1. Assumption spike — before the plan, not after
 
-**7 минут, выброшенный код, никаких рассуждений.** Доказать пробами пять–семь самых рискованных
-технических допущений и отдать таблицу «допущение → как проверено → факт».
+**7 minutes, throwaway code, no reasoning.** Prove the five to seven riskiest technical assumptions
+by probe and hand back a table of assumption → how proven → fact.
 
-Почему это первый шаг: в первой итерации ревью плана нашло девять блокеров, и четыре самых дорогих
-были поведением библиотек — `@IsOptional()` у двух полей DTO, граница `@Max` против значения в
-кейсе, отказ Playwright грузить спек с worker-scoped опцией. Каждое доказывается двадцатью строками
-кода за минуты. Вместо этого они были описаны в плане, потом два агента по 25 минут читали план и
-собирали те же пробы, потом ещё один 29 минут переписывал план под находки. **Ревью документа не
-может заменить запуск кода** — оно ловит только то, что читатель способен просимулировать в голове.
+Why this comes first: in the first iteration the plan review found nine blockers, and the four most
+expensive were library behaviour — `@IsOptional()` on two DTO fields, the `@Max` boundary against a
+case value, Playwright refusing to load a spec with a worker-scoped option. Each is provable by
+twenty lines of code in minutes. Instead they were described in the plan, then two agents spent 25
+minutes each reading it and assembling the same probes, then another spent 29 minutes rewriting the
+plan around the findings. **A document review cannot replace running code** — it only catches what
+the reader can simulate in their head.
 
-Что проверять почти всегда:
+Worth probing almost always:
 
-- поведение валидации на отсутствующих, пустых и лишних полях;
-- код ответа фреймворка по умолчанию (у Nest POST — 201, не 200);
-- скоупы и ограничения тестовых фикстур (Playwright отвергает `test.use` для worker-scoped опции
-  **в рантайме**, типы это пропускают);
-- резолвятся ли специальные импорты в тестовом раннере (`server-only` под Vitest — нет);
-- как мержится окружение подпроцессов (`webServer.env` — поверх `process.env`, не вместо);
-- **всё, что относится к безопасности**: раскрывает ли фреймворк стек в заголовках, что попадает в
-  тело ошибки, различимы ли по времени ветки отказа аутентификации, что видно в HTML и в потоке
-  RSC. Три реальных дефекта (`X-Powered-By`, тайминговый оракул на логине, бесконечный редирект при
-  негодной cookie) не были видны ни в диффе, ни в ревью плана — только в запуске.
+- validation behaviour on missing, empty and extra fields;
+- a framework's default response code (Nest answers POST with 201, not 200);
+- test fixture scopes and limits (Playwright rejects `test.use` for a worker-scoped option **at
+  runtime**; the types let it through);
+- whether special imports resolve in the test runner (`server-only` under Vitest does not);
+- how subprocess environments merge (`webServer.env` layers on top of `process.env`, not instead);
+- **anything touching security**: whether the framework leaks its stack in headers, what lands in
+  an error body, whether authentication rejection branches differ in timing, what is visible in the
+  HTML and in the RSC stream. Three real defects here (`X-Powered-By`, the login timing oracle, the
+  endless redirect on a broken cookie) were invisible in the diff and in the plan review — only a
+  run found them.
 
-Пробы складывай в скретчпад, не в репозиторий.
+Keep the probes in a scratchpad, not in the repository.
 
-## 2. Требования, архитектура и нарезка задач
+## 2. Requirements, architecture and task breakdown
 
-Всё это — один документ: план по шаблону `docs/plans/TEMPLATE.md`, **100–150 строк**, поверх фактов
-спайка. Три вещи, которые он обязан зафиксировать, и почему именно они:
+All of it is one document: a plan from `docs/plans/TEMPLATE.md`, **100–150 lines**, built on the
+spike's facts. Three things it must pin down, and why those three:
 
-- **Контракт** (раздел 2 шаблона) — метод, путь, авторизация, тело запроса, успешный ответ и
-  **точные тела ошибок**. Формы ошибок берутся из исходников фреймворка, а не по памяти: в этом
-  репозитории на них уже ломались дважды (инварианты 1 и 8).
-- **Данные** (раздел 3) — состав сида конкретными значениями, на которые смогут опереться тесты.
-  Даты абсолютные, никаких `Date.now()`; отдельные владельцы для мутирующих кейсов, раз store общий.
-- **Задачи** (раздел 4) — нумерованные, с зависимостями, **файлами** и проверяемым критерием
-  готовности. Графа «файлы» не украшение: задачи, пересекающиеся по файлам, параллельными не
-  помечаются, а общий файл (`app.module.ts`, `e2e/README.md`, файл юнит-кейсов) выносится в
-  отдельную задачу-мерж. Без этой графы «независимые» задачи конфликтуют на мерже — так было в
-  первой итерации.
+- **Contract** — method, path, authorization, request body, success response and **exact error
+  bodies**. Error shapes come from the framework's source rather than memory: this repository broke
+  on them twice already (invariants 1 and 8).
+- **Data** — the seed as concrete values that tests can rely on. Absolute dates, no `Date.now()`;
+  separate owners for mutating cases, since the store is shared.
+- **Tasks** — numbered, with dependencies, **files** and a verifiable definition of done. The
+  "files" column is not decoration: tasks overlapping on a file are not marked parallel, and a
+  shared file (`app.module.ts`, `e2e/README.md`, the unit cases doc) becomes its own merge task.
+  Without that column, "independent" tasks collide at merge time — which is what happened in the
+  first iteration.
 
-Архитектурные решения, которые дальше трудно отменить (схема сессии, границы модулей, формат
-контракта), — единственный случай, когда к плану стоит звать отдельного ревьюера
-(`requesting-code-review`). Чего в плане быть не
-должно: перечня тест-кейсов (они пишутся один раз, сразу в `e2e/regression/<фича>/*.cases.md`),
-матрицы покрытия (её роль выполняет `e2e/suite-integrity.api.spec.ts`), инвариантов из `CLAUDE.md`.
+Architectural decisions that are hard to undo later (the session scheme, module boundaries, the
+contract format) are the one case where a separate reviewer is worth calling
+(`requesting-code-review`).
 
-Чем длиннее план, тем больше в нём работы, не связанной с фичей: три из девяти блокеров второго
-ревью и **оба** блокера третьего были бухгалтерией, внесённой правками самого документа —
-разъехавшиеся итоги, переиспользованный номер кейса, сломанная строка таблицы.
+What must **not** be in the plan: a list of test cases (they are written once, straight into
+`e2e/regression/<feature>/*.cases.md`), a coverage matrix (that is
+`e2e/suite-integrity.api.spec.ts`'s job), or invariants from `CLAUDE.md`.
 
-## 3. Одно ревью плана
+The longer the plan, the more of it is work unrelated to the feature: three of the nine blockers in
+the second review and **both** blockers in the third were bookkeeping introduced by edits to the
+document itself — totals drifting apart, a reused case number, a broken table row.
 
-**12 минут. Предмет ревью — четыре вопроса:**
+## 3. One plan review
 
-1. Полнота относительно спецификации: у каждого пункта есть задача и будет тест.
-2. Зависимости задач: не требует ли задача фичи 1 артефактов фичи 2 (в первой итерации три
-   функциональных кейса логина требовали дашборда — их DoD был недостижим).
-3. Не противоречит ли план фактам спайка.
-4. Безопасность новых точек входа: у каждого эндпоинта — guard и DTO без полей владельца и роли; у
-   каждой закрытой страницы — проверка и в `proxy.ts`, и в серверном слое; у каждого Server Action —
-   своя проверка сессии. Это четыре вопроса, а не полноценный аудит: остальное ловит `e2e/security/**`.
+**12 minutes. The review has four questions:**
 
-Поведение библиотек ревью **не проверяет** — это сделал спайк. Второе ревью назначается только если
-первое нашло блокер, меняющий архитектуру: итерация «починил → перепроверил → снова починил» на
-бумаге дороже, чем те же правки на живом коде, где их ловит прогон.
+1. Completeness against the specification: every point has a task and will have a test.
+2. Task dependencies: does a task of feature 1 need artifacts of feature 2 (in the first iteration
+   three functional login cases needed the dashboard — their DoD was unreachable).
+3. Does the plan contradict the spike's facts.
+4. Security of the new entry points: every endpoint has a guard and a DTO without owner or role
+   fields; every protected page is checked in `proxy.ts` **and** in the server layer; every Server
+   Action checks the session itself. Four questions, not a full audit — `e2e/security/**` catches
+   the rest.
 
-Кого и как звать ревьюером — в скиле `requesting-code-review`. Коротко: одно ревью на фичу,
-ревьюер **только на чтение** (`Read`, `Grep`, `Glob`), отчёт возвращает текстом, а не правкой.
+Library behaviour is **not** reviewed; the spike settled it. A second review happens only if the
+first found an architecture-changing blocker: the "fixed it → rechecked → fixed it again" loop on
+paper is more expensive than the same edits on live code, where a run catches them.
 
-## 4. Реализация: параллельность — это worktree, и ничего кроме
+Who to call as a reviewer and how is in `requesting-code-review`. In short: one review per feature,
+the reviewer is **read-only** (`Read`, `Grep`, `Glob`) and returns a report as text rather than an
+edit.
 
-Бэкенд и веб одной фичи почти всегда независимы по файлам. Но **два агента в одном рабочем дереве
-не параллельны**, сколько бы портов им ни выдали: Next 16 регистрирует dev-сервер по каталогу
-проекта, поэтому второй `next dev` не поднимается ни на каком порту и `webServer` Playwright не
-стартует (подробности и симптом — в `CLAUDE.md`). Плюс общие `test-results/`,
-`playwright-report/`, файлы `storageState`, общий `JWT_SECRET: 'e2e-secret'` (токен одного прогона
-принимается сервером другого — расхождение данных при этом **тихое**), `.git/index.lock` и
-`node_modules`.
+## 4. Implementation: parallelism means worktrees, and nothing else
 
-Отсюда правило: **параллельный этап = свой git worktree на агента.** Разные порты
-(`E2E_WEB_PORT=3200 E2E_API_PORT=3201 pnpm e2e`) нужны уже вторично — чтобы два worktree не
-столкнулись на 3100/3101.
+The backend and the web side of one feature are almost always independent by file. But **two agents
+in one working tree are not parallel**, however many ports they get: Next 16 registers its dev
+server per project directory, so a second `next dev` starts on no port at all and Playwright's
+`webServer` never comes up (the symptom and details are in `CLAUDE.md`). On top of that:
+`test-results/`, `playwright-report/` and `storageState` files are shared paths with identical
+names; the shared `JWT_SECRET: 'e2e-secret'` means one run's token is accepted by the other's
+server — and that divergence is **silent**; and `.git/index.lock` and `node_modules` collide too.
 
-Способ создания worktree — дело машины, а не проекта. На этой машине есть общемашинный скил
-`agent-team` (он же `claude-team`): один worktree и одно окно Windows Terminal на агента. Частью
-проектного пайплайна он не является и в репозитории не лежит — на другой машине его может не быть,
-и тогда worktree заводится руками (`git worktree add`). Требование — worktree; `agent-team` —
-один из способов его выполнить.
+Hence the rule: **a parallel stage means one git worktree per agent.** Different ports
+(`E2E_WEB_PORT=3200 E2E_API_PORT=3201 pnpm e2e`) only matter afterwards, so two worktrees do not
+collide on 3100/3101.
 
-**Что следует из выбранного механизма, а не из желаний:**
+How the worktree is created is a property of the machine, not the project. This machine has a
+machine-wide `agent-team` skill (the `claude-team` CLI): one worktree and one Windows Terminal
+window per agent. It is not part of the project pipeline and does not live in the repository —
+another machine may not have it, and there a worktree is created by hand (`git worktree add`). The
+requirement is the worktree; `agent-team` is one way to satisfy it.
 
-- агент в своём окне — **отдельный процесс `claude` без общего контекста**. Его промпт обязан быть
-  самодостаточным: задача, пути, ограничения. «Прочитай `CLAUDE.md` и раздел `T1` плана» — да;
-  пересказ восьми документов с указанием разделов — нет (корпус документации ≈250 тыс. токенов,
-  пятеро агентов, читающих её половину, — это ≈29% расхода итерации);
-- **ты не видишь, что он делает, и не можешь им управлять.** Результат смотрится после — по
-  `git log` и `git diff` его worktree. Не докладывай пользователю о прогрессе таких агентов: у тебя
-  его нет;
-- мерж — отдельный осознанный шаг, а не следствие того, что окно закрылось.
+**What follows from the mechanism rather than from preference:**
 
-Дополнительно проверь, что задачи не пересекаются по файлам: в первой итерации бэкенду и вебу одной
-фичи обоим нужно было править `e2e/README.md` и файл юнит-кейсов, а `app.module.ts` правили обе
-фичи. Такие файлы либо закрепляются за одним агентом, либо правятся после мержа.
+- an agent in its own window is a **separate `claude` process with no shared context**. Its prompt
+  must be self-contained: the task, the paths, the constraints. "Read `CLAUDE.md` and section `T1`
+  of the plan" — yes; retelling eight documents with section numbers — no (the documentation corpus
+  is ~250k tokens, and five agents reading half of it is ≈29% of an iteration's spend);
+- **you cannot see what it is doing and cannot steer it.** The result is inspected afterwards, from
+  its worktree's `git log` and `git diff`. Do not report progress for such agents: you have none;
+- merging is a separate deliberate step, not a consequence of a window closing.
 
-## 5. Роли, которые идут последовательно
+Check as well that the tasks do not overlap by file: in the first iteration the backend and the web
+side of one feature both needed to edit `e2e/README.md` and the unit cases doc, while
+`app.module.ts` was edited by both features. Such files are either assigned to one agent or edited
+after the merge.
 
-Спайк, ревью плана, правка документа по замечаниям, чтение вывода прогонов — всё это не требует ни
-своего дерева, ни поднятых серверов, и делается in-process субагентами инструмента `Agent` в
-текущем дереве. Здесь действует другое правило.
+## 5. Roles that run sequentially
 
-**Передавай `model` явно.** В первой итерации все десять агентов унаследовали модель родителя,
-потому что параметр не передавался ни разу: механическая правка markdown (288 тыс. токенов) и
-вычитка документа шли на той же модели, что написание кода. Ревью плана с доработками —
-1 005 347 токенов, 46% всего расхода, без единой строки продуктового кода.
+The spike, the plan review, editing a document against review notes, reading run output — none of
+these need their own tree or running servers, and they are done by in-process subagents of the
+`Agent` tool in the current tree. A different rule applies here.
 
-| Роль                           | Модель   | Почему                                                                        |
-| ------------------------------ | -------- | ----------------------------------------------------------------------------- |
-| Спайк допущений                | `sonnet` | Пишет пробы и читает вывод; архитектурных решений не принимает                |
-| Автор плана                    | `opus`   | Единственная роль, где ошибка стоит целой итерации                            |
-| Ревьюер плана                  | `opus`   | Состязательное чтение — то, на чём дешёвая модель проигрывает заметнее всего  |
-| Правка документа по замечаниям | `sonnet` | Хирургия по markdown с пересчётом номеров: нужна аккуратность, не изобретение |
-| Чтение вывода прогонов         | `sonnet` | Механика: запустить, прочитать числа, сверить с ожидаемым                     |
+**Pass `model` explicitly.** In the first iteration all ten agents inherited the parent's model
+because the parameter was never passed: a mechanical markdown edit (288k tokens) and proofreading
+ran on the same model as writing code. Plan review with its follow-ups came to 1,005,347 tokens —
+46% of the whole spend — without a line of product code.
 
-**Тип агента выбирай по правам, а не по названию.** `Plan` — read-only: планировщики первой
-итерации физически не смогли записать файл, и ~2000 строк плановых документов ведущий агент
-перепечатывал руками. Автору плана нужен тип с `Write`. Ревьюеру — **только чтение**: лишние права
-означают, что он может «заодно починить» то, что должен был описать, а этот запрет
-`regression-verify` §5 держит словами, и только ограничение инструментов делает его механизмом.
+| Role                        | Model    | Why                                                              |
+| --------------------------- | -------- | ---------------------------------------------------------------- |
+| Assumption spike            | `sonnet` | Writes probes and reads output; makes no architectural decisions |
+| Plan author                 | `opus`   | The one role where a mistake costs a whole iteration             |
+| Plan reviewer               | `opus`   | Adversarial reading is where a cheap model loses most visibly    |
+| Editing a document to notes | `sonnet` | Markdown surgery with renumbering: needs care, not invention     |
+| Reading run output          | `sonnet` | Mechanics: run it, read the numbers, compare with expectations   |
 
-Более прочное решение — определения в `.claude/agents/*.md` с зафиксированными моделью и набором
-инструментов: тогда роутинг не зависит от того, вспомнил ли оркестратор передать параметр. Это
-открытый `BL-014`: схему frontmatter надо сначала проверить на этом окружении, заводить наугад —
-значит получить молча нерабочий конфиг.
+**Pick the agent type by permissions, not by name.** `Plan` is read-only: the first iteration's
+planners physically could not write a file, and the lead agent retyped ~2000 lines of plan by hand.
+A plan author needs a type with `Write`. A reviewer needs **read-only**: extra permissions mean it
+can "fix things while it is there", which `regression-verify` §5 forbids in words while only a tool
+restriction makes it a mechanism.
 
-## 6. Приёмка
+A sturdier solution is definitions in `.claude/agents/*.md` with the model and the tool set fixed
+per role, so routing does not depend on the orchestrator remembering a parameter. That is the open
+`BL-014`: the frontmatter schema has to be verified on this environment first, and guessing at it
+means a silently broken config.
 
-По скилу `regression-verify`. Ключевое для скорости: **один `pnpm verify`** вместо серии вызовов с
-разными `--grep` (замеры — в `e2e/README.md`, «Экономика прогонов»); юниты руками не запускать;
-повторный полный прогон почти ничего не добавляет — больше даёт точечный контрольный опыт.
+## 6. Acceptance
 
-Для фичи размера «страница плюс два эндпоинта» отдельный агент-приёмщик не нужен: DoD исполнителя с
-контрольными опытами и есть приёмка. Диффовое security-ревью — встроенным скилом `security-review`:
-он смотрит именно изменения ветки и дополняет автоматические кейсы, а не заменяет их.
+Through the `regression-verify` skill. What matters for speed: **one `pnpm verify`** rather than a
+series of `--grep` calls (measurements are in `e2e/README.md`, "Run economics"); do not run the
+units by hand; and a repeated full run adds almost nothing — a targeted control experiment does
+more.
 
-## 7. Что не сокращать
+For a feature the size of "a page plus two endpoints" a separate acceptance agent is unnecessary:
+the implementer's DoD with control experiments _is_ the acceptance. Diff-level security review goes
+through the built-in `security-review` skill: it looks at the branch's changes and complements the
+automated cases rather than replacing them.
 
-- **Контрольные опыты.** Один `sed` плюс отфильтрованный прогон. Именно они вскрыли мета-тест,
-  который сканировал не тот каталог, находил ноль файлов и потому зеленел при **любом** нарушении
-  конвенции. Ни типы, ни линт, ни ревью такого не видят.
-- **Парность `.cases.md` ↔ спек и мета-тест конвенции.** Написан один раз, работает всегда.
-- **Фактический прогон перед словом «готово».** Отличает результат от отчёта о результате.
+## 7. What not to cut
 
-## 8. Бюджет времени
+- **Control experiments.** One `sed` plus a filtered run. They are what exposed the meta-test that
+  scanned the wrong directory, found zero files and therefore went green under **any** violation of
+  the convention. Neither types, nor lint, nor review sees that.
+- **The `.cases.md` ↔ spec pairing and the convention meta-test.** Written once, works forever.
+- **An actual run before the word "done".** It separates a result from a report of a result.
 
-Ориентир для фичи «страница плюс два эндпоинта»: спайк 7, план 10, ревью 12, реализация 25,
-приёмка 10, security 3 — **около 70 минут**, и это нижняя граница. Аудит пайплайна пересчитал её по
-наблюдаемым длительностям агентов (минимум 8,7 мин, медиана 21,4) и получил **70 минут при узком
-ревью и 85 при полном**. Запаса в этих числах нет: возвращение к полному ревью плана стоит +15
-минут. Если выходит вдвое больше — причина почти всегда в объёме плана или в числе итераций ревью,
-а не в сложности кода.
+## 8. Time budget
 
-## 9. Отчётность по ходу
+For a feature the size of "a page plus two endpoints": spike 7, plan 10, review 12, implementation
+25, acceptance 10, security 3 — **about 70 minutes**, and that is the floor. The pipeline audit
+recomputed it against observed agent durations (minimum 8.7 minutes, median 21.4) and got **70
+minutes with a narrow review and 85 with a full one**. There is no slack in those numbers: going
+back to a full plan review costs +15 minutes. If it comes out twice as long, the cause is almost
+always the size of the plan or the number of review iterations, not the difficulty of the code.
 
-Пользователь не видит, что происходит внутри фонового агента, и не может отличить долгую работу от
-зацикливания. Называй в промежуточных сообщениях, что сделано и что осталось: этап, сколько
-осталось этапов, где лежит результат.
+## 9. Reporting as you go
 
-Про агентов в отдельных worktree говори только то, что знаешь наверняка: сколько окон запущено и с
-какими задачами. **Их прогресс тебе недоступен** — не пересказывай его и не предполагай. Когда
-пользователь спросит о результате, ответ ищется в `git log`/`git diff` соответствующего worktree, а
-не в догадке.
+The user cannot see what happens inside a background agent and cannot tell long work from a loop.
+Say what is done and what is left in your interim messages: the stage, how many remain, where the
+result lives.
 
-## 10. Запись в реестр — часть работы
+About agents in separate worktrees, say only what you actually know: how many windows are running
+and with what tasks. **Their progress is unavailable to you** — do not retell it and do not guess.
+When the user asks for a result, the answer lives in that worktree's `git log`/`git diff`, not in a
+guess.
 
-Задача не закрыта, пока не появилась запись в `docs/CHANGELOG.md`: фича → `FT-`, изменение процесса
-→ `CH-`, каждый найденный дефект → `FX-` с графой «Чем найдено». Новый обнаруженный пробел → пункт
-`BL-` с заполненной графой «Конфликтует с»; закрытый пункт бэклога помечается закрытым со ссылкой и
-**не удаляется**. Полные правила — в `CLAUDE.md`, порядок коммита — в скиле `git-commit`.
+## 10. The ledger entry is part of the work
 
-Графа «Чем найдено» — единственный способ узнать, какие проверки реально работают: в текущем
-реестре видно, что контрольные опыты и security-сьют нашли по три дефекта каждый, а ревью диффа —
-ни одного.
+A task is not closed until `docs/CHANGELOG.md` has a row: a feature → `FT-`, a process change →
+`CH-`, every defect found → `FX-` with the "Found by" column. A newly discovered gap → a `BL-` item
+with "Conflicts with" filled in; a closed backlog item is marked closed with a reference and is
+**never deleted**. The full rules are in `CLAUDE.md`, the commit order in the `git-commit` skill.
+
+The "Found by" column is the only way to learn which checks actually work: today's ledger shows the
+control experiments and the security suite found three defects each, and diff review found none.

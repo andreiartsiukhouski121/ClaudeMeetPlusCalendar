@@ -1,4 +1,4 @@
-/* Форма создания встречи. Поля адресуются по label, кнопка — по имени «Создать встречу». */
+/* Create-meeting form. Fields are addressed by label, the button by the name "Create meeting". */
 
 .section {
   display: flex;
@@ -45,7 +45,7 @@
   outline-offset: 1px;
 }
 
-/* Ошибка несёт role="alert" в разметке — её видит и скринридер, и getByRole. */
+/* The error carries role="alert" in the markup — both a screen reader and getByRole see it. */
 .error {
   padding: 10px 12px;
   border: 1px solid rgb(185 28 28 / 40%);

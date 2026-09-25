@@ -1,241 +1,246 @@
-# Регрессионный сьют Playwright
+# The Playwright regression suite
 
-Один каталог на фичу, внутри — и описание кейсов, и исполняемые спеки. Правя фичу, открываешь
-**один** каталог и видишь все уровни проверок: API-контракт, UI, юниты (с точными путями к ним).
+One directory per feature, holding both the case descriptions and the executable specs. Working on
+a feature, you open **one** directory and see every level of checks: the API contract, the UI, and
+the units with exact paths to them.
 
-**Этот файл — канонический источник конвенции сьюта**: имена, теги, правила устойчивости, состав
-кейсов, команды запуска и экономика прогонов. Планы в [`docs/plans/`](../docs/plans/) — архив
-первой итерации; ссылаться на них за конвенцией нельзя, они уже расходятся с реальностью в числах
-(`FX-013`, `FX-027`).
+**This file is the canonical source of the suite convention**: names, tags, robustness rules, case
+composition, run commands and run economics. The plans in [`docs/plans/`](../docs/plans/) are an
+archive of the first iteration; they must not be cited for conventions, as their numbers already
+diverge from reality (`FX-013`, `FX-027`).
 
-## Конвенция имён
+## Naming convention
 
-| Роль                                | Шаблон                          | Проект Playwright |
-| ----------------------------------- | ------------------------------- | ----------------- |
-| Кейсы API-контракта                 | `<feature>.api.cases.md`        | —                 |
-| Спек API-контракта                  | `<feature>.api.spec.ts`         | `api` (:3101)     |
-| Кейсы UI                            | `<feature>.functional.cases.md` | —                 |
-| Спек UI                             | `<feature>.functional.spec.ts`  | `web` (:3100)     |
-| Кейсы юнит-тестов (спеки в `apps/`) | `<feature>.unit.cases.md`       | vitest            |
+| Role                               | Pattern                         | Playwright project |
+| ---------------------------------- | ------------------------------- | ------------------ |
+| API contract cases                 | `<feature>.api.cases.md`        | —                  |
+| API contract spec                  | `<feature>.api.spec.ts`         | `api` (:3101)      |
+| UI cases                           | `<feature>.functional.cases.md` | —                  |
+| UI spec                            | `<feature>.functional.spec.ts`  | `web` (:3100)      |
+| Unit cases (specs live in `apps/`) | `<feature>.unit.cases.md`       | vitest             |
 
-**Суффикс имени файла — единственный источник истины о том, какой проект исполняет тест.**
-`playwright.config.ts` маршрутизирует не по каталогу, а по `testMatch`: `*.api.spec.ts` → проект
-`api` (фикстура `request`, браузер не поднимается), `*.functional.spec.ts` → проект `web`
-(Desktop Chrome). Файл с любым другим именем **не попадёт ни в один проект и молча не запустится** —
-от этого страхует `suite-integrity.api.spec.ts`.
+**The filename suffix is the only source of truth about which project executes a test.**
+`playwright.config.ts` routes by `testMatch` rather than by directory: `*.api.spec.ts` → project
+`api` (the `request` fixture, no browser), `*.functional.spec.ts` → project `web` (Desktop Chrome).
+A file with any other name **joins no project and silently never runs** — that is what
+`suite-integrity.api.spec.ts` guards against.
 
-Заголовок теста обязан начинаться с ID кейса (`SM-API-01 — …`): это даёт `--grep "HD-FN-07"`,
-читаемый отчёт и автоматическую проверку парности. То же для юнит-тестов —
-`it('AL-UT-09 — …')`, иначе `pnpm test:auth-login` не сможет отфильтровать фичу.
+A test title must start with its case ID (`SM-API-01 — …`): that gives `--grep "HD-FN-07"`, a
+readable report, and an automatic pairing check. The same goes for units — `it('AL-UT-09 — …')`, or
+`pnpm test:auth-login` cannot filter the feature.
 
-## Что где лежит
+## What lives where
 
-| Фича                 | Slug             | Кейсы (md)                                                     | Спеки                                                                                                                                                                                               | Проект | Запуск                                          |
-| -------------------- | ---------------- | -------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ | ----------------------------------------------- |
-| Логин `/auth/login`  | `auth-login`     | `regression/auth-login/auth-login.api.cases.md`                | `regression/auth-login/auth-login.api.spec.ts`                                                                                                                                                      | api    | `pnpm e2e --project=api --grep @auth-login`     |
-| Логин `/auth/login`  | `auth-login`     | `regression/auth-login/auth-login.functional.cases.md`         | `regression/auth-login/auth-login.functional.spec.ts`                                                                                                                                               | web    | `pnpm e2e --project=web --grep @auth-login`     |
-| Логин `/auth/login`  | `auth-login`     | `regression/auth-login/auth-login.unit.cases.md`               | `apps/api/src/auth/*.spec.ts`, `apps/api/src/common/crypto/password.spec.ts`, `apps/api/src/users/users.service.spec.ts`, `apps/web/src/lib/session.spec.ts`, `apps/web/src/lib/api-client.spec.ts` | vitest | `pnpm test:auth-login`                          |
-| Главная `/`          | `home-dashboard` | `regression/home-dashboard/home-dashboard.api.cases.md`        | `regression/home-dashboard/home-dashboard.api.spec.ts`                                                                                                                                              | api    | `pnpm e2e --project=api --grep @home-dashboard` |
-| Главная `/`          | `home-dashboard` | `regression/home-dashboard/home-dashboard.functional.cases.md` | `regression/home-dashboard/home-dashboard.functional.spec.ts`                                                                                                                                       | web    | `pnpm e2e --project=web --grep @home-dashboard` |
-| Главная `/`          | `home-dashboard` | `regression/home-dashboard/home-dashboard.unit.cases.md`       | `apps/api/src/meetings/*.spec.ts`, `apps/web/src/lib/format-date.spec.ts`                                                                                                                           | vitest | `pnpm test:home-dashboard`                      |
-| Инфраструктура       | `smoke`          | `smoke/health.api.cases.md`, `smoke/seed.api.cases.md`         | `smoke/health.api.spec.ts`, `smoke/seed.api.spec.ts`                                                                                                                                                | api    | `pnpm e2e e2e/smoke`                            |
-| Реестр изменений     | `ledger`         | `ledger/ledger.api.cases.md`                                   | `ledger/ledger.api.spec.ts`                                                                                                                                                                         | api    | `pnpm e2e e2e/ledger`                           |
-| Процесс планирования | `process`        | `process/process.api.cases.md`                                 | `process/process.api.spec.ts`                                                                                                                                                                       | api    | `pnpm e2e e2e/process`                          |
-| Конвенция сьюта      | —                | нет (в `SELF_EXEMPT`)                                          | `suite-integrity.api.spec.ts`                                                                                                                                                                       | api    | `pnpm e2e e2e/suite-integrity.api.spec.ts`      |
-| Безопасность         | `security`       | `security/security.api.cases.md`                               | `security/security.api.spec.ts`                                                                                                                                                                     | api    | `pnpm e2e:security`                             |
-| Безопасность         | `security`       | `security/security.functional.cases.md`                        | `security/security.functional.spec.ts`                                                                                                                                                              | web    | `pnpm e2e:security`                             |
+| Feature             | Slug             | Cases (md)                                                     | Specs                                                                                                                                                                                               | Project | Run                                             |
+| ------------------- | ---------------- | -------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- | ----------------------------------------------- |
+| Login `/auth/login` | `auth-login`     | `regression/auth-login/auth-login.api.cases.md`                | `regression/auth-login/auth-login.api.spec.ts`                                                                                                                                                      | api     | `pnpm e2e --project=api --grep @auth-login`     |
+| Login `/auth/login` | `auth-login`     | `regression/auth-login/auth-login.functional.cases.md`         | `regression/auth-login/auth-login.functional.spec.ts`                                                                                                                                               | web     | `pnpm e2e --project=web --grep @auth-login`     |
+| Login `/auth/login` | `auth-login`     | `regression/auth-login/auth-login.unit.cases.md`               | `apps/api/src/auth/*.spec.ts`, `apps/api/src/common/crypto/password.spec.ts`, `apps/api/src/users/users.service.spec.ts`, `apps/web/src/lib/session.spec.ts`, `apps/web/src/lib/api-client.spec.ts` | vitest  | `pnpm test:auth-login`                          |
+| Home `/`            | `home-dashboard` | `regression/home-dashboard/home-dashboard.api.cases.md`        | `regression/home-dashboard/home-dashboard.api.spec.ts`                                                                                                                                              | api     | `pnpm e2e --project=api --grep @home-dashboard` |
+| Home `/`            | `home-dashboard` | `regression/home-dashboard/home-dashboard.functional.cases.md` | `regression/home-dashboard/home-dashboard.functional.spec.ts`                                                                                                                                       | web     | `pnpm e2e --project=web --grep @home-dashboard` |
+| Home `/`            | `home-dashboard` | `regression/home-dashboard/home-dashboard.unit.cases.md`       | `apps/api/src/meetings/*.spec.ts`, `apps/web/src/lib/format-date.spec.ts`                                                                                                                           | vitest  | `pnpm test:home-dashboard`                      |
+| Infrastructure      | `smoke`          | `smoke/health.api.cases.md`, `smoke/seed.api.cases.md`         | `smoke/health.api.spec.ts`, `smoke/seed.api.spec.ts`                                                                                                                                                | api     | `pnpm e2e e2e/smoke`                            |
+| Ledger              | `ledger`         | `ledger/ledger.api.cases.md`                                   | `ledger/ledger.api.spec.ts`                                                                                                                                                                         | api     | `pnpm e2e e2e/ledger`                           |
+| Planning process    | `process`        | `process/process.api.cases.md`                                 | `process/process.api.spec.ts`                                                                                                                                                                       | api     | `pnpm e2e e2e/process`                          |
+| Suite convention    | —                | none (in `SELF_EXEMPT`)                                        | `suite-integrity.api.spec.ts`                                                                                                                                                                       | api     | `pnpm e2e e2e/suite-integrity.api.spec.ts`      |
+| Security            | `security`       | `security/security.api.cases.md`                               | `security/security.api.spec.ts`                                                                                                                                                                     | api     | `pnpm e2e:security`                             |
+| Security            | `security`       | `security/security.functional.cases.md`                        | `security/security.functional.spec.ts`                                                                                                                                                              | web     | `pnpm e2e:security`                             |
 
-`smoke/seed.api.spec.ts` наполнялся по этапам: `SM-API-02` (логины сид-пользователей) — в T1.5,
-вместе с `POST /auth/login`, `SM-API-03` (сид-встречи) — в T2.4, вместе с контроллером
-`/meetings`. Раньше своего этапа каждый кейс был бы заведомо красным, а красный тест в коммите —
-блокер.
+`smoke/seed.api.spec.ts` was filled in stages: `SM-API-02` (seeded user logins) arrived with
+`POST /auth/login`, `SM-API-03` (seeded meetings) with the `/meetings` controller. Earlier than
+that, each would have been knowingly red, and a red test in a commit is a blocker.
 
-## Безопасность — межфичевой сьют
+## Security — the cross-feature suite
 
-`e2e/security/` стоит рядом с `regression/`, а не внутри фичи, потому что проверяет **инварианты,
-которые обязаны держаться при любом новом эндпоинте и любой новой странице**. Оба спека обходят
-маршруты и страницы списком (`PROTECTED_ROUTES`, `POST_ROUTES`, `PROTECTED_PAGES`): добавил
-защищённый маршрут — допиши строку, и проверка подхватит его сама, без нового кейса.
+`e2e/security/` sits next to `regression/` rather than inside a feature because it checks
+**invariants that must hold for every new endpoint and every new page**. Both specs walk routes and
+pages from a list (`PROTECTED_ROUTES`, `POST_ROUTES`, `PROTECTED_PAGES`): add a protected route, add
+a line, and the check picks it up without a new case.
 
-Часть кейсов сознательно дублирует проверки внутри фич. `AL-API-14` фиксирует, что `GET /auth/me`
-без токена даёт 401 — это контракт логина; `SEC-API-01` фиксирует, что **ни один** защищённый
-маршрут не отвечает без токена. Первое сломается при правке логина, второе — при добавлении
-эндпоинта без guard'а. Это разные отказы.
+Some cases deliberately duplicate checks inside features. `AL-API-14` pins that `GET /auth/me`
+without a token gives 401 — that is the login contract; `SEC-API-01` pins that **no** protected
+route answers without a token. The first breaks when login is edited, the second when an endpoint
+is added without a guard. Those are different failures.
 
-Что уже нашёл этот сьют на живом коде:
+What this suite has already found in live code:
 
-- **`SEC-FN-05`** — `ERR_TOO_MANY_REDIRECTS` при cookie с невалидным токеном. `proxy.ts` по
-  устройству видит только наличие cookie и пускал запрос на `/`; страница получала 401 и уводила
-  на `/auth/login`; proxy снова видел cookie и возвращал на `/`. Пользователь был заперт и не мог
-  дойти до формы, чтобы войти заново. Починено Route Handler'ом `/auth/session-expired`, который
-  сначала стирает cookie.
-- **`SEC-API-05`** — неизвестный email отвечал за 52 мс, неверный пароль за 86–114 мс: одинакового
-  текста сообщения недостаточно, аккаунты перечислялись по времени ответа. Починено сверкой пароля
-  по хешу-пустышке, когда пользователя нет.
-- **`SEC-API-08`** — `X-Powered-By: Express` в каждом ответе.
+- **`SEC-FN-05`** — `ERR_TOO_MANY_REDIRECTS` on a cookie holding an invalid token. `proxy.ts` by
+  design only sees that a cookie exists and let the request through to `/`; the page got a 401 and
+  redirected to `/auth/login`; the proxy saw the cookie again and sent the user back to `/`. The
+  user was locked out and could not reach the form to sign in again. Fixed with the
+  `/auth/session-expired` Route Handler, which erases the cookie first.
+- **`SEC-API-05`** — an unknown email answered in 52 ms, a wrong password in 86–114 ms: an identical
+  message was not enough, and accounts were enumerable by response time. Fixed by verifying the
+  password against a dummy hash when the user does not exist.
+- **`SEC-API-08`** — `X-Powered-By: Express` on every response.
 
-Порог в `SEC-API-05` мягкий (отношение медиан меньше 2,5) намеренно: цель — поймать возврат
-раннего выхода без сверки пароля, а не измерить микросекунды под нагрузкой прогона.
+The `SEC-API-05` threshold is deliberately loose: the goal is to catch a return of the early exit
+without password verification, not to measure microseconds under the load of a test run.
 
-## Фикстуры
+## Fixtures
 
-| Файл                       | Что даёт                                                                                                                                                                                     |
-| -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `fixtures/seed.ts`         | `SEED_USERS`, `TEACHER_MEETINGS`, даты создаваемых встреч. **Единственный** источник логинов, паролей и названий встреч.                                                                     |
-| `fixtures/auth.api.ts`     | `loginApi(request, user)` → `accessToken`, `authHeaders(token)`. Для проекта `api`, кэш на воркер.                                                                                           |
-| `fixtures/api.ts`          | Опция `apiBaseURL` (её значение задаёт `playwright.config.ts`), фикстура `apiRequest` и `isNestRequest` — контекст запросов к Nest для кейсов проекта `web`, которым нужны эталонные данные. |
-| `fixtures/auth.fixture.ts` | Опция `authUser` (тест), `authStateFor` (воркер), `authedPage` (тест) — сессия для UI-кейсов через реальный UI-логин на `/auth/login`.                                                       |
-| `fixtures/console.ts`      | `collectConsoleProblems(page)` + фильтр HMR-шума `next dev`. Без фильтра кейсы на консоль флакают.                                                                                           |
+| File                       | What it provides                                                                                                                                                                    |
+| -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `fixtures/seed.ts`         | `SEED_USERS`, `TEACHER_MEETINGS`, the dates of created meetings. The **only** source of logins, passwords and meeting titles.                                                       |
+| `fixtures/auth.api.ts`     | `loginApi(request, user)` → `accessToken`, `authHeaders(token)`. For project `api`, cached per worker.                                                                              |
+| `fixtures/api.ts`          | The `apiBaseURL` option (its value comes from `playwright.config.ts`), the `apiRequest` fixture and `isNestRequest` — a Nest request context for `web` cases needing baseline data. |
+| `fixtures/auth.fixture.ts` | The `authUser` option (test), `authStateFor` (worker), `authedPage` (test) — a session for UI cases through a real UI login on `/auth/login`.                                       |
+| `fixtures/console.ts`      | `collectConsoleProblems(page)` plus a filter for `next dev` HMR noise. Without the filter the console cases flake.                                                                  |
 
-## Теги и запуск
+## Tags and running
 
-Теги задаются опцией `tag` у `test.describe`, а не текстом в заголовке: `@regression`, `@smoke`,
-`@auth-login`, `@home-dashboard`, `@mutating` (кейс изменяет данные), `@p0` (критичный минимум).
-Служебные сьюты несут свой тег: `@security`, `@ledger`, `@process`.
+Tags are set with the `tag` option on `test.describe` rather than as text in the title:
+`@regression`, `@smoke`, `@auth-login`, `@home-dashboard`, `@mutating` (the case changes data),
+`@p0` (the critical minimum). The service suites carry their own: `@security`, `@ledger`,
+`@process`.
 
 ```bash
-pnpm e2e                                    # всё
-pnpm e2e:smoke                              # инфраструктура: сервер поднялся, сид на месте
-pnpm e2e:regression                         # весь регресс
-pnpm e2e:auth-login                         # одна фича целиком (API + UI)
+pnpm e2e                                    # everything
+pnpm e2e:smoke                              # infrastructure: servers up, seed in place
+pnpm e2e:regression                         # the whole regression
+pnpm e2e:auth-login                         # one feature end to end (API + UI)
 pnpm e2e:home-dashboard
-pnpm e2e:p0                                 # критичный минимум перед пушем
-pnpm e2e --project=api --grep @auth-login   # только контракт, без браузера
-pnpm e2e --project=web --grep @auth-login   # только UI
-pnpm e2e --grep "HD-FN-07"                  # один кейс по ID
-pnpm e2e --grep-invert @mutating            # диагностика флака
-pnpm e2e e2e/suite-integrity.api.spec.ts    # мета-проверка конвенции
-pnpm e2e:report                             # отчёт после падения
+pnpm e2e:p0                                 # the critical minimum before a push
+pnpm e2e --project=api --grep @auth-login   # the contract only, no browser
+pnpm e2e --project=web --grep @auth-login   # the UI only
+pnpm e2e --grep "HD-FN-07"                  # one case by ID
+pnpm e2e --grep-invert @mutating            # flake diagnosis
+pnpm e2e e2e/suite-integrity.api.spec.ts    # the convention meta-check
+pnpm e2e:report                             # the report after a failure
 
-pnpm test                                   # юниты обеих фич
-pnpm test:auth-login                        # юниты одной фичи (фильтр по ID кейса)
+pnpm test                                   # units of both features
+pnpm test:auth-login                        # one feature's units (filtered by case ID)
 pnpm test:home-dashboard
 ```
 
-`test:auth-login` / `test:home-dashboard` фильтруют юниты по ID кейса (`vitest run -t "AL-UT-"`),
-поэтому работают только вместе с правилом «заголовок юнит-теста начинается с ID». Двойное `--`
-между `pnpm -r test` и `-t` писать **нельзя**: `vitest` перестанет считать `-t` опцией и прогонит
-все тесты. Флага `--passWithNoTests` в этих двух скриптах быть не должно: `apps/web` несёт этот
-флаг в своём `test`, а `vitest@4.1.11` падает на втором
-вхождении опции — `Error: Expected a single value for option "--passWithNoTests", received
-[true, true]`. Флаг остаётся ровно в `apps/web/package.json`.
+`test:auth-login` / `test:home-dashboard` filter units by case ID (`vitest run -t "AL-UT-"`), so
+they only work together with the "a unit test title starts with its ID" rule. A double `--` between
+`pnpm -r test` and `-t` must **not** be written: `vitest` then stops treating `-t` as an option and
+runs everything. `--passWithNoTests` must not appear in these two scripts either: `apps/web` carries
+that flag in its own `test`, and `vitest@4.1.11` fails on a second occurrence —
+`Error: Expected a single value for option "--passWithNoTests", received [true, true]`. The flag
+stays exactly in `apps/web/package.json`.
 
-Порты — **3100 (web) и 3101 (api)**, Playwright поднимает серверы сам. Не переводить прогон на
-3000/3001: там может висеть `next start` со старой сборкой и дать ложное «зелено».
+The ports are **3100 (web) and 3101 (api)**, and Playwright starts the servers itself. Do not move
+a run to 3000/3001: a `next start` with a stale build may be sitting there and give a false green.
 
-Если предыдущий прогон падал, на портах могут остаться осиротевшие серверы:
+If a previous run failed, orphaned servers may remain on the ports:
 
 ```bash
-netstat -ano | grep :3100   # взять PID из строки LISTENING
+netstat -ano | grep :3100   # take the PID from the LISTENING row
 netstat -ano | grep :3101
-# затем Stop-Process -Id <pid> — не глушить все node разом, у пользователя свои dev-серверы
+# then Stop-Process -Id <pid> — do not kill every node at once, the user has their own dev servers
 ```
 
-## Правила устойчивости
+## Robustness rules
 
-Это полный список — скилы `playwright-verify` и `regression-verify` ссылаются сюда, а не повторяют
-его у себя.
+This is the full list — the `playwright-verify` and `regression-verify` skills reference it rather
+than repeating it.
 
-- **Локаторы** — только по роли, метке и тексту (`getByRole`, `getByLabel`, `getByText`).
-  CSS-селекторы и селекторы по классам — блокер.
-- **Ожидания** — только web-first ассерты (`await expect(...).toBeVisible()`). `waitForTimeout` и
-  любая фиксированная пауза — блокер, `eslint-plugin-playwright` держит это правило в `error`.
-- **`await` у асинхронного матчера обязателен.** `expect(response).toBeOK()` без `await` проходит,
-  ничего не проверив.
-- **Данные — только из `fixtures/seed.ts`.** Хардкод логина, пароля или названия встречи — блокер.
-- **`teacher` и `student` не мутируются никогда** — только на них проверяются точные числа.
-  Мутирующие кейсы работают под `planner` (проект `api`) или `organizer` (проект `web`), потому что
-  `fullyParallel: true` и store у Nest общий.
-- **Создаваемые встречи датируются 2030 годом** (`FUTURE_STARTS_AT_ISO`). Сортировка DESC + срез
-  топ-3 означают, что ассерт «новая встреча первая» верен только при дате позже любой сид-встречи
-  владельца. `Date.now()` вместо константы — блокер.
-- **Абсолютные ассерты на счётчики в `@mutating`-кейсах запрещены** — новая встреча ищется по
-  уникальному сгенерированному заголовку, а не по `total`.
-- **Браузер не ходит на `:3101`.** Весь трафик страницы идёт в Next; это проверяет `HD-FN-11`.
-  Эталонные данные из Nest берутся фикстурой `apiRequest` — из Node-процесса теста, а не из браузера.
-- **Заведомо красный тест не коммитится.** Если проверка невозможна на текущем этапе, спек не
-  создаётся до этапа, где он станет зелёным.
+- **Locators** — by role, label and text only (`getByRole`, `getByLabel`, `getByText`). CSS and
+  class selectors are a blocker.
+- **Waiting** — web-first assertions only (`await expect(...).toBeVisible()`). `waitForTimeout` and
+  any fixed pause is a blocker; `eslint-plugin-playwright` keeps that rule at `error`.
+- **`await` on an async matcher is mandatory.** `expect(response).toBeOK()` without it passes,
+  having checked nothing.
+- **Data comes only from `fixtures/seed.ts`.** Hard-coding a login, a password or a meeting title is
+  a blocker.
+- **`teacher` and `student` are never mutated** — exact numbers are only checked against them.
+  Mutating cases run as `planner` (project `api`) or `organizer` (project `web`), because
+  `fullyParallel: true` and Nest's store is shared.
+- **Created meetings are dated 2030** (`FUTURE_STARTS_AT_ISO`). DESC sorting plus the top-three
+  slice mean "the new meeting is first" only holds when the date is later than any seeded meeting of
+  that owner. `Date.now()` instead of the constant is a blocker.
+- **Absolute counter assertions in `@mutating` cases are forbidden** — a new meeting is found by its
+  unique generated title rather than by `total`.
+- **The browser never reaches `:3101`.** All page traffic goes to Next; `HD-FN-11` checks it.
+  Baseline data from Nest comes through the `apiRequest` fixture — from the test's Node process, not
+  from the browser.
+- **A knowingly red test is not committed.** If a check is impossible at the current stage, the spec
+  is not created until the stage where it goes green.
 
-## Как добавить фичу в сьют
+## Adding a feature to the suite
 
-1. Создать `e2e/regression/<slug>/` (slug в kebab-case).
-2. Положить четыре файла: `<slug>.api.cases.md`, `<slug>.api.spec.ts`,
-   `<slug>.functional.cases.md`, `<slug>.functional.spec.ts` — плюс `<slug>.unit.cases.md`, если у
-   фичи есть юниты. Структура `.cases.md` — шапка, таблица-сводка и раздел «Кейсы» с шагами и
-   ожидаемым результатом; ближайший образец — `regression/auth-login/auth-login.api.cases.md`.
-3. Выдать ID кейсам: `<ФИЧА>-<ТИП>-<NN>`, где ТИП = `API` | `FN` | `UT`. Номера **не
-   переиспользуются** после удаления кейса.
-4. Начать заголовок каждого теста с ID кейса. Кейс, сознательно не автоматизированный, пометить в
-   `.cases.md` строкой `- **Не автоматизирован:** <причина + ссылка на задачу>` — мета-тест
-   распознаёт **только** этот синтаксис.
-5. Проставить теги опцией `tag` у `test.describe`: `['@regression', '@<slug>']`, плюс `@p0` и
-   `@mutating` там, где нужно.
-6. Юнит-спеки положить рядом с кодом в `apps/**/src/**`, а их пути и ID кейсов перечислить в
-   `<slug>.unit.cases.md`, сгруппировав по спекам: мета-тест проверяет и существование путей, и то,
-   что ID встречается именно в том спеке, под которым перечислен.
-7. Добавить строку в таблицу «Что где лежит» выше.
-8. Прогнать `pnpm e2e e2e/suite-integrity.api.spec.ts` — должен быть зелёным. Затем **один**
-   `pnpm verify` вместо серии вызовов с разными `--grep`.
+1. Create `e2e/regression/<slug>/` (slug in kebab-case).
+2. Add four files: `<slug>.api.cases.md`, `<slug>.api.spec.ts`, `<slug>.functional.cases.md`,
+   `<slug>.functional.spec.ts` — plus `<slug>.unit.cases.md` if the feature has units. A
+   `.cases.md` is a header, a summary table and a Cases section with steps and expected results; the
+   nearest model is `regression/auth-login/auth-login.api.cases.md`.
+3. Assign case IDs: `<FEATURE>-<TYPE>-<NN>`, where TYPE is `API` | `FN` | `UT`. Numbers are **never
+   reused** after a case is deleted.
+4. Start every test title with its case ID. A case deliberately left unautomated is marked in the
+   `.cases.md` with `- **Not automated:** <reason + task link>` — the meta-test recognizes **only**
+   that syntax.
+5. Set tags with the `tag` option on `test.describe`: `['@regression', '@<slug>']`, plus `@p0` and
+   `@mutating` where they apply.
+6. Put unit specs next to the code in `apps/**/src/**` and list their paths and case IDs in
+   `<slug>.unit.cases.md`, grouped by spec: the meta-test checks both that the paths exist and that
+   each ID appears in the spec it is listed under.
+7. Add a row to the "What lives where" table above.
+8. Run `pnpm e2e e2e/suite-integrity.api.spec.ts` — it must be green. Then **one** `pnpm verify`
+   rather than a series of `--grep` calls.
 
-## Сколько кейсов писать
+## How many cases to write
 
-**В первом проходе — только `@p0`, и не больше восьми кейсов на файл.** Остальное добавляется
-тогда, когда баг реально просочился, а не «на всякий случай».
+**In the first pass, only `@p0`, and no more than eight cases per file.** The rest is added when a
+bug actually slipped through, not "just in case".
 
-Правило появилось не из экономии, а из опыта этого сьюта: первая редакция плана содержала 69
-e2e-кейсов, ревью обоснованно сократило их до 53 — но написать, отревьюить и сократить пришлось
-всё равно, то есть за один и тот же объём заплатили трижды.
+The rule comes from this suite's own experience rather than from thrift: the first draft of the plan
+held 69 e2e cases, review reasonably cut them to 53 — but writing, reviewing and cutting still
+happened, so the same scope was paid for three times.
 
-Признаки кейса, которого не должно быть:
+Signs of a case that should not exist:
 
-- **проверяет фреймворк, а не наш код** — «битый JSON → 400» это `body-parser`, «неизвестный метод
-  → 404» это роутер Express, «логин по Enter» это поведение HTML-формы;
-- **вырожденный случай соседа** — «заголовок без схемы `Bearer`» и «подделанная подпись» проверяют
-  ту же ветку guard'а, что и «мусорный токен»;
-- **арифметическое следствие двух других** — «счётчик больше длины списка» выводится из «счётчик
-  равен `total`» и «в списке три элемента»;
-- **сформулирован через «или»** («404 или 405», «200 либо 400»): зелёными будут оба поведения,
-  включая регресс из одного в другое. Поведение детерминировано — зафиксируй его.
+- **it tests the framework rather than our code** — "broken JSON → 400" is `body-parser`, "unknown
+  method → 404" is the Express router, "login on Enter" is HTML form behaviour;
+- **a degenerate version of its neighbour** — "a header without the `Bearer` scheme" and "a forged
+  signature" exercise the same guard branch as "a junk token";
+- **an arithmetic consequence of two others** — "the counter exceeds the list length" follows from
+  "the counter equals `total`" and "the list holds three items";
+- **phrased with an "or"** ("404 or 405", "200 or 400"): both behaviours go green, including a
+  regression from one into the other. The behaviour is deterministic — pin it.
 
-Что дублировать **нужно**, и это не избыточность: `total` против длины `items` проверяется на всех
-трёх уровнях (юнит, API, UI), потому что каждый ловит подмену на своём стыке; неотличимость ответа
-при неверном пароле и неизвестном email — требование безопасности, а не проверка.
+What **should** be duplicated, and is not redundancy: `total` against the length of `items` is
+checked at all three levels (unit, API, UI), because each catches a substitution at its own seam;
+and the indistinguishability of a wrong password from an unknown email is a security requirement
+rather than a check.
 
-## Экономика прогонов
+## Run economics
 
-**Это единственное место в репозитории, где живут числа замеров.** Остальные документы ссылаются
-сюда: четыре разошедшиеся копии этого абзаца уже дали `FX-027`. Меняешь числа — правь здесь и ставь
-новую дату замера.
+**This is the only place in the repository where measurement numbers live.** Other documents
+reference it: four diverging copies of this paragraph already produced `FX-027`. When the numbers
+change, change them here and set a new measurement date.
 
-Замер **2026-09-16**, Windows 11, тёплый `.next`. Состав сьюта — **87 e2e в 11 файлах и 42 юнита**
-(29 в `apps/api`, 13 в `apps/web`) плюс одна supertest-проверка сборки модуля.
+Measured **2026-09-16**, Windows 11, warm `.next`. Suite composition — **87 e2e in 11 files and 42
+units** (29 in `apps/api`, 13 in `apps/web`) plus one supertest module-boot check.
 
-| Что                                              | Время       | Чем измерено                          |
-| ------------------------------------------------ | ----------- | ------------------------------------- |
-| `pnpm e2e` — все 87                              | **26–40 с** | замер команды целиком                 |
-| `pnpm e2e --project=api --grep @auth-login` — 11 | **13,1 с**  | то же; из них ~12 с — подъём серверов |
-| `pnpm verify` целиком                            | **47–66 с** | четыре замера за день                 |
-| `pnpm verify` на холодном `.next`                | ~137 с      | первый прогон дня                     |
+| What                                             | Time        | How measured                              |
+| ------------------------------------------------ | ----------- | ----------------------------------------- |
+| `pnpm e2e` — all 87                              | **26–40 s** | timing the whole command                  |
+| `pnpm e2e --project=api --grep @auth-login` — 11 | **13.1 s**  | the same; ~12 s of it is starting servers |
+| `pnpm verify` end to end                         | **47–66 s** | four measurements across a day            |
+| `pnpm verify` on a cold `.next`                  | ~137 s      | the first run of the day                  |
 
-Разброс — это прогрев: `.next` и `tsc` у Nest тёплые в разной степени. Порядок величины устойчив,
-и именно он важен для правила ниже.
+The spread is warm-up: `.next` and Nest's `tsc` are warm to different degrees. The order of
+magnitude is stable, and that is what the rule below rests on.
 
-Из второй строки и следует правило про один вызов: **каждый дополнительный `pnpm e2e …` стоит около
-12 с независимо от того, сколько тестов отфильтровано**, потому что заново поднимает **оба** сервера,
-включая `next dev`, даже для `--project=api`. Семь вызовов с разными `--grep` — это полторы минуты
-против сорока секунд одного полного прогона. Экономия заметна не потому, что один вызов дорог, а
-потому, что приёмка прогоняется после **каждого** фикса.
+The second row is where the one-call rule comes from: **every additional `pnpm e2e …` costs about
+12 s regardless of how many tests are filtered**, because it restarts **both** servers, `next dev`
+included, even for `--project=api`. Seven calls with different `--grep` values come to a minute and
+a half against forty seconds for one full run. The saving shows not because one call is expensive
+but because acceptance runs after **every** fix.
 
-Отсюда:
+Hence:
 
-- приёмка — **один** `pnpm verify`, а не пять вызовов с разными `--grep`;
-- разбивка по фичам (`--project=api --grep @<фича>`) нужна для отладки и локализации падения;
-- повторный полный прогон ради ещё одного зелёного результата почти ничего не добавляет.
-  Информации больше даёт **точечный контрольный опыт**: сломать поведение, убедиться, что краснеют
-  ожидаемые ID, откатить. Это секунды и один отфильтрованный прогон;
-- **перед прогоном останови `pnpm dev`**: Next 16 не поднимает второй dev-сервер для того же
-  каталога ни на каком порту, и `webServer` Playwright не стартует — прогон падает при нуле
-  запущенных тестов (проверено опытом);
-- два агента одновременно — только в **отдельных git worktree**; разные порты
-  (`E2E_WEB_PORT=3200 E2E_API_PORT=3201`) нужны уже внутри worktree, сами по себе они `.next`,
-  отчёты и файлы состояния не изолируют.
+- acceptance is **one** `pnpm verify`, not five `--grep` calls;
+- the per-feature split (`--project=api --grep @<feature>`) is for debugging and localizing a
+  failure;
+- repeating the full run for another green result adds almost nothing. A **targeted control
+  experiment** says more: break the behaviour, confirm the expected IDs go red, revert. That is
+  seconds and one filtered run;
+- **stop `pnpm dev` before a run**: Next 16 will not start a second dev server for the same
+  directory on any port, and Playwright's `webServer` never comes up — the run fails with zero tests
+  executed (verified by experience);
+- two agents at once means **separate git worktrees**; different ports
+  (`E2E_WEB_PORT=3200 E2E_API_PORT=3201`) matter only inside a worktree, since on their own they
+  isolate neither `.next` nor the reports and state files.

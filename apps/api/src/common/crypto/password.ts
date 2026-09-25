@@ -1,13 +1,13 @@
 import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
 
 /**
- * Хеширование паролей на `node:crypto.scrypt` — без нативных зависимостей вроде bcrypt.
+ * Password hashing on `node:crypto.scrypt` — no native dependency like bcrypt.
  *
- * Формат хранения: `scrypt$<saltHex>$<keyHex>` (план имплементации §3.2).
- * Соль — 16 случайных байт на каждый вызов, ключ — 64 байта, сравнение — `timingSafeEqual`.
+ * Stored as `scrypt$<saltHex>$<keyHex>`: 16 random salt bytes per call, a 64-byte key, compared
+ * with `timingSafeEqual`.
  *
- * Юниты лежат рядом (`password.spec.ts`, AL-UT-09…11), а не у `PasswordService`:
- * сервис — DI-обёртка в одну строку на метод, его спек тестировал бы обёртку, а не поведение.
+ * Units sit here (`password.spec.ts`, AL-UT-09…11) rather than on `PasswordService`: that service
+ * is a one-line DI wrapper, so its spec would test the wrapper instead of the behaviour.
  */
 
 const ALGORITHM = 'scrypt';
@@ -23,9 +23,8 @@ export function hashPassword(plain: string): string {
 }
 
 /**
- * `false` на любом непригодном `stored` — битый формат, чужой алгоритм, обрезанный хеш —
- * и НИКОГДА исключение: иначе одна повреждённая запись в хранилище превращает 401 в 500
- * (AL-UT-11).
+ * Returns `false` for any unusable `stored` — broken format, foreign algorithm, truncated hash —
+ * and never throws: otherwise one corrupted record turns a 401 into a 500 (AL-UT-11).
  */
 export function verifyPassword(plain: string, stored: string): boolean {
   const parts = stored.split('$');

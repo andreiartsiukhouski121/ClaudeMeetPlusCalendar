@@ -3,14 +3,14 @@ import { defineConfig, devices } from '@playwright/test';
 import type { ApiOptions } from './e2e/fixtures/api.js';
 
 /**
- * E2E-проверка монорепозитория: web (Next.js) и api (Nest.js).
- * Playwright сам поднимает оба сервера — см. webServer ниже.
+ * E2E checks for the monorepo: web (Next.js) and api (Nest.js). Playwright starts both servers
+ * itself — see webServer below.
  *
- * Порты 3100/3101, а НЕ обычные 3000/3001. Это принципиально: на 3000 может висеть
- * `pnpm dev` или, хуже, `next start` с прежней сборкой. Во втором случае
- * reuseExistingServer подцепил бы production-сервер, который не подхватывает правки,
- * и прогон дал бы ложное «зелено» на сломанном коде. На выделенном порту переиспользовать
- * можно только dev-сервер, поднятый прошлым прогоном Playwright, — а он с hot reload.
+ * Ports 3100/3101, NOT the usual 3000/3001. This matters: 3000 may hold a `pnpm dev` or, worse, a
+ * `next start` serving a stale build. In the second case reuseExistingServer would latch onto a
+ * production server that never picks up edits, and the run would go falsely green on broken code.
+ * On a dedicated port the only thing to reuse is a dev server from a previous Playwright run,
+ * which does have hot reload.
  */
 const WEB_PORT = process.env.E2E_WEB_PORT ?? '3100';
 const API_PORT = process.env.E2E_API_PORT ?? '3101';
@@ -24,16 +24,16 @@ export default defineConfig<ApiOptions>({
   forbidOnly: isCI,
   retries: isCI ? 2 : 0,
   workers: isCI ? 1 : undefined,
-  // Первый заход на страницу триггерит холодную сборку Turbopack — 30 с по умолчанию мало.
+  // The first page visit triggers a cold Turbopack build — the default 30 s is not enough.
   timeout: 60_000,
   expect: { timeout: 10_000 },
   reporter: [['list'], ['html', { open: 'never' }]],
   use: {
-    // Адрес Nest для кейсов, которым он нужен строкой (apiRequest, HD-FN-11, SEC-FN-03).
-    // Задаётся ЗДЕСЬ и только здесь: сама `baseURL` проекта `web` указывает на Next, а второго
-    // штатного адреса у Playwright нет. Собственная опция сьюта — это способ отдать значение из
-    // конфига, не заставляя тесты пересчитывать формулу порта (FX-023). Значение видно в
-    // HTML-отчёте вместе с остальным конфигом.
+    // The Nest address for cases that need it as a string (apiRequest, HD-FN-11, SEC-FN-03). Set
+    // HERE and only here: the `web` project's own `baseURL` points at Next, and Playwright has no
+    // second built-in address. A suite option is how the value reaches tests without making them
+    // recompute the port formula (FX-023). It shows up in the HTML report with the rest of the
+    // config.
     apiBaseURL: API_URL,
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
@@ -41,16 +41,16 @@ export default defineConfig<ApiOptions>({
     actionTimeout: 15_000,
     navigationTimeout: 30_000,
   },
-  // baseURL задаётся только на уровне проекта, иначе api унаследует адрес web.
+  // baseURL is set per project only, or api would inherit web's address.
   projects: [
-    // Файлы разложены по фичам (e2e/regression/<feature>/), поэтому проект выбирается
-    // не каталогом, а суффиксом имени файла:
-    //   *.api.spec.ts        -> проект api  (фикстура request, baseURL :3101, браузер не нужен)
-    //   *.functional.spec.ts -> проект web  (Desktop Chrome, baseURL :3100)
-    // Дефолтный testMatch ловит любой *.spec.ts, поэтому его надо переопределить в обоих
-    // проектах: иначе браузерный спек уедет в api и получит page.goto на :3101.
-    // Файл без одного из двух суффиксов не попадёт НИ в один проект и молча не запустится —
-    // от этого страхует e2e/suite-integrity.api.spec.ts.
+    // Files are grouped by feature (e2e/regression/<feature>/), so the project is chosen by the
+    // filename suffix rather than the directory:
+    //   *.api.spec.ts        -> project api  (the request fixture, baseURL :3101, no browser)
+    //   *.functional.spec.ts -> project web  (Desktop Chrome, baseURL :3100)
+    // The default testMatch catches any *.spec.ts, so it must be overridden in both projects:
+    // otherwise a browser spec would land in api and run page.goto against :3101.
+    // A file without either suffix joins NO project and silently never runs — that is what
+    // e2e/suite-integrity.api.spec.ts guards against.
     { name: 'api', testMatch: /.*\.api\.spec\.ts$/, use: { baseURL: API_URL } },
     {
       name: 'web',
@@ -58,16 +58,16 @@ export default defineConfig<ApiOptions>({
       use: { ...devices['Desktop Chrome'], baseURL: WEB_URL },
     },
   ],
-  // cwd + `pnpm dev` вместо корневого `pnpm dev:web`: меньше слоёв процессов, которые
-  // Windows-овский taskkill /T /F может осиротить и оставить порт занятым.
+  // cwd + `pnpm dev` instead of the root `pnpm dev:web`: fewer process layers for Windows
+  // taskkill /T /F to orphan and leave a port occupied.
   webServer: [
     {
       command: `pnpm dev --port ${WEB_PORT}`,
       cwd: 'apps/web',
-      // Next по дефолту ходит в :3001 (apps/web/src/lib/api-client.ts). Без этой переменной
-      // web-проект тестировал бы связку с `pnpm dev:api`, а не с поднятым здесь Nest на :3101:
-      // другой сид в памяти, другой JWT_SECRET — и прогон даёт ложный результат в любую сторону.
-      // webServer.env мержится поверх process.env (playwright/types/test.d.ts).
+      // Next defaults to :3001 (apps/web/src/lib/api-client.ts). Without this variable the web
+      // project would test against `pnpm dev:api` rather than the Nest started here on :3101:
+      // a different in-memory seed, a different JWT_SECRET — a false result either way.
+      // webServer.env merges on top of process.env.
       env: { API_URL },
       url: WEB_URL,
       reuseExistingServer: !isCI,
@@ -76,13 +76,12 @@ export default defineConfig<ApiOptions>({
       stderr: 'pipe',
     },
     {
-      // Nest читает порт из process.env.PORT (см. apps/api/src/main.ts).
+      // Nest reads the port from process.env.PORT (see apps/api/src/main.ts).
       command: 'pnpm dev',
       cwd: 'apps/api',
-      // JWT_SECRET фиксируем константой: в коде есть dev-дефолт, но полагаться на него нельзя —
-      // прогон должен быть воспроизводим и не зависеть от того, что стоит в окружении оболочки.
-      // Случайный секрет здесь тоже нельзя: `nest start --watch` перезапускается на каждой правке,
-      // и все выданные посреди прогона токены разом умрут.
+      // JWT_SECRET is pinned to a constant: the code has a dev default, but relying on it would
+      // make the run depend on the shell environment. A random secret is impossible too:
+      // `nest start --watch` restarts on every edit and every token issued mid-run would die.
       env: { PORT: API_PORT, JWT_SECRET: 'e2e-secret' },
       url: API_URL,
       reuseExistingServer: !isCI,

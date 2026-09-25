@@ -1,102 +1,101 @@
-# Багфикс: <короткое имя дефекта>
+# Bugfix: <short defect name>
 
-> Шаблон плана багфикса. Создаётся командой `pnpm plan:new <slug> --bug`. **Нужен не всякому багу** —
-> порог в скиле `bugfix-pipeline` §4: план пишется, если причина неочевидна, если фикс меняет
-> контракт или инвариант, если дефект связан с безопасностью или если затронут больше чем один
-> модуль. Для остального поток короче: красный тест, фикс, запись `FX-`.
+> Bugfix plan template. Created by `pnpm plan:new <slug> --bug`. **Not every bug needs one** — the
+> threshold is in the `bugfix-pipeline` skill §4: the cause is not obvious, the fix changes a
+> contract or an invariant, security is involved, or more than one module is affected. Otherwise
+> the flow is shorter: red test, fix, `FX-` entry.
 >
-> **Цель — 60–100 строк.** Разделы ниже удалять нельзя: каждый отвечает на вопрос, без ответа на
-> который фикс уже оказывался либо не тем, либо не там. Разделы «Контракт» и «Данные» фичевого
-> шаблона здесь отсутствуют намеренно — багфикс не проектирует, а восстанавливает заявленное
-> поведение.
+> **Target: 60–100 lines.** The sections below each answer a question whose absence has already
+> made a fix land in the wrong place. "Contract" and "Data" from the feature template are missing
+> on purpose: a bugfix does not design behaviour, it restores what was already promised.
 
-## 0. Ориентация: что в проекте уже есть
+## 0. Orientation: what the project already has
 
-Заполняется **первым**. Источники — [`docs/CHANGELOG.md`](../CHANGELOG.md) (все найденные дефекты с
-графой «Чем найдено»), [`docs/BACKLOG.md`](../BACKLOG.md) (что отложено и что отклонено), затем код.
+Filled in **first**. Sources: [`docs/CHANGELOG.md`](../CHANGELOG.md) (every defect found, with the
+"Found by" column), [`docs/BACKLOG.md`](../BACKLOG.md), then the code.
 
-Четыре ответа. **Форму не менять** — её читает `pnpm check:orientation`, который стоит в
-`.husky/pre-commit`: с пустым или отписочным ответом коммит не пройдёт.
+Four answers. **Do not change the form** — `pnpm check:orientation` reads it and sits in
+`.husky/pre-commit`.
 
-- **Дубль:** этот дефект уже чинили? Ссылки на записи `FX-`, закрывающие его целиком или частично,
-  либо прямо «совпадений нет». Починенный и вернувшийся дефект — это регресс, и чинится он иначе:
-  сначала выясняется, почему не удержал тест прошлого фикса.
-- **Конфликт с реализованным:** какие инварианты (`CLAUDE.md`), кейсы и файлы затронет фикс. Если
-  правильное поведение противоречит существующему кейсу — прав кейс, пока не доказано обратное.
-- **Конфликт с планируемым:** пункты `BL-`, которые этот дефект пересекает, отменяет или делает
-  срочными, либо прямо «совпадений нет». Дефект, уже известный как `BL-`, закрывается им, а не
-  заводится заново.
-- **Неясности:** что в отчёте о дефекте — наблюдение, а что чужой вывод о причине; чего не хватает,
-  чтобы воспроизвести.
+- **Duplicate:** has this defect been fixed before? Cite the `FX-` entries, or say "no matches". A
+  defect that was fixed and came back is a regression, and it is handled differently: first find
+  out why the previous fix's test did not hold.
+- **Conflicts with shipped:** which invariants (`CLAUDE.md`), cases and files the fix touches. If
+  correct behaviour contradicts an existing case, the case is right until proven otherwise.
+- **Conflicts with planned:** which `BL-` items this defect overlaps, cancels or makes urgent, or
+  "no matches". A defect already known as a `BL-` item is closed by it, not filed again.
+- **Open questions:** what in the report is an observation and what is someone's conclusion about
+  the cause; what is missing to reproduce it.
 
-## 1. Воспроизведение
+## 1. Reproduction
 
-**Пока дефект не воспроизведён, чинить нечего.** Гипотеза без красного прогона — это пункт
-`BL-`, а не багфикс.
+**Until the defect is reproduced there is nothing to fix.** A hypothesis without a red run is a
+`BL-` item, not a bugfix.
 
-| Что                  | Значение                                                         |
-| -------------------- | ---------------------------------------------------------------- |
-| Команда или сценарий | точная строка: `pnpm e2e --grep "…"`, шаги в браузере, запрос    |
-| Ожидаемое            | по спецификации фичи или по инварианту, со ссылкой               |
-| Фактическое          | дословно: текст ошибки, код ответа, скриншот                     |
-| Стабильность         | воспроизводится всегда / N раз из M — если плавает, назови число |
-| Окружение            | что отличается от штатного: порты, состояние сида, чужие серверы |
+| What                | Value                                                                 |
+| ------------------- | --------------------------------------------------------------------- |
+| Command or scenario | the exact line: `pnpm e2e --grep "…"`, browser steps, request         |
+| Expected            | per the feature spec or an invariant, with a reference                |
+| Actual              | verbatim: error text, response code, screenshot                       |
+| Stability           | always / N times out of M — if it flickers, give the number           |
+| Environment         | what differs from normal: ports, seed state, servers left from before |
 
-Плавающий дефект чинится только после того, как найдено, **от чего** он зависит: «иногда красный»
-без этого — не причина, а совпадение.
+A flickering defect is fixed only once you know **what** it depends on: "sometimes red" is a
+coincidence, not a cause.
 
-## 2. Причина
+## 2. Cause
 
-Не симптом и не место падения, а то, из-за чего поведение отличается от заявленного.
+Not the symptom and not the place it crashed, but why the behaviour differs from what was promised.
 
-- **Причина:**
-- **Чем локализована:** какой опыт её доказал (сузили вход, выключили слой, `git log -S`, лог, трейс
-  из `pnpm e2e:report`).
-- **Когда появилась:** коммит, если находится; «была всегда» — тоже ответ.
+- **Cause:**
+- **How it was localized:** the experiment that proved it (narrowed input, disabled layer,
+  `git log -S`, a trace from `pnpm e2e:report`).
+- **When it appeared:** the commit, if it can be found; "always been there" is also an answer.
 
-Симптом лечится только если причина вне нашего кода — и тогда это сказано прямо, с обоснованием.
+A symptom is treated only if the cause is outside our code — and then it is said outright, with
+reasoning.
 
-## 3. Влияние
+## 3. Impact
 
-- **На что ещё опирается эта причина:** соседние фичи, кейсы, инварианты, данные.
-- **Видно ли пользователю:** что именно он наблюдает и есть ли обходной путь.
-- **Безопасность:** затронуты ли аутентификация, сессия, чужие данные, утечка в ответ или в HTML.
-  Если да — фикс идёт по инвариантам 16–19 и через `pnpm e2e:security`.
-- **Срочность:** `P1` блокирует продакшен или следующую фичу, `P2` терпит, `P3` попутно.
+- **What else rests on this cause:** neighbouring features, cases, invariants, data.
+- **Is it visible to the user:** what exactly they see, and whether there is a workaround.
+- **Security:** whether authentication, sessions, other people's data or a leak into a response or
+  the HTML are involved. If yes, the fix follows invariants 16–19 and `pnpm e2e:security`.
+- **Urgency:** `P1` blocks production or the next feature, `P2` can wait, `P3` is incidental.
 
-## 4. Почему не поймали раньше
+## 4. Why it was not caught earlier
 
-Главный раздел документа: он превращает один фикс в закрытый класс дефектов.
+The section that turns one fix into a closed class of defects.
 
-- **Какая проверка должна была поймать и не поймала:** и почему — её не было, она смотрела не туда,
-  была вакуумной, стояла в `warn`.
-- **Что с этим делаем:** новый кейс в этом же фиксе, либо пункт `BL-` на починку самой проверки.
+- **Which check should have caught it and did not:** and why — it did not exist, it looked in the
+  wrong place, it passed vacuously, it was set to `warn`.
+- **What we do about it:** a new case in this same fix, or a `BL-` item to repair the check itself.
 
-«Ничего не должно было поймать» — законный ответ, но он обязан быть явным: тогда графа «Чем
-найдено» в реестре получит новое значение, и станет видно, какой способ проверки работает.
+"Nothing should have caught it" is a legitimate answer, but it has to be explicit: then the "Found
+by" column gains a new value, and it becomes visible which kind of check actually works.
 
-## 5. План фикса
+## 5. Fix plan
 
-| ID  | Что делать | Файлы | Готово, когда | Зависит от |
-| --- | ---------- | ----- | ------------- | ---------- |
+| ID  | What to do | Files | Done when | Depends on |
+| --- | ---------- | ----- | --------- | ---------- |
 
-- **Чего НЕ трогаем:** соседние дефекты, рефакторинг, «заодно». Каждый такой соблазн — отдельный
-  пункт `BL-`, а не строка в этом диффе.
+- **What we do NOT touch:** neighbouring defects, refactoring, anything "while we are here". Each
+  such temptation is a separate `BL-` item, not a line in this diff.
 
-## 6. Проверка
+## 6. Verification
 
-- **Красный тест до фикса:** ID кейса и файл, где он будет жить. Тест пишется **первым** и обязан
-  краснеть на текущем коде — иначе он проверяет не дефект.
-- **Контрольный опыт после фикса:** откатить фикс, убедиться, что тест снова краснеет, вернуть.
-- **Приёмка:** один `pnpm verify` целиком — фикс мог сломать соседнее.
+- **Red test before the fix:** the case ID and the file it will live in. The test is written
+  **first** and must fail on current code — otherwise it is not testing the defect.
+- **Control experiment after the fix:** revert the fix, confirm the test goes red again, restore it.
+- **Acceptance:** one full `pnpm verify` — the fix may have broken something next door.
 
-## 7. Риски и осознанные пропуски
+## 7. Risks and deliberate omissions
 
-Что фикс не закрывает и почему; что осталось пунктом бэклога. Пропуск, о котором не сказано, — это
-не пропуск, а искажение отчёта.
+What the fix does not close and why; what stays as a backlog item. An omission not stated is not an
+omission — it is a misreported result.
 
 ---
 
-По итогам: запись `FX-` в [`CHANGELOG.md`](../CHANGELOG.md) с заполненной графой «Чем найдено»,
-пункт `BL-` на недостающую проверку из §4, и закрытый пункт бэклога со ссылкой, если дефект был там
-известен. Порядок работ целиком — скил `bugfix-pipeline`.
+On completion: an `FX-` entry in [`CHANGELOG.md`](../CHANGELOG.md) with the "Found by" column
+filled, a `BL-` item for the missing check from §4, and the backlog item marked closed with a
+reference if the defect was known there. The full order of work is the `bugfix-pipeline` skill.

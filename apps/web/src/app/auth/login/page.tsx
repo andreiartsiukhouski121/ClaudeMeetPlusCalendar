@@ -3,20 +3,17 @@ import type { Metadata } from 'next';
 import { LoginForm } from './login-form';
 
 export const metadata: Metadata = {
-  title: 'Вход — PurpleSchool',
+  title: 'Sign in — PurpleSchool',
 };
 
 /**
- * Страница логина. Серверный компонент: заголовок рендерится на сервере, интерактивная часть
- * (`useActionState`) вынесена в клиентский `LoginForm`.
- *
- * Без пропсов и без `PageProps<'/auth/login'>` — чтобы типы страницы не зависели от свежести
- * `next typegen` (риск 15).
+ * Login page. A server component: the heading renders on the server and the interactive part
+ * (`useActionState`) lives in the client `LoginForm`.
  */
 export default function LoginPage() {
   return (
     <>
-      <h1>Вход</h1>
+      <h1>Sign in</h1>
       <LoginForm />
     </>
   );

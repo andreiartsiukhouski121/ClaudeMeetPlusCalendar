@@ -4,21 +4,19 @@ import { Injectable } from '@nestjs/common';
 import type { CreateMeetingInput, Meeting } from './meeting.types.js';
 import { SEED_MEETINGS } from './meetings.seed.js';
 
-/** Сколько встреч показывает дашборд, если `limit` не передан (контракт §2.2 п.4). */
+/** How many meetings the dashboard shows when `limit` is absent. */
 export const DEFAULT_MEETINGS_LIMIT = 3;
 
-/** Длительность встречи по умолчанию, когда клиент её не прислал (контракт §2.2 п.5). */
+/** Meeting duration when the client does not send one. */
 export const DEFAULT_DURATION_MINUTES = 60;
 
 /**
- * Сортировка списка: `startsAt` DESC, вторичная — по `id` по возрастанию.
+ * Invariant 7: `startsAt` DESC, with `id` ascending as the secondary key. Without the secondary
+ * key two meetings sharing a date would fall back to insertion order and `HD-FN-05` would flake.
+ * Pinned by `HD-UT-09`.
  *
- * Вторичный ключ не косметика: при двух встречах с одинаковой датой порядок `Array#sort`
- * зависел бы от исходного порядка вставки, и `HD-FN-05` («порядок названий в UI совпадает
- * с порядком из API») начал бы флакать. Фиксирует `HD-UT-09`.
- *
- * Сравниваются миллисекунды, а не строки: клиент вправе прислать ISO-дату со смещением
- * (`+03:00`), и лексикографическое сравнение таких строк дало бы неверный порядок.
+ * Milliseconds are compared, not strings: a client may send an ISO date with an offset (`+03:00`),
+ * and comparing such strings lexicographically gives the wrong order.
  */
 function compareByStartsAtDesc(left: Meeting, right: Meeting): number {
   const byDate = Date.parse(right.startsAt) - Date.parse(left.startsAt);
@@ -27,11 +25,10 @@ function compareByStartsAtDesc(left: Meeting, right: Meeting): number {
 }
 
 /**
- * In-memory хранилище встреч: БД в проекте нет, сид применяется в конструкторе.
+ * In-memory meeting store — no database; the seed is applied in the constructor.
  *
- * Следствие, о котором важно помнить при отладке: `nest start --watch` перезапускается
- * на каждой правке и обнуляет всё, что создали тесты (риск 8). Поэтому ни один тест
- * не должен зависеть от встречи, созданной другим тестом.
+ * Worth remembering while debugging: `nest start --watch` restarts on every edit and wipes
+ * everything the tests created, so no test may depend on a meeting created by another.
  */
 @Injectable()
 export class MeetingsService {
@@ -44,29 +41,29 @@ export class MeetingsService {
   }
 
   /**
-   * Последние встречи владельца: фильтр по `ownerId` → сортировка DESC → срез `limit`.
-   * Возвращает доменные сущности; срезает `ownerId` уже контроллер через `toMeetingDto`.
+   * The owner's most recent meetings: filter by `ownerId`, sort DESC, slice by `limit`. Returns
+   * domain entities; the controller strips `ownerId` via `toMeetingDto`.
    */
   findRecent(ownerId: string, limit: number = DEFAULT_MEETINGS_LIMIT): Meeting[] {
     return this.byOwner(ownerId).sort(compareByStartsAtDesc).slice(0, limit);
   }
 
   /**
-   * **Полное** число встреч владельца, а не длина среза из `findRecent`. Главная ловушка
-   * фичи: `items.length` вместо этого метода даёт «Всего встреч: 3» при пяти встречах
-   * (`HD-UT-03`, `HD-API-05`, `HD-FN-03`).
+   * Invariant 4: the owner's **full** meeting count, not the length of `findRecent`'s slice. Using
+   * `items.length` instead shows "Meetings total: 3" for five meetings (`HD-UT-03`, `HD-API-05`,
+   * `HD-FN-03`).
    */
   countByOwner(ownerId: string): number {
     return this.byOwner(ownerId).length;
   }
 
   /**
-   * Создание встречи. `ownerId` — **только** из аргумента (его контроллер берёт из токена),
-   * `id` — из `randomUUID()`. В `CreateMeetingInput` поля владельца нет вовсе, а на HTTP-уровне
-   * попытку прислать его отрезает `forbidNonWhitelisted` (`HD-API-16`, `HD-API-17`).
+   * `ownerId` comes **only** from the argument, which the controller takes from the token;
+   * `CreateMeetingInput` has no owner field at all, and at the HTTP level `forbidNonWhitelisted`
+   * rejects any attempt to send one (`HD-API-16`, `HD-API-17`).
    *
-   * `startsAt` приводится к каноническому UTC-виду: клиент вправе прислать дату со смещением,
-   * а контракт обещает `…Z`. Без нормализации в хранилище лежали бы разноформатные строки.
+   * `startsAt` is normalized to canonical UTC: a client may send an offset date while the contract
+   * promises `…Z`. Without it the store would hold strings in mixed formats.
    */
   create(ownerId: string, input: CreateMeetingInput): Meeting {
     const meeting: Meeting = {
@@ -82,7 +79,7 @@ export class MeetingsService {
     return meeting;
   }
 
-  /** Копии, а не ссылки на хранимые объекты: вызывающий код не должен мутировать store. */
+  /** Copies, not references to stored objects: callers must not mutate the store. */
   private byOwner(ownerId: string): Meeting[] {
     return [...this.meetingsById.values()]
       .filter((meeting) => meeting.ownerId === ownerId)

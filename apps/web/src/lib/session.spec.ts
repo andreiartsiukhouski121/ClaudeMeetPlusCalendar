@@ -7,27 +7,27 @@ import {
 } from './session-cookie';
 
 /**
- * Юниты cookie сессии (`AL-UT-20…22`). Имя файла — по тест-плану §1.1 (`session.spec.ts`),
- * а тестируется `session-cookie.ts`: сам `session.ts` помечен `server-only` и трогает
- * `next/headers`, поэтому юнитами не покрывается (Vitest не резолвит этот импорт).
+ * Session cookie units (`AL-UT-20…22`). The file is named `session.spec.ts` by convention while it
+ * actually tests `session-cookie.ts`: `session.ts` itself is `server-only` and touches
+ * `next/headers`, so Vitest cannot resolve it (invariant 14).
  *
- * Глобалы в `apps/web` не включены — `describe`/`it`/`expect` импортируются из `vitest`.
- * Заголовок каждого теста начинается с ID кейса: иначе `pnpm test:auth-login` не отберёт
- * фичу, а правило 7 мета-теста не подтвердит, что кейс автоматизирован.
+ * Globals are off in `apps/web`. Every test title starts with its case ID, or
+ * `pnpm test:auth-login` cannot filter the feature and meta-test rule 7 cannot confirm the case is
+ * automated.
  */
 describe('buildSessionCookieOptions', () => {
-  it('AL-UT-20 — в development cookie httpOnly, path "/", sameSite lax и secure: false', () => {
+  it('AL-UT-20 — in development the cookie is httpOnly, path "/", sameSite lax and secure: false', () => {
     const options = buildSessionCookieOptions('development');
 
     expect(options.httpOnly).toBe(true);
     expect(options.path).toBe('/');
     expect(options.sameSite).toBe('lax');
-    // Именно false: `next dev` работает по http, а безусловный `secure: true` сломал бы
-    // проверку в любом окружении, где loopback не считается trustworthy (риск 1).
+    // False on purpose: `next dev` serves http, and an unconditional `secure: true` would break
+    // the check in any environment where loopback is not trustworthy (invariant 12).
     expect(options.secure).toBe(false);
   });
 
-  it('AL-UT-21 — в production secure: true, остальные опции те же', () => {
+  it('AL-UT-21 — in production secure is true and the other options are unchanged', () => {
     const production = buildSessionCookieOptions('production');
     const development = buildSessionCookieOptions('development');
 
@@ -35,9 +35,9 @@ describe('buildSessionCookieOptions', () => {
     expect({ ...production, secure: false }).toEqual(development);
   });
 
-  it('AL-UT-22 — SESSION_MAX_AGE_SECONDS равен часу и совпадает с JWT_EXPIRES_IN', () => {
-    // 3600 — это `JWT_EXPIRES_IN = '1h'` из §3.6 плана имплементации. Разъезд этих чисел
-    // даёт «сессия жива, а токен просрочен»: пользователь залогинен, а Nest отвечает 401.
+  it('AL-UT-22 — SESSION_MAX_AGE_SECONDS is one hour and matches JWT_EXPIRES_IN', () => {
+    // 3600 is `JWT_EXPIRES_IN = '1h'`. If these numbers drift apart you get "session alive, token
+    // expired": the user is logged in while Nest answers 401.
     expect(SESSION_MAX_AGE_SECONDS).toBe(3600);
     expect(buildSessionCookieOptions(undefined).maxAge).toBe(SESSION_MAX_AGE_SECONDS);
     expect(SESSION_COOKIE_NAME).toBe('ps_session');

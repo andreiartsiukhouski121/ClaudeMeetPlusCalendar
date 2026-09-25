@@ -1,29 +1,27 @@
 /**
- * Форматирование даты встречи и разбор значения `<input type="datetime-local">`.
+ * Meeting date formatting and parsing of the `<input type="datetime-local">` value.
  *
- * Чистый модуль: **без** `import 'server-only'` и без `next/headers` — иначе юниты
- * `HD-UT-10`, `HD-UT-11`, `HD-UT-15`, `HD-UT-16` упали бы на импорте, который Vitest
- * не резолвит (риск 6).
+ * A pure module: invariant 14 keeps `server-only` and `next/headers` out, or units `HD-UT-10`,
+ * `HD-UT-11`, `HD-UT-15`, `HD-UT-16` would fail on an import Vitest cannot resolve.
  *
- * Часовой пояс во всём модуле прибит к **UTC** (план имплементации `T2.5`, §8 допущение 7):
- * иначе и юнит-тест, и e2e-ассерты зависели бы от TZ машины, на которой их запускают.
- * Пользователю нужна его локальная зона — это отдельная задача, и делать её надо сразу
- * в двух местах: в отображении и в разборе значения поля формы.
+ * The time zone is pinned to **UTC** throughout: otherwise both the unit tests and the e2e
+ * assertions would depend on the machine's TZ. Showing the user their own zone is a separate task
+ * and has to be done in two places at once — the display and the form value parsing.
  */
 
-/** Что показываем вместо даты, если строка не разбирается. */
-export const INVALID_DATE_PLACEHOLDER = 'Дата не указана';
+/** Shown instead of a date when the string does not parse. */
+export const INVALID_DATE_PLACEHOLDER = 'Date not set';
 
 /**
- * Формат «12 янв. 2026 г., 09:00» — `dateStyle: 'medium'` + `timeStyle: 'short'`.
+ * Format "12 Jan 2026, 09:00" — `dateStyle: 'medium'` plus `timeStyle: 'short'`.
  *
- * `Intl.DateTimeFormat` создаётся на каждый вызов, а не один раз при загрузке модуля:
- * закэшированный инстанс замер бы вместе с окружением процесса, и `HD-UT-10`
- * («одинаковая строка при `TZ=UTC` и `TZ=Asia/Tokyo`») перестал бы что-либо доказывать.
- * Цена — микросекунды на встречу, их на странице не больше трёх.
+ * A fresh `Intl.DateTimeFormat` per call rather than one at module load: a cached instance would
+ * freeze together with the process environment, and `HD-UT-10` ("same string under `TZ=UTC` and
+ * `TZ=Asia/Tokyo`") would stop proving anything. The cost is microseconds per meeting, and there
+ * are never more than three on the page.
  */
 function formatter(): Intl.DateTimeFormat {
-  return new Intl.DateTimeFormat('ru-RU', {
+  return new Intl.DateTimeFormat('en-GB', {
     dateStyle: 'medium',
     timeStyle: 'short',
     timeZone: 'UTC',
@@ -31,10 +29,10 @@ function formatter(): Intl.DateTimeFormat {
 }
 
 /**
- * ISO-строка от Nest → человекочитаемая дата и время в UTC.
+ * ISO string from Nest to a human-readable UTC date and time.
  *
- * Невалидная строка даёт плейсхолдер, а не `Invalid Date` в разметке и не исключение
- * (`HD-UT-11`): одна битая дата в данных не должна ронять всю страницу дашборда.
+ * An invalid string yields the placeholder rather than `Invalid Date` in the markup or an
+ * exception (`HD-UT-11`): one broken date in the data must not take the dashboard down.
  */
 export function formatMeetingDateTime(iso: string): string {
   const timestamp = Date.parse(iso);
@@ -47,20 +45,18 @@ export function formatMeetingDateTime(iso: string): string {
 }
 
 /**
- * Значение `<input type="datetime-local">` (`2030-01-01T10:00`) — локальное время **без
- * зоны**. По спецификации ECMAScript такая строка разбирается как локальное время процесса,
- * то есть `Date.parse` дал бы разный результат на разных машинах — ровно то, что запрещает
- * `HD-UT-15`, и ровно то, от чего зависит `HD-FN-07`.
+ * The `<input type="datetime-local">` value (`2030-01-01T10:00`) is local time **without a zone**.
+ * Per the ECMAScript spec such a string parses as the process's local time, so `Date.parse` would
+ * differ between machines — exactly what `HD-UT-15` forbids and what `HD-FN-07` depends on.
  *
- * Поэтому строке без указания зоны дописывается `Z`: раз встречи и показываются в UTC,
- * введённые «10:00» и отображаются как «10:00». Значение с явной зоной (или уже с `Z`)
- * принимается как есть.
+ * So a zoneless string gets a `Z` appended: since meetings are displayed in UTC, "10:00" typed in
+ * shows as "10:00". A value with an explicit zone (or already carrying `Z`) is taken as is.
  */
 const DATETIME_LOCAL = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,3})?)?$/;
 
 /**
- * Разбор поля формы в ISO 8601 UTC. Возвращает `null` — не бросает — на пустой и на
- * неразбираемой строке (`HD-UT-16`): иначе Server Action падал бы в 500 вместо `{ error }`.
+ * Parses the form field into ISO 8601 UTC. Returns `null` — never throws — for an empty or
+ * unparseable string (`HD-UT-16`), or the Server Action would 500 instead of returning `{ error }`.
  */
 export function toIsoStartsAt(raw: string): string | null {
   const value = raw.trim();

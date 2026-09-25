@@ -4,22 +4,21 @@ import { authHeadersFor } from '../../fixtures/auth.api.js';
 import { FUTURE_STARTS_AT_ISO, SEED_USERS, TEACHER_MEETINGS } from '../../fixtures/seed.js';
 
 /**
- * Контракт `GET /meetings` и `POST /meetings`. Кейсы — в парном
- * `home-dashboard.api.cases.md`; заголовок каждого теста начинается с ID кейса.
+ * Contract of `GET /meetings` and `POST /meetings`. Cases live in the paired
+ * `home-dashboard.api.cases.md`; every test title starts with its case ID.
  *
- * Проект `api`: фикстура `request`, `baseURL = http://127.0.0.1:3101`, браузер не поднимается.
- * Пути относительные — абсолютный URL обошёл бы `baseURL` проекта и увёл прогон на чужой порт.
+ * Project `api`: the `request` fixture, `baseURL = http://127.0.0.1:3101`, no browser. Paths are
+ * relative — an absolute URL would bypass the project `baseURL`.
  *
- * Данные — только из `fixtures/seed.ts` (тест-план §5.6). Точные числа проверяются
- * исключительно на `teacher`/`student`: их мутировать запрещено. Мутирующие кейсы работают
- * под `planner` — он выделен именно для `*.api.spec.ts`, тогда как `*.functional.spec.ts`
- * мутирует `organizer`. Так снимается межпроектная гонка при `fullyParallel: true`
- * (тест-план §5.4), потому что `GET /meetings` изолирован по владельцу.
+ * Data comes only from `fixtures/seed.ts`. Exact numbers are checked against `teacher`/`student`
+ * alone: mutating them is forbidden. Mutating cases run as `planner`, reserved for
+ * `*.api.spec.ts`, while `*.functional.spec.ts` mutates `organizer`. That removes the
+ * cross-project race under `fullyParallel: true`, since `GET /meetings` is isolated by owner.
  */
 
 const TEACHER = SEED_USERS.teacher;
 
-/** Форма тела ошибки Nest, выведенная из `HttpException.createBody` (план имплементации §2.1). */
+/** Nest error body shape, derived from `HttpException.createBody`. */
 interface ErrorBody {
   message: string | string[];
   error: string;
@@ -38,22 +37,22 @@ interface MeetingsPageBody {
   total?: number;
 }
 
-const UNAUTHORIZED = 'Требуется авторизация';
+const UNAUTHORIZED = 'Authentication required';
 
-/** Ключи элемента списка по контракту §2: `ownerId` среди них нет — его срезает `toMeetingDto`. */
+/** List item keys per the contract: no `ownerId` among them — `toMeetingDto` strips it. */
 const MEETING_KEYS = ['durationMinutes', 'id', 'startsAt', 'title'];
 
 /**
- * Заголовок создаваемой встречи — всегда уникальный: иначе `toContainText` совпал бы со
- * встречей от прошлого прогона (in-memory store живёт, пока жив процесс Nest).
+ * The created meeting's title is always unique, or `toContainText` could match a meeting from a
+ * previous run (the in-memory store lives as long as the Nest process).
  */
 function uniqueTitle(prefix: string): string {
   return `${prefix} ${String(Date.now())}-${String(Math.floor(Math.random() * 1e6))}`;
 }
 
 /**
- * Хелперы вынесены из тел тестов не для красоты: `playwright/no-conditional-in-test`
- * стоит в `error`, а условие внутри теста — блокер по §6.3.
+ * Helpers are pulled out of test bodies for a reason: `playwright/no-conditional-in-test` is an
+ * error, and a condition inside a test is a blocker.
  */
 function isNonIncreasing(values: number[]): boolean {
   return values.every((value, index) => index === 0 || values[index - 1] >= value);
@@ -71,7 +70,7 @@ async function readPage(
   return (await response.json()) as MeetingsPageBody;
 }
 
-/** `total` владельца. Мутирующие кейсы считают от него, а не от абсолютного числа. */
+/** The owner's `total`. Mutating cases count from it rather than from an absolute number. */
 async function readTotal(
   request: APIRequestContext,
   headers: Record<string, string>,
@@ -81,9 +80,9 @@ async function readTotal(
   return Number(page.total);
 }
 
-test.describe('Главная: контракт API', { tag: ['@regression', '@home-dashboard'] }, () => {
+test.describe('Dashboard: API contract', { tag: ['@regression', '@home-dashboard'] }, () => {
   test(
-    'HD-API-01 — GET /meetings с токеном возвращает список и total',
+    'HD-API-01 — GET /meetings with a token returns the list and total',
     { tag: '@p0' },
     async ({ request }) => {
       const headers = await authHeadersFor(request, 'teacher');
@@ -99,7 +98,7 @@ test.describe('Главная: контракт API', { tag: ['@regression', '@h
       expect(body.items?.length).toBeGreaterThan(0);
 
       for (const item of body.items ?? []) {
-        // Именно полный набор ключей, а не «есть id»: так кейс ловит и утечку `ownerId`.
+        // The full key set rather than "has an id": this also catches an `ownerId` leak.
         expect(Object.keys(item).sort()).toEqual(MEETING_KEYS);
         expect(item).not.toHaveProperty('ownerId');
         expect(typeof item.startsAt).toBe('string');
@@ -107,7 +106,7 @@ test.describe('Главная: контракт API', { tag: ['@regression', '@h
         expect(typeof item.durationMinutes).toBe('number');
       }
 
-      // Текст ответа, а не разобранный объект: секрет мог бы уехать во вложенном поле.
+      // The response text rather than the parsed object: a secret could hide in a nested field.
       const text = await response.text();
       expect(text).not.toContain('passwordHash');
       expect(text).not.toContain(TEACHER.password);
@@ -115,25 +114,29 @@ test.describe('Главная: контракт API', { tag: ['@regression', '@h
     },
   );
 
-  test('HD-API-02 — GET /meetings без токена даёт 401', { tag: '@p0' }, async ({ request }) => {
-    const response = await request.get('/meetings');
+  test(
+    'HD-API-02 — GET /meetings without a token gives 401',
+    { tag: '@p0' },
+    async ({ request }) => {
+      const response = await request.get('/meetings');
 
-    expect(response.status()).toBe(401);
+      expect(response.status()).toBe(401);
 
-    const body = (await response.json()) as ErrorBody & MeetingsPageBody;
+      const body = (await response.json()) as ErrorBody & MeetingsPageBody;
 
-    expect(body).toEqual({ message: UNAUTHORIZED, error: 'Unauthorized', statusCode: 401 });
-    expect(body.items).toBeUndefined();
-  });
+      expect(body).toEqual({ message: UNAUTHORIZED, error: 'Unauthorized', statusCode: 401 });
+      expect(body.items).toBeUndefined();
+    },
+  );
 
-  test('HD-API-03 — limit=3 отдаёт ровно 3 элемента', { tag: '@p0' }, async ({ request }) => {
+  test('HD-API-03 — limit=3 returns exactly 3 items', { tag: '@p0' }, async ({ request }) => {
     const headers = await authHeadersFor(request, 'teacher');
     const body = await readPage(request, headers, `?limit=${String(TEACHER_MEETINGS.latestLimit)}`);
 
     expect(body.items).toHaveLength(TEACHER_MEETINGS.latestLimit);
   });
 
-  test('HD-API-04 — сортировка по дате DESC', { tag: '@p0' }, async ({ request }) => {
+  test('HD-API-04 — sorted by date DESC', { tag: '@p0' }, async ({ request }) => {
     const headers = await authHeadersFor(request, 'teacher');
     const body = await readPage(request, headers, `?limit=${String(TEACHER_MEETINGS.latestLimit)}`);
     const items = body.items ?? [];
@@ -141,14 +144,14 @@ test.describe('Главная: контракт API', { tag: ['@regression', '@h
     expect(isNonIncreasing(items.map((item) => Date.parse(item.startsAt)))).toBe(true);
     expect(items.map((item) => item.title)).toEqual([...TEACHER_MEETINGS.latestTitles]);
 
-    // Две самые старые встречи срез обязан отсечь — половина смысла кейса именно тут.
+    // The slice must cut the two oldest meetings — half the point of the case is right here.
     for (const omitted of TEACHER_MEETINGS.omittedTitles) {
       expect(items.map((item) => item.title)).not.toContain(omitted);
     }
   });
 
   test(
-    'HD-API-05 — total это полное число встреч, а не длина items',
+    'HD-API-05 — total is the full meeting count, not the length of items',
     { tag: '@p0' },
     async ({ request }) => {
       const headers = await authHeadersFor(request, 'teacher');
@@ -160,12 +163,12 @@ test.describe('Главная: контракт API', { tag: ['@regression', '@h
 
       expect(body.total).toBe(TEACHER_MEETINGS.total);
       expect(body.items).toHaveLength(TEACHER_MEETINGS.latestLimit);
-      // Контрольный опыт T2.10 (`total = items.length`) обязан ронять именно этот ассерт.
+      // The control experiment (`total = items.length`) must break this very assertion.
       expect(body.total).not.toBe(body.items?.length);
     },
   );
 
-  test('HD-API-06 — изоляция данных между пользователями', { tag: '@p0' }, async ({ request }) => {
+  test('HD-API-06 — data isolation between users', { tag: '@p0' }, async ({ request }) => {
     const teacherHeaders = await authHeadersFor(request, 'teacher');
     const studentHeaders = await authHeadersFor(request, 'student');
 
@@ -182,11 +185,11 @@ test.describe('Главная: контракт API', { tag: ['@regression', '@h
     expect(teacherPage.total).toBe(TEACHER_MEETINGS.total);
   });
 
-  test('HD-API-07 — пользователь без встреч', async ({ request }) => {
+  test('HD-API-07 — a user with no meetings', async ({ request }) => {
     const headers = await authHeadersFor(request, 'student');
     const response = await request.get('/meetings?limit=3', { headers });
 
-    // Именно 200, а не 404: отсутствие встреч — нормальное состояние, а не «не найдено».
+    // 200, not 404: having no meetings is a normal state, not "not found".
     expect(response.status()).toBe(200);
 
     const body = (await response.json()) as MeetingsPageBody;
@@ -195,27 +198,27 @@ test.describe('Главная: контракт API', { tag: ['@regression', '@h
     expect(body.total).toBe(0);
   });
 
-  test('HD-API-08 — нечисловой limit даёт 400', async ({ request }) => {
+  test('HD-API-08 — a non-numeric limit gives 400', async ({ request }) => {
     const headers = await authHeadersFor(request, 'teacher');
     const response = await request.get('/meetings?limit=abc', { headers });
 
-    // Ни 500, ни «молча проигнорировали»: параметр разбирается и валидируется.
+    // Neither a 500 nor a silent ignore: the parameter is parsed and validated.
     expect(response.status()).toBe(400);
 
     const body = (await response.json()) as ErrorBody;
 
     expect(Array.isArray(body.message)).toBe(true);
-    // Сверка по вхождению: на нечисловом значении приходят три сообщения сразу (§2.1).
+    // Checked by inclusion: a non-numeric value produces three messages at once.
     expect(body.message.toString()).toContain('limit');
   });
 
-  test('HD-API-09 — limit вне диапазона 1..100 даёт 400', async ({ request }) => {
+  test('HD-API-09 — a limit outside 1..100 gives 400', async ({ request }) => {
     const headers = await authHeadersFor(request, 'teacher');
 
     for (const limit of ['0', '-1', '101']) {
       const response = await request.get(`/meetings?limit=${limit}`, { headers });
 
-      expect(response.status(), `limit=${limit} обязан давать 400`).toBe(400);
+      expect(response.status(), `limit=${limit} must give 400`).toBe(400);
 
       const body = (await response.json()) as ErrorBody;
       expect(body.message.toString()).toContain('limit');
@@ -224,17 +227,15 @@ test.describe('Главная: контракт API', { tag: ['@regression', '@h
     const tooBig = await request.get('/meetings?limit=101', { headers });
     const tooBigBody = (await tooBig.json()) as ErrorBody;
 
-    // Верхняя граница контракта — ровно 100 (`@Max(100)`), а не 50.
+    // The contract's upper bound is exactly 100 (`@Max(100)`), not 50.
     expect(tooBigBody.message.toString()).toContain('limit must not be greater than 100');
   });
 
-  test('HD-API-10 — контракт limit: дефолт, превышение, неизвестный параметр', async ({
-    request,
-  }) => {
+  test('HD-API-10 — limit contract: default, ceiling, unknown parameter', async ({ request }) => {
     const headers = await authHeadersFor(request, 'teacher');
 
-    // Шаг 2. Без параметра — 200 и документированный дефолт 3. Именно этот шаг ловит
-    // пропущенный `@IsOptional()`: без него ответ 400, и дашборд не грузится вовсе.
+    // Step 2. Without the parameter — 200 and the documented default of 3. This step catches a
+    // missing `@IsOptional()`: without it the answer is 400 and the dashboard does not load.
     const byDefault = await request.get('/meetings', { headers });
     expect(byDefault.status()).toBe(200);
 
@@ -242,12 +243,12 @@ test.describe('Главная: контракт API', { tag: ['@regression', '@h
     expect(byDefaultBody.items).toHaveLength(TEACHER_MEETINGS.latestLimit);
     expect(byDefaultBody.total).toBe(TEACHER_MEETINGS.total);
 
-    // Шаг 3. `limit=100` — «отдай всё»: верхняя граница контракта.
+    // Step 3. `limit=100` means "give me everything": the contract's upper bound.
     const full = await readPage(request, headers, '?limit=100');
     expect(full.items).toHaveLength(TEACHER_MEETINGS.total);
     expect(full.total).toBe(TEACHER_MEETINGS.total);
 
-    // Шаг 4. `forbidNonWhitelisted` работает и на query, а не только на теле запроса.
+    // Step 4. `forbidNonWhitelisted` applies to the query too, not only to the body.
     const unknownParam = await request.get('/meetings?limit=3&foo=bar', { headers });
     expect(unknownParam.status()).toBe(400);
 
@@ -257,31 +258,31 @@ test.describe('Главная: контракт API', { tag: ['@regression', '@h
 });
 
 /**
- * Кейсы под `planner`. Serial — страховка поверх изоляции данными: внутри одного файла два
- * теста под одним владельцем иначе могли бы уехать в разные воркеры, а `HD-API-14`,
- * `HD-API-15` и `HD-API-16` читают `total` до и после запроса и покраснели бы от чужой
- * вставки. Ассерты на счётчики — только относительные (`N` → `N + 1`).
+ * Cases under `planner`. Serial mode backs up the data isolation: within one file two tests under
+ * the same owner could otherwise land in different workers, and `HD-API-14`, `HD-API-15` and
+ * `HD-API-16` read `total` before and after, so a foreign insert would turn them red. Counter
+ * assertions are relative only (`N` → `N + 1`).
  */
 test.describe(
-  'Главная: контракт API под planner',
+  'Dashboard: API contract as planner',
   { tag: ['@regression', '@home-dashboard'] },
   () => {
     test.describe.configure({ mode: 'serial' });
 
     test(
-      'HD-API-13 — POST /meetings создаёт встречу',
+      'HD-API-13 — POST /meetings creates a meeting',
       { tag: ['@p0', '@mutating'] },
       async ({ request }) => {
         const headers = await authHeadersFor(request, 'planner');
         const before = await readTotal(request, headers);
-        const title = uniqueTitle('E2E API встреча');
+        const title = uniqueTitle('E2E API meeting');
 
         const created = await request.post('/meetings', {
           headers,
           data: { title, startsAt: FUTURE_STARTS_AT_ISO, durationMinutes: 30 },
         });
 
-        // 201 — правильный ответ на POST, декоратора кода здесь не требуется (§2.2 п.2).
+        // 201 is the right answer to a POST; no status decorator is needed here.
         expect(created.status()).toBe(201);
 
         const createdBody = (await created.json()) as MeetingItem;
@@ -291,21 +292,21 @@ test.describe(
 
         const after = await readPage(request, headers, '?limit=3');
         expect(after.total).toBe(before + 1);
-        // Дата 2030 года гарантирует, что новая встреча попала в топ-3: при дате раньше
-        // сид-встречи владельца (2026-01-16) кейс был бы ложно-красным.
+        // The 2030 date guarantees the new meeting lands in the top three: with a date earlier
+        // than the owner's seeded meeting (2026-01-16) the case would be falsely red.
         expect((after.items ?? []).map((item) => item.title)).toContain(title);
       },
     );
 
     test(
-      'HD-API-14 — POST /meetings без токена даёт 401 и данные не меняются',
+      'HD-API-14 — POST /meetings without a token gives 401 and changes no data',
       { tag: '@p0' },
       async ({ request }) => {
         const headers = await authHeadersFor(request, 'planner');
         const before = await readTotal(request, headers);
 
         const response = await request.post('/meetings', {
-          data: { title: uniqueTitle('Без токена'), startsAt: FUTURE_STARTS_AT_ISO },
+          data: { title: uniqueTitle('No token'), startsAt: FUTURE_STARTS_AT_ISO },
         });
 
         expect(response.status()).toBe(401);
@@ -317,7 +318,7 @@ test.describe(
       },
     );
 
-    test('HD-API-15 — POST /meetings без обязательных полей даёт 400', async ({ request }) => {
+    test('HD-API-15 — POST /meetings without required fields gives 400', async ({ request }) => {
       const headers = await authHeadersFor(request, 'planner');
       const before = await readTotal(request, headers);
 
@@ -334,14 +335,14 @@ test.describe(
       expect(await readTotal(request, headers)).toBe(before);
     });
 
-    test('HD-API-16 — POST /meetings с лишним полем даёт 400', async ({ request }) => {
+    test('HD-API-16 — POST /meetings with an extra field gives 400', async ({ request }) => {
       const headers = await authHeadersFor(request, 'planner');
       const before = await readTotal(request, headers);
 
       const response = await request.post('/meetings', {
         headers,
         data: {
-          title: uniqueTitle('Подмена владельца'),
+          title: uniqueTitle('Owner spoofing'),
           startsAt: FUTURE_STARTS_AT_ISO,
           ownerId: 'usr-teacher',
         },
@@ -356,11 +357,11 @@ test.describe(
     });
 
     test(
-      'HD-API-17 — созданная встреча принадлежит владельцу токена',
+      'HD-API-17 — the created meeting belongs to the token owner',
       { tag: '@mutating' },
       async ({ request }) => {
         const plannerHeaders = await authHeadersFor(request, 'planner');
-        const title = uniqueTitle('Встреча planner');
+        const title = uniqueTitle('Planner meeting');
 
         const created = await request.post('/meetings', {
           headers: plannerHeaders,
@@ -377,7 +378,7 @@ test.describe(
         );
         const teacherItems = teacherPage.items ?? [];
 
-        // `limit=100` допустим ровно потому, что верхняя граница контракта — `@Max(100)`.
+        // `limit=100` is allowed precisely because the contract's ceiling is `@Max(100)`.
         expect(teacherItems.map((item) => item.id)).not.toContain(createdBody.id);
         expect(teacherItems.map((item) => item.title)).not.toContain(title);
         expect(teacherPage.total).toBe(TEACHER_MEETINGS.total);
@@ -385,20 +386,20 @@ test.describe(
     );
 
     test(
-      'HD-API-20 — POST /meetings без durationMinutes даёт 201 и дефолт 60',
+      'HD-API-20 — POST /meetings without durationMinutes gives 201 and a default of 60',
       { tag: ['@p0', '@mutating'] },
       async ({ request }) => {
         const headers = await authHeadersFor(request, 'planner');
-        const title = uniqueTitle('Встреча без длительности');
+        const title = uniqueTitle('Meeting without a duration');
 
         const response = await request.post('/meetings', {
           headers,
-          // Ровно то тело, что отправляет форма дашборда: без `durationMinutes`.
+          // Exactly the body the dashboard form sends: no `durationMinutes`.
           data: { title, startsAt: FUTURE_STARTS_AT_ISO },
         });
 
-        // Без `@IsOptional()` на поле DTO здесь приходит 400 — и кнопка «Создать встречу»
-        // не работает вовсе. Это и есть смысл кейса.
+        // Without `@IsOptional()` on the DTO field this answers 400 — and the "Create meeting"
+        // button does not work at all. That is the point of the case.
         expect(response.status()).toBe(201);
 
         const body = (await response.json()) as MeetingItem;

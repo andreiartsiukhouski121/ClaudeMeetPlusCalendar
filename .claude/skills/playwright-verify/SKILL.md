@@ -1,171 +1,177 @@
 ---
 name: playwright-verify
-description: Проверка ОДНОГО изменения реальным запуском Playwright — интерактивно в браузере через MCP и spec-файлом в e2e/. Use after editing a file under apps/web or apps/api, and when the user asks "проверь через Playwright", "проверь это изменение", "посмотри в браузере", "напиши e2e тест", "прогони e2e", or reports that a page or endpoint is broken. Для приёмки фичи целиком — скил regression-verify.
+description: Verifying ONE change by actually running Playwright — interactively in the browser through MCP and with a spec file in e2e/. Use after editing a file under apps/web or apps/api, and when the user asks "check it with Playwright", "verify this change", "look at it in the browser", "write an e2e test", "run e2e", or reports that a page or an endpoint is broken. For accepting a whole feature, use the regression-verify skill.
 ---
 
-Это **быстрая проверка одного изменения**. Приёмка фичи целиком (все уровни проверок, ревью
-конвенции сьюта, письменный отчёт) — скил `regression-verify`. Одно другое не заменяет: если
-смешать, быстрая проверка станет десятиминутным ритуалом и её начнут пропускать.
+This is a **quick check of one change**. Accepting a whole feature — every level of checks, a
+review of the suite convention, a written report — is the `regression-verify` skill. Neither
+replaces the other: mixing them turns the quick check into a ten-minute ritual, and then people
+skip it.
 
-Изменение считается сделанным только после зелёного прогона. Не отчитывайся о готовности по диффу —
-дифф не показывает, что страница отрендерилась и что эндпоинт ответил. Проверять нужно двумя
-способами: MCP-браузером (увидеть своими глазами сейчас) и spec-файлом (чтобы это же проверялось
-всегда потом).
+A change counts as done only after a green run. Do not report readiness from a diff — a diff does
+not show that the page rendered or that the endpoint answered. Check it two ways: with the MCP
+browser (see it with your own eyes now) and with a spec file (so the same thing is checked
+forever after).
 
-Порты, адреса `127.0.0.1` и правило «останови `pnpm dev` перед `pnpm e2e`» — в `CLAUDE.md`, здесь не
-повторены. Важное следствие для порядка работ: **интерактивная проверка и прогон спеков
-взаимоисключающи в одном дереве.** Сначала прогон, потом остановить его и поднять `pnpm dev` для
-браузера — или наоборот, но не одновременно.
+Ports, the `127.0.0.1` addresses and the "stop `pnpm dev` before `pnpm e2e`" rule are in
+`CLAUDE.md` and are not repeated here. The consequence that matters for the order of work:
+**an interactive check and a spec run are mutually exclusive in one tree.** Run the specs first,
+then stop them and start `pnpm dev` for the browser — or the other way round, but never both.
 
-## 1. Определи, что проверять
+## 1. Decide what to check
 
-| Что менялось                                      | Проверка                                                              |
-| ------------------------------------------------- | --------------------------------------------------------------------- |
-| `apps/web` — компоненты, страницы, стили, роуты   | MCP-браузер + spec `e2e/regression/<фича>/<фича>.functional.spec.ts`  |
-| `apps/api` — контроллеры, сервисы, DTO, эндпоинты | spec `e2e/regression/<фича>/<фича>.api.spec.ts`, фикстура `request`   |
-| Оба (фича end-to-end)                             | и то, и другое; сценарий в браузере доводи до реального запроса к API |
-| Только конфиги, типы, доки, зависимости           | Playwright можно пропустить — **но скажи об этом вслух**              |
+| What changed                                     | Check                                                                     |
+| ------------------------------------------------ | ------------------------------------------------------------------------- |
+| `apps/web` — components, pages, styles, routes   | MCP browser + a spec in `e2e/regression/<feature>/*.functional.spec.ts`   |
+| `apps/api` — controllers, services, DTOs, routes | a spec in `e2e/regression/<feature>/*.api.spec.ts`, the `request` fixture |
+| Both (a feature end to end)                      | both; take the browser scenario all the way to a real API call            |
+| Only configs, types, docs, dependencies          | Playwright may be skipped — **but say so out loud**                       |
 
-Последняя строка — не лазейка. Пропуск допустим, когда изменение физически не влияет на поведение в
-рантайме. Если сомневаешься — проверяй.
+The last row is not a loophole. A skip is fine when the change physically cannot affect runtime
+behaviour. When in doubt, check.
 
-## 2. Убедись, что инфраструктура на месте
+## 2. Make sure the infrastructure is there
 
 ```bash
-ls playwright.config.ts                        # конфиг есть?
-pnpm exec playwright --version                 # @playwright/test установлен?
+ls playwright.config.ts                        # is the config present?
+pnpm exec playwright --version                 # is @playwright/test installed?
 ```
 
-Если чего-то нет (свежий клон, снесённые `node_modules`):
+If something is missing (a fresh clone, a wiped `node_modules`):
 
 ```bash
 pnpm install
-pnpm add -D -w @playwright/test                # только в корень, не в apps/*
-pnpm exec playwright install chromium          # ставим один браузер
+pnpm add -D -w @playwright/test                # root only, never in apps/*
+pnpm exec playwright install chromium          # one browser is enough
 ```
 
-## 3. Проверь интерактивно через Playwright MCP
+## 3. Check interactively through the Playwright MCP
 
-Для любого изменения в UI. Dev-сервер поднимай сам — MCP его не поднимает:
+For any UI change. Start the dev server yourself — MCP does not:
 
 ```bash
-pnpm dev:web        # :3000, или pnpm dev, если сценарий ходит в API
+pnpm dev:web        # :3000, or pnpm dev if the scenario reaches the API
 ```
 
-Здесь годится обычный dev-сервер на :3000: ты видишь страницу своими глазами и сразу заметишь, если
-она не отражает правку. Но **убедись, что это `next dev`, а не `next start`** — production-сервер
-отдаёт старую сборку. Кто держит порт, видно так:
+The ordinary dev server on :3000 is fine here: you see the page with your own eyes and will notice
+at once if it does not reflect your edit. But **make sure it is `next dev` and not `next start`** —
+a production server serves a stale build. Who holds the port:
 
 ```bash
-netstat -ano | grep :3000                                   # взять PID из строки LISTENING
+netstat -ano | grep :3000                                   # take the PID from the LISTENING row
 powershell -NoProfile -Command "(Get-CimInstance Win32_Process -Filter 'ProcessId=<pid>').CommandLine"
 ```
 
-Дальше инструментами `browser_*`:
+Then with the `browser_*` tools:
 
-1. `browser_navigate` на `http://127.0.0.1:3000` + нужный путь
-2. `browser_snapshot` — дерево доступности: по нему выбирай локаторы для будущего spec
-3. `browser_click` / `browser_type` / `browser_select_option` — пройди ровно тот сценарий, который
-   затрагивает изменение, а не абстрактный smoke
-4. `browser_console_messages` и `browser_network_requests` — ошибки в консоли и упавшие запросы;
-   молчаливая 500-ка в fetch выглядит как «всё работает»
-5. `browser_take_screenshot` — приложи к отчёту, если менялся внешний вид
+1. `browser_navigate` to `http://127.0.0.1:3000` plus the path you need
+2. `browser_snapshot` — the accessibility tree; pick the locators for the future spec from it
+3. `browser_click` / `browser_type` / `browser_select_option` — walk exactly the scenario your
+   change touches, not an abstract smoke test
+4. `browser_console_messages` and `browser_network_requests` — console errors and failed requests;
+   a silent 500 in a fetch looks like "everything works"
+5. `browser_take_screenshot` — attach it to the report if the appearance changed
 
-Если MCP-инструменты `browser_*` недоступны, значит сервер не подхватился — см. раздел 6. Не
-подменяй этот шаг «мысленной проверкой»: скажи, что интерактивная часть недоступна, и оставь
-проверку на spec-файлах.
+If the `browser_*` tools are unavailable, the server did not come up — see section 6. Do not
+replace this step with "checking it in your head": say the interactive part is unavailable and
+leave the checking to the specs.
 
-## 4. Закрепи spec-файлом
+## 4. Pin it with a spec file
 
-На каждое поведенческое изменение — новый или обновлённый спек в `e2e/regression/<фича>/`. Полная
-конвенция (суффиксы имён и выбор проекта, парный `.cases.md`, ID в заголовке, теги, правила
-устойчивости и данных) — в `e2e/README.md`. Оттуда же не выдумывай локаторы заново: `getByRole`,
-`getByLabel`, `getByText`, CSS-селекторы запрещены.
+Every behavioural change gets a new or updated spec in `e2e/regression/<feature>/`. The full
+convention (filename suffixes and project routing, the paired `.cases.md`, the ID in the title,
+tags, robustness and data rules) is in `e2e/README.md`. Do not reinvent locators from there either:
+`getByRole`, `getByLabel`, `getByText`; CSS selectors are forbidden.
 
-Три правила, на которых ломаются чаще всего, и цена ошибки в каждом:
+Three rules that break most often, and what each costs:
 
-- **суффикс имени файла.** Файл со `.spec.ts`, но без `.api.` или `.functional.`, не попадёт **ни в
-  один** проект и молча не запустится — прогон будет зелёным, ничего не проверив;
-- **`await` перед `expect(...)`** для асинхронных матчеров. Type-aware линта в этом репо нет, поэтому
-  забытый `await` проходит и линт, и тест — тест зелёный, не проверив ничего;
-- **никаких `waitForTimeout`.** Web-first assertions сами ждут до таймаута из конфига.
+- **the filename suffix.** A `.spec.ts` without `.api.` or `.functional.` joins **no** project and
+  silently never runs — the run goes green having checked nothing;
+- **`await` before `expect(...)`** for async matchers. There is no type-aware lint here, so a
+  forgotten `await` passes both lint and the test — and the test is green having checked nothing;
+- **no `waitForTimeout`.** Web-first assertions wait up to the config timeout on their own.
 
 ```ts
 import { expect, test } from '@playwright/test';
 
-test('AL-FN-03 — пользователь видит результат поиска', async ({ page }) => {
+test('AL-FN-03 — the user sees the search result', async ({ page }) => {
   await page.goto('/search');
-  await page.getByRole('textbox', { name: 'Запрос' }).fill('алгебра');
-  await page.getByRole('button', { name: 'Найти' }).click();
-  await expect(page.getByRole('list', { name: 'Результаты' })).toContainText('алгебра');
+  await page.getByRole('textbox', { name: 'Query' }).fill('algebra');
+  await page.getByRole('button', { name: 'Search' }).click();
+  await expect(page.getByRole('list', { name: 'Results' })).toContainText('algebra');
 });
 ```
 
-Для API — фикстура `request`, не `page`: браузер не поднимается вообще. `baseURL` проекта `api` уже
-указывает на нужный порт, поэтому путь пиши относительным: `request.get('/users')`.
+For the API use the `request` fixture rather than `page`: no browser starts at all. The `api`
+project's `baseURL` already points at the right port, so write relative paths:
+`request.get('/users')`.
 
-Спек обязателен потому, что одноразовая проверка через MCP не защищает от регресса завтра.
+The spec is mandatory because a one-off MCP check does not protect against a regression tomorrow.
 
-## 5. Прогони и убедись, что зелено
+## 5. Run it and confirm it is green
 
 ```bash
-pnpm e2e                        # оба проекта; сам поднимает next dev и nest start
-pnpm e2e --project=web          # только браузерные
-pnpm e2e --project=api          # только HTTP
-pnpm e2e e2e/regression/auth-login/auth-login.functional.spec.ts   # один файл
-pnpm e2e --grep "AL-FN-03"      # один кейс по ID
-pnpm e2e:report                 # HTML-отчёт после падения
+pnpm e2e                        # both projects; starts next dev and nest start itself
+pnpm e2e --project=web          # browser only
+pnpm e2e --project=api          # HTTP only
+pnpm e2e e2e/regression/auth-login/auth-login.functional.spec.ts   # one file
+pnpm e2e --grep "AL-FN-03"      # one case by ID
+pnpm e2e:report                 # the HTML report after a failure
 ```
 
-Полный перечень команд запуска — в `e2e/README.md`. Скрипты называются `e2e*`, а не `test:e2e`: у
-`apps/api` есть свой `test:e2e` на Vitest+supertest. `pnpm test` — это юниты, Playwright он не
-запускает, и руками его вызывать не нужно (см. «Кто что гоняет» в `CLAUDE.md`).
+The full list of run commands is in `e2e/README.md`. The scripts are named `e2e*` rather than
+`test:e2e` because `apps/api` has its own `test:e2e` on Vitest + supertest. `pnpm test` is the unit
+suite; it does not run Playwright and does not need running by hand (see "Who runs what" in
+`CLAUDE.md`).
 
-При падении читай трейс из `pnpm e2e:report` и **чини код**. Ослаблять ассерт под наблюдаемое
-поведение можно, только если ассерт и правда был неверным, — и тогда это надо назвать явно, а не
-молча поправить и отчитаться о зелёном прогоне.
+On a failure read the trace from `pnpm e2e:report` and **fix the code**. Weakening an assertion to
+match observed behaviour is allowed only when the assertion really was wrong — and then it must be
+said out loud rather than quietly patched before reporting a green run.
 
-Проверь заодно, что тест не проходит всегда: сломай проверяемое поведение в исходнике, убедись, что
-прогон краснеет, откати. Тест, который зелёный при сломанной фиче, хуже отсутствия теста.
+Check as well that the test does not always pass: break the behaviour under test in the source,
+confirm the run goes red, revert. A test that is green with the feature broken is worse than no
+test.
 
-## 6. Если что-то не заводится
+## 6. When something will not start
 
-- **`EADDRINUSE` на 3100/3101** — осиротевший `node` от прошлого прогона держит порт. Найди
-  виновника, а не глуши всё подряд: `netstat -ano | grep :3100`, затем `Stop-Process -Id <pid>`.
-  `Get-Process node | Stop-Process -Force` сработает, но убьёт и рабочие dev-серверы пользователя —
-  предупреди, прежде чем так делать.
-- **Next печатает готовую команду `taskkill /PID <pid> /F`** при столкновении двух dev-серверов.
-  **Не выполняй её:** это чужой сервер — пользователя или соседнего агента. Правильный ответ —
-  остановить свой `pnpm dev` или уйти в свой worktree.
-- **Проект `web` красный на `[WebServer] ⨯ [TypeError: fetch failed]`, а `api` зелёный** — Next не
-  достучался до Nest. Порты при этом бывают **чистыми**: в `netstat` только `TIME_WAIT`, ничего в
-  `LISTENING`, — поэтому рецепт выше такой отказ не находит. Ищи зависший процесс самого прогона:
+- **`EADDRINUSE` on 3100/3101** — an orphaned `node` from a previous run holds the port. Find the
+  culprit rather than killing everything: `netstat -ano | grep :3100`, then `Stop-Process -Id <pid>`.
+  `Get-Process node | Stop-Process -Force` works too but also kills the user's dev servers — warn
+  them first.
+- **Next prints a ready-made `taskkill /PID <pid> /F`** when two dev servers collide. **Do not run
+  it:** that is someone else's server — the user's or a neighbouring agent's. The right answer is to
+  stop your own `pnpm dev` or move into your own worktree.
+- **Project `web` is red with `[WebServer] ⨯ [TypeError: fetch failed]` while `api` is green** —
+  Next could not reach Nest. The ports may be **clean** at that moment: only `TIME_WAIT` in
+  `netstat`, nothing `LISTENING`, so the recipe above does not find it. Look for a hung process
+  from the run itself:
 
   ```bash
   powershell -NoProfile -Command "Get-CimInstance Win32_Process -Filter \"Name='node.exe'\" | Where-Object { $_.CommandLine -like '*@playwright/test*' } | Select-Object ProcessId"
   ```
 
-  Живой `@playwright/test/cli` от прошлого, уже завершившегося прогона держит свои `webServer`
-  наполовину: сняли его — следующий прогон зелёный без единой правки кода. Наблюдалось 2026-09-16
-  (`FX-030`); причинно-следственная связь не доказана экспериментом, но проверяется за секунды и
-  дешевле любой другой гипотезы.
+  A live `@playwright/test` CLI from a previous, already finished run holds its `webServer` half
+  up: kill it and the next run is green with no code change. Observed 2026-09-16 (`FX-030`); the
+  causal link is not proven by experiment, but it is checked in seconds and is cheaper than any
+  other hypothesis.
 
-- **Прогон зелёный, хотя фича очевидно сломана** — почти всегда переиспользованный чужой сервер.
-  Проверь, что тесты шли на 3100/3101, и убедись контрольным опытом: сломай поведение, прогон должен
-  покраснеть. Не краснеет — тест смотрит не туда, где твой код.
-- **MCP-инструменты `browser_*` не появились** — `.mcp.json` подхватывается только при старте Claude
-  Code, нужен перезапуск. Если и после него нет: фолбэк на Windows —
+- **The run is green although the feature is obviously broken** — almost always a reused foreign
+  server. Confirm the tests ran on 3100/3101 and prove it with a control experiment: break the
+  behaviour, the run must go red. If it does not, the test is not looking where your code is.
+- **The `browser_*` MCP tools never appeared** — `.mcp.json` is picked up only at Claude Code
+  startup, so a restart is needed. If they are still missing, the Windows fallback is
   `"command": "cmd", "args": ["/c", "npx", "-y", "@playwright/mcp@latest", "--browser", "chromium"]`.
-- **MCP пишет «browser not found»** — `@playwright/mcp` по умолчанию берёт канал Chrome, а в проекте
-  стоит только bundled chromium. Флаг `--browser chromium` в `.mcp.json` обязателен.
-- **webServer таймаутит** — первая сборка `next dev` тянет `next/font/google` (Geist) по сети,
-  офлайн она не поднимется. Это падение сервера, а не Playwright. Логи видны потому, что в конфиге
-  `stdout: 'pipe'`; не меняй на `'ignore'`.
-- **Долгий первый запуск** — холодный Turbopack плюс `tsc` у Nest. Таймауты в конфиге (180 с / 120 с)
-  под это и подобраны, снижать их не надо.
+- **MCP says "browser not found"** — `@playwright/mcp` defaults to the Chrome channel while the
+  project installs only bundled chromium. The `--browser chromium` flag in `.mcp.json` is mandatory.
+- **webServer times out** — the first `next dev` build fetches `next/font/google` (Geist) over the
+  network and will not come up offline. That is a server failure, not a Playwright one. The logs are
+  visible because the config sets `stdout: 'pipe'`; do not change it to `'ignore'`.
+- **A slow first run** — cold Turbopack plus Nest's `tsc`. The config timeouts (180 s / 120 s) are
+  chosen for that and should not be lowered.
 
-## 7. Отчитайся конкретно
+## 7. Report concretely
 
-Что именно проверено — сценарий, а не «всё работает». Чем — MCP-браузер, spec-файл или оба. Точная
-команда и её результат (`3 passed`, а не «тесты прошли»). Скриншот, если менялся UI. Если проверка
-пропущена — почему. **Не пиши «проверено», если прогона не было.**
+What exactly was checked — the scenario, not "everything works". With what — the MCP browser, a
+spec file, or both. The exact command and its result (`3 passed`, not "the tests passed"). A
+screenshot if the UI changed. If a check was skipped, why. **Do not write "verified" if no run
+happened.**

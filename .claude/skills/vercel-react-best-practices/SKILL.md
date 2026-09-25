@@ -1,35 +1,36 @@
 ---
 name: vercel-react-best-practices
-description: Перф-правила React/Next.js от Vercel Engineering, адаптированные под этот монорепозиторий. Use when writing, reviewing or refactoring anything under apps/web, when asked "оптимизируй рендер", "почему медленно грузится", "проверь перф", or when a review touches React/Next performance.
+description: React/Next.js performance rules from Vercel Engineering, adapted to this monorepo. Use when writing, reviewing or refactoring anything under apps/web, when asked "optimize the rendering", "why is it slow", "check the performance", or when a review touches React/Next performance.
 ---
 
-Адаптер к внешнему скилу `vercel-react-best-practices` (70 правил, `vercel-labs/agent-skills`).
-Правила лежат в `.agents/skills/vercel-react-best-practices/rules/`; каталог в `.gitignore`, набор
-восстанавливается `pnpm skills:sync`. Если каталога нет — работает всё, что написано ниже:
-локальная часть самодостаточна.
+Adapter for the external `vercel-react-best-practices` skill (70 rules,
+`vercel-labs/agent-skills`). The rules live in
+`.agents/skills/vercel-react-best-practices/rules/`; the directory is in `.gitignore` and the set is
+restored with `pnpm skills:sync`. If the directory is missing, everything below still works: the
+local part is self-contained.
 
-## Порядок приоритета
+## Order of precedence
 
-Инварианты 9–15 корневого `CLAUDE.md` **выше** любого правила этого скила. Конфликтов при проверке
-не нашлось, но если найдётся — выигрывает инвариант, а расхождение оформляется записью `FX-` с
-указанием, чем найдено.
+Invariants 9–15 of the root `CLAUDE.md` outrank any rule of this skill. No conflict was found when
+checking, but if one appears the invariant wins and the discrepancy is recorded as an `FX-` entry
+with its "Found by".
 
-## Что из него реально работает здесь
+## What actually applies here
 
-- `rules/server-auth-actions.md` — «проверяй авторизацию **внутри** каждого Server Action, а не в
-  middleware». Это дословно инвариант 10: `proxy.ts` видит только наличие cookie, настоящая
-  проверка дублируется в `lib/dal.ts` и внутри каждого экшена.
-- `rules/server-serialization.md` — всё, что ушло пропсом в клиентский компонент, сериализуется в
-  RSC-поток. Отсюда инвариант 19: токен пропсом не передаётся, иначе он доступен любому скрипту на
-  странице.
-- `rules/async-parallel.md`, `rules/async-suspense-boundaries.md` — применимы, когда на странице
-  появится второй источник данных. Сейчас страница `/` ходит в Nest один раз.
+- `rules/server-auth-actions.md` — "check authorization **inside** every Server Action, not in
+  middleware". That is invariant 10 word for word: `proxy.ts` only sees that a cookie exists, and
+  the real check is duplicated in `lib/dal.ts` and inside every action.
+- `rules/server-serialization.md` — anything passed as a prop to a client component is serialized
+  into the RSC stream. Hence invariant 19: the token is never passed as a prop, or it becomes
+  available to any script on the page.
+- `rules/async-parallel.md`, `rules/async-suspense-boundaries.md` — applicable once the page has a
+  second data source. Today `/` calls Nest once.
 
-## Чего с ним не делать
+## What not to do with it
 
-- **Не оптимизировать демо из трёх страниц по всем 70 правилам.** Динамические импорты, дедупликация
-  SWR, `content-visibility` и батчинг DOM здесь дают ноль и создают дифф, которого никто не просил.
-- **Перф-правка без измерения не принимается.** «Стало быстрее» — это цифра до и после, а не
-  ссылка на правило.
-- Любая правка в `apps/web` — рантайм-изменение: проверяется по скилу `playwright-verify`, а
-  поведенческая ещё и новым спеком в `e2e/regression/<фича>/`.
+- **Do not optimize a three-page demo against all 70 rules.** Dynamic imports, SWR deduplication,
+  `content-visibility` and DOM batching give nothing here and produce a diff nobody asked for.
+- **A performance change without a measurement is not accepted.** "It got faster" is a number
+  before and after, not a link to a rule.
+- Any edit under `apps/web` is a runtime change: it is verified through the `playwright-verify`
+  skill, and a behavioural one also gets a new spec in `e2e/regression/<feature>/`.

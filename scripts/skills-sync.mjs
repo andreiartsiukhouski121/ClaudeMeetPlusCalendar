@@ -1,28 +1,28 @@
 #!/usr/bin/env node
 /**
- * Восстановление и сверка внешних наборов скилов: `pnpm skills:sync` / `pnpm skills:check`.
+ * Restore and verify external skill sets: `pnpm skills:sync` / `pnpm skills:check`.
  *
- * Зачем. Каталог `.agents/` лежит в `.gitignore`, как `node_modules`, а четыре адаптера в
- * `.claude/skills/` на него ссылаются. До этого скрипта восстановить набор было **нечем**:
- * `skills.sh`, на который ссылались адаптеры и `CLAUDE.md`, в контуре не существует, а в
- * `skills-lock.json` не было ни ветки, ни коммита — только `computedHash` неизвестного
- * происхождения, не совпадающий ни с одним хешем файла на диске (`FX-028`).
+ * Why. `.agents/` sits in `.gitignore` like `node_modules`, while four adapters in
+ * `.claude/skills/` reference it. Before this script there was **nothing** to restore a set with:
+ * the `skills.sh` the adapters and `CLAUDE.md` pointed at does not exist here, and
+ * `skills-lock.json` held neither a branch nor a commit — only a `computedHash` of unknown origin
+ * that matched no file hash on disk (`FX-028`).
  *
- * Что делает `sync`: по каждой записи lock-файла выкачивает из GitHub ровно тот каталог, где
- * лежит скил, ровно на том коммите, который записан, и кладёт в `.agents/skills/<name>/`.
- * Затем считает `treeHash` и сверяет с записанным.
+ * What `sync` does: for each lock entry it fetches from GitHub exactly the directory holding the
+ * skill, at exactly the recorded commit, into `.agents/skills/<name>/`, then computes `treeHash`
+ * and compares it with the recorded one.
  *
- * Что делает `check`: **офлайн.** Пересчитывает `treeHash` того, что уже лежит на диске, и
- * сравнивает с lock-файлом. Поэтому его можно звать в любой момент, а `sync` — только при живой
- * сети. В `pnpm verify` не встроено ни то, ни другое: приёмка не должна зависеть от сети и от
- * наличия каталога, которого в свежем клоне нет.
+ * What `check` does: **offline.** It recomputes `treeHash` of what is already on disk and compares
+ * it with the lock file, so it can be called any time while `sync` needs the network. Neither is
+ * wired into `pnpm verify`: acceptance must depend on neither the network nor a directory that a
+ * fresh clone does not have.
  *
- * `treeHash` — sha256 по всему каталогу скила: отсортированные относительные пути плюс содержимое
- * каждого файла, переводы строк нормализованы в LF. Хеш считает этот же скрипт, поэтому его можно
- * проверить, в отличие от `computedHash`.
+ * `treeHash` is a sha256 over the whole skill directory: sorted relative paths plus each file's
+ * contents, line endings normalized to LF. This script computes it, so unlike `computedHash` it
+ * can be verified.
  *
- * Поле `computedHash` оставлено нетронутым: его пишет внешний инструмент, мы его не читаем и не
- * обновляем.
+ * The `computedHash` field is left untouched: an external tool writes it, and we neither read nor
+ * update it.
  */
 
 import { createHash } from 'node:crypto';
@@ -53,13 +53,13 @@ function repoRoot() {
     }
     const parent = dirname(dir);
     if (parent === dir) {
-      throw new Error('Не найден корень монорепозитория (pnpm-workspace.yaml)');
+      throw new Error('Monorepo root not found (pnpm-workspace.yaml)');
     }
     dir = parent;
   }
 }
 
-/** Все файлы каталога, относительными путями с прямыми слэшами, отсортированные. */
+/** Every file in the directory, as sorted relative paths with forward slashes. */
 function filesOf(root) {
   const out = [];
 
@@ -83,8 +83,8 @@ function filesOf(root) {
 }
 
 /**
- * sha256 по каталогу: путь + длина + содержимое каждого файла. Переводы строк нормализованы,
- * иначе хеш разъедется между Windows и Linux на ровном месте.
+ * sha256 over a directory: path + length + contents of every file. Line endings are normalized, or
+ * the hash would drift between Windows and Linux for no reason.
  */
 function treeHash(dir) {
   const hash = createHash('sha256');
@@ -109,9 +109,9 @@ function git(args, cwd) {
 }
 
 /**
- * Выкачивает один каталог одного коммита. `--filter=blob:none` плюс sparse-checkout: скачивается
- * дерево, а из файлов — только нужное поддерево. Иначе `obra/superpowers` и `github/awesome-copilot`
- * тянутся целиком ради одного файла.
+ * Fetches one directory at one commit. `--filter=blob:none` plus sparse-checkout: the tree is
+ * downloaded but only the needed subtree's files are. Otherwise `obra/superpowers` and
+ * `github/awesome-copilot` come down whole for the sake of one file.
  */
 function fetchSkill({ source, commit, dir }, into) {
   const tmp = mkdtempSync(join(tmpdir(), 'skills-sync-'));
@@ -127,7 +127,7 @@ function fetchSkill({ source, commit, dir }, into) {
 
     const from = join(tmp, ...dir.split(posix.sep));
     if (!existsSync(from)) {
-      throw new Error(`в коммите ${commit} нет каталога ${dir}`);
+      throw new Error(`commit ${commit} has no directory ${dir}`);
     }
 
     rmSync(into, { recursive: true, force: true });
@@ -142,7 +142,7 @@ const root = repoRoot();
 const lockPath = join(root, LOCK);
 
 if (!existsSync(lockPath)) {
-  console.error(`Нет ${LOCK} — нечего синхронизировать.`);
+  console.error(`No ${LOCK} — nothing to synchronize.`);
   process.exit(1);
 }
 
@@ -154,7 +154,7 @@ const entries = Object.entries(lock.skills ?? {}).filter(
 );
 
 if (entries.length === 0) {
-  console.error('В lock-файле нет подходящих записей.');
+  console.error('The lock file has no matching entries.');
   process.exit(1);
 }
 
@@ -167,7 +167,7 @@ for (const [name, entry] of entries) {
 
   if (mode === 'sync') {
     if (entry.commit === undefined || entry.commit === null) {
-      console.error(`${name}: в lock нет поля commit — нечем воспроизвести. Пропущен.`);
+      console.error(`${name}: no commit field in the lock — nothing to reproduce from. Skipped.`);
       failed += 1;
       continue;
     }
@@ -176,7 +176,7 @@ for (const [name, entry] of entries) {
       process.stdout.write(`${name}: ${entry.source}@${entry.commit.slice(0, 7)} … `);
       fetchSkill({ source: entry.source, commit: entry.commit, dir }, target);
     } catch (error) {
-      console.log('ошибка');
+      console.log('failed');
       console.error(`  ${error.message.split('\n')[0]}`);
       failed += 1;
       continue;
@@ -184,7 +184,7 @@ for (const [name, entry] of entries) {
   }
 
   if (!existsSync(target) || !statSync(target).isDirectory()) {
-    console.error(`${name}: каталога ${SKILLS_DIR}/${name} нет — запусти pnpm skills:sync`);
+    console.error(`${name}: ${SKILLS_DIR}/${name} is missing — run pnpm skills:sync`);
     failed += 1;
     continue;
   }
@@ -194,18 +194,20 @@ for (const [name, entry] of entries) {
   if (entry.treeHash === undefined) {
     entry.treeHash = actual;
     changed = true;
-    console.log(mode === 'sync' ? `ок, treeHash записан` : `${name}: treeHash записан впервые`);
+    console.log(
+      mode === 'sync' ? 'ok, treeHash recorded' : `${name}: treeHash recorded first time`,
+    );
   } else if (entry.treeHash === actual) {
-    console.log(mode === 'sync' ? 'ок' : `${name}: совпадает`);
+    console.log(mode === 'sync' ? 'ok' : `${name}: matches`);
   } else if (mode === 'sync') {
     entry.treeHash = actual;
     changed = true;
-    console.log('содержимое изменилось, treeHash обновлён');
+    console.log('contents changed, treeHash updated');
   } else {
     console.error(
-      `${name}: содержимое разошлось с lock.\n` +
-        `  в lock: ${entry.treeHash}\n  на диске: ${actual}\n` +
-        `  Либо набор правили руками, либо lock устарел: pnpm skills:sync обновит и то, и другое.`,
+      `${name}: contents drifted from the lock.\n` +
+        `  in lock: ${entry.treeHash}\n  on disk: ${actual}\n` +
+        `  Either the set was edited by hand or the lock is stale: pnpm skills:sync fixes both.`,
     );
     failed += 1;
   }
@@ -216,8 +218,8 @@ if (changed) {
 }
 
 if (failed > 0) {
-  console.error(`\nНе сошлось записей: ${failed}.`);
+  console.error(`\nEntries that did not match: ${failed}.`);
   process.exit(1);
 }
 
-console.log(`\n${mode === 'sync' ? 'Синхронизировано' : 'Сверено'} наборов: ${entries.length}.`);
+console.log(`\n${mode === 'sync' ? 'Synchronized' : 'Verified'} sets: ${entries.length}.`);

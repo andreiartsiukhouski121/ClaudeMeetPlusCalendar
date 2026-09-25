@@ -1,52 +1,52 @@
-# Процесс планирования — проверки целостности шаблонов
+# Planning process — template integrity checks
 
-- **Спек:** `e2e/process/process.api.spec.ts`
-- **Проект Playwright:** `api` (браузер не нужен, работа через `node:fs`)
-- **Теги:** `@process`
-- **Запуск:** `pnpm e2e e2e/process` (входит в `pnpm verify`)
+- **Spec:** `e2e/process/process.api.spec.ts`
+- **Playwright project:** `api` (no browser, plain `node:fs`)
+- **Tags:** `@process`
+- **Run:** `pnpm e2e e2e/process` (part of `pnpm verify`)
 
-Проверяется связка **шаблоны планов ↔ `scripts/check-orientation.mjs`**. Шаблонов два, по одному на
-поток работ: [`TEMPLATE.md`](../../docs/plans/TEMPLATE.md) для фичи (скил `feature-pipeline`) и
-[`TEMPLATE-BUGFIX.md`](../../docs/plans/TEMPLATE-BUGFIX.md) для дефекта (скил `bugfix-pipeline`).
+Checks the link between **the plan templates and `scripts/check-orientation.mjs`**. There are two
+templates, one per workflow: [`TEMPLATE.md`](../../docs/plans/TEMPLATE.md) for a feature (skill
+`feature-pipeline`) and [`TEMPLATE-BUGFIX.md`](../../docs/plans/TEMPLATE-BUGFIX.md) for a defect
+(skill `bugfix-pipeline`).
 
-Зачем машинная проверка. Раздел 0 «Ориентация» у обоих шаблонов одинаков по форме, и её парсит
-`check-orientation` по четырём меткам. Отсюда два способа сломать проверку молча, и оба не видны ни
-в диффе, ни на ревью:
+Why a machine check. Section 0 "Orientation" has the same shape in both templates, and
+`check-orientation` parses it by four labels. That gives two ways to break the check silently, and
+neither shows up in a diff or in review:
 
-1. **переименовать метку в одном шаблоне** — планы этого потока перестанут проверяться, потому что
-   проверка не найдёт строку и посчитает, что вопроса нет;
-2. **завести третий шаблон и забыть внести его в список `TEMPLATES`** — из него берётся эталон
-   «поле не заполнено», и незаполненный план такого шаблона пройдёт как заполненный.
+1. **rename a label in one template** — plans of that workflow stop being checked, because the
+   checker finds no line and decides there is no question;
+2. **add a third template and forget it in the `TEMPLATES` list** — that list supplies the "field
+   left untouched" baseline, so an empty plan of such a template passes as filled.
 
-Второй отказ уже был воспроизведён контрольным опытом при заведении `TEMPLATE-BUGFIX.md`: до правки
-`check-orientation` баг-план без единого ответа объявлялся пройденным. Правило удерживалось бы
-дисциплиной — эти кейсы удерживают его механизмом.
+The second failure was reproduced by control experiment when `TEMPLATE-BUGFIX.md` was added: before
+the fix, a bugfix plan without a single answer was declared passed. The rule used to rest on
+discipline; these cases hold it by mechanism.
 
-Что кейсы **не** проверяют: смысл ответов в разделе 0. Это работа ревью, а не машины.
+What the cases do **not** check: the meaning of the answers in section 0. That is review's job.
 
-## Сводка
+## Summary
 
-| ID        | Заголовок                                                      | Приоритет |
-| --------- | -------------------------------------------------------------- | --------- |
-| PR-API-01 | у всех шаблонов планов одинаковый набор меток раздела 0        | P0        |
-| PR-API-02 | каждый шаблон планов зарегистрирован в `check-orientation.mjs` | P0        |
+| ID        | Title                                                        | Priority |
+| --------- | ------------------------------------------------------------ | -------- |
+| PR-API-01 | every plan template shares one set of section 0 labels       | P0       |
+| PR-API-02 | every plan template is registered in `check-orientation.mjs` | P0       |
 
-## Кейсы
+## Cases
 
-### PR-API-01 — у всех шаблонов планов одинаковый набор меток раздела 0
+### PR-API-01 — every plan template shares one set of section 0 labels
 
-- **Приоритет:** P0
-- **Шаги:** найти все файлы `docs/plans/TEMPLATE*.md`; в каждом прочитать заголовок
-  `## 0. Ориентация` и строки вида `- **<метка>:**` до конца раздела.
-- **Ожидаемый результат:** файлов не меньше двух; в каждом есть раздел 0; набор меток в каждом
-  совпадает с четырьмя, которые читает `check-orientation`: «Дубль», «Конфликт с реализованным»,
-  «Конфликт с планируемым», «Неясности». Расхождение означает, что планы одного из потоков
-  перестали проверяться.
+- **Priority:** P0
+- **Steps:** find every `docs/plans/TEMPLATE*.md`; in each, read the `## 0. Orientation` heading and
+  the `- **<label>:**` lines up to the end of the section.
+- **Expected:** at least two files; each has section 0; the label set in each matches the four
+  `check-orientation` reads: "Duplicate", "Conflicts with shipped", "Conflicts with planned",
+  "Open questions". A mismatch means plans of one workflow stopped being checked.
 
-### PR-API-02 — каждый шаблон планов зарегистрирован в check-orientation.mjs
+### PR-API-02 — every plan template is registered in check-orientation.mjs
 
-- **Приоритет:** P0
-- **Шаги:** найти все файлы `docs/plans/TEMPLATE*.md`; прочитать `scripts/check-orientation.mjs`.
-- **Ожидаемый результат:** путь каждого шаблона встречается в списке `TEMPLATES` скрипта. Шаблон,
-  забытый в списке, делает свои планы непроверяемыми: незаполненный раздел 0 проходит, потому что
-  сверять его не с чем.
+- **Priority:** P0
+- **Steps:** find every `docs/plans/TEMPLATE*.md`; read `scripts/check-orientation.mjs`.
+- **Expected:** each template's path appears in the script's `TEMPLATES` list. A template missing
+  from the list makes its own plans unverifiable: an empty section 0 passes because there is
+  nothing to compare it to.

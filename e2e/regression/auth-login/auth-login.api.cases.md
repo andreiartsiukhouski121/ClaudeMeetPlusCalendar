@@ -1,210 +1,115 @@
-# Логин: контракт API (`POST /auth/login`, `GET /auth/me`)
+# Login: API contract (`POST /auth/login`, `GET /auth/me`)
 
-- **Парный спек:** `e2e/regression/auth-login/auth-login.api.spec.ts`
-- **Проект Playwright:** `api` (фикстура `request`, `baseURL = http://127.0.0.1:3101`, браузер не поднимается)
-- **Теги:** `@regression`, `@auth-login`, плюс `@p0` у критичных кейсов
-- **Запуск:** `pnpm e2e --project=api --grep @auth-login`
-- **Общие предусловия:**
-  - Nest поднят Playwright-ом на порту 3101 (`webServer` в `playwright.config.ts`), `JWT_SECRET=e2e-secret`.
-  - Сид пользователей применён при старте — проверяет смоук `e2e/smoke/seed.api.cases.md`.
-  - Логины и пароли берутся из `e2e/fixtures/seed.ts` (`SEED_USERS.teacher`), токен — через
-    `e2e/fixtures/auth.api.ts`. Хардкод данных в спеке — блокер (тест-план §5.6).
-  - Формы тел ошибок — из плана имплементации §2.1. `message` — **массив строк только у ошибок
-    `ValidationPipe`**; у брошенного нами `UnauthorizedException` это строка.
+- **Paired spec:** `e2e/regression/auth-login/auth-login.api.spec.ts`
+- **Playwright project:** `api` (the `request` fixture, `baseURL = http://127.0.0.1:3101`, no browser)
+- **Tags:** `@regression`, `@auth-login`, plus `@p0` on the critical cases
+- **Run:** `pnpm e2e --project=api --grep @auth-login`
+- **Preconditions:**
+  - Playwright starts Nest on port 3101 with `JWT_SECRET=e2e-secret`.
+  - The user seed is applied at startup — checked by `e2e/smoke/seed.api.cases.md`.
+  - Logins and passwords come from `e2e/fixtures/seed.ts`, tokens through
+    `e2e/fixtures/auth.api.ts`. Hard-coded data in a spec is a blocker.
+  - Invariant 8: `message` is an **array of strings only for `ValidationPipe` errors**; for an
+    `UnauthorizedException` we throw, it is a string.
 
-Итого 11 кейсов: P0 — 5, P1 — 6. Номера `05`, `06`, `09` (объединены с соседними), `12`, `16`, `17`,
-`18`, `19` (удалены как проверки `body-parser`, роутера Express и вырожденные повторы) **не
-переиспользуются** — дырка в нумерации нормальна, а повторное использование номера делает историю
-отчётов нечитаемой.
+11 cases: 5 P0, 6 P1. Numbers `05`, `06`, `09` (merged into neighbours), `12`, `16`, `17`, `18` and
+`19` (dropped as checks of `body-parser`, the Express router, or degenerate repeats) are **never
+reused** — a gap in the numbering is normal, while reusing a number makes the history of reports
+unreadable.
 
-## Сводка
+## Summary
 
-| ID        | Заголовок                                           | Приоритет | Теги                          | Имя теста в спеке                                                    |
-| --------- | --------------------------------------------------- | --------- | ----------------------------- | -------------------------------------------------------------------- |
-| AL-API-01 | Успешный логин возвращает токен                     | P0        | `@regression @auth-login @p0` | `AL-API-01 — успешный логин возвращает токен`                        |
-| AL-API-02 | Неверный пароль → 401 в стандартной форме ошибки    | P0        | `@regression @auth-login @p0` | `AL-API-02 — неверный пароль даёт 401 в стандартной форме ошибки`    |
-| AL-API-03 | Неизвестный email → 401 с тем же сообщением         | P0        | `@regression @auth-login @p0` | `AL-API-03 — неизвестный email даёт 401 с тем же сообщением`         |
-| AL-API-04 | Отсутствующие и пустые поля → 400                   | P1        | `@regression @auth-login`     | `AL-API-04 — отсутствующие и пустые поля дают 400`                   |
-| AL-API-07 | Невалидный формат email и неверный тип пароля → 400 | P1        | `@regression @auth-login`     | `AL-API-07 — невалидный формат email и неверный тип пароля дают 400` |
-| AL-API-08 | Лишнее поле отвергается (`forbidNonWhitelisted`)    | P1        | `@regression @auth-login`     | `AL-API-08 — лишнее поле отвергается forbidNonWhitelisted`           |
-| AL-API-10 | Email нечувствителен к регистру                     | P1        | `@regression @auth-login`     | `AL-API-10 — email нечувствителен к регистру`                        |
-| AL-API-11 | Ответ не содержит пароль                            | P0        | `@regression @auth-login @p0` | `AL-API-11 — ответ не содержит пароль`                               |
-| AL-API-13 | `GET /auth/me` с валидным токеном                   | P1        | `@regression @auth-login`     | `AL-API-13 — GET /auth/me с валидным токеном отдаёт профиль`         |
-| AL-API-14 | `GET /auth/me` без токена → 401                     | P0        | `@regression @auth-login @p0` | `AL-API-14 — GET /auth/me без токена даёт 401`                       |
-| AL-API-15 | Невалидный токен на `/auth/me` → 401                | P1        | `@regression @auth-login`     | `AL-API-15 — невалидный токен на /auth/me даёт 401, а не 500`        |
+| ID        | Title                                                  | Priority | Tags                          |
+| --------- | ------------------------------------------------------ | -------- | ----------------------------- |
+| AL-API-01 | a successful login returns a token                     | P0       | `@regression @auth-login @p0` |
+| AL-API-02 | a wrong password gives 401 in the standard error shape | P0       | `@regression @auth-login @p0` |
+| AL-API-03 | an unknown email gives 401 with the same message       | P0       | `@regression @auth-login @p0` |
+| AL-API-04 | missing and empty fields give 400                      | P1       | `@regression @auth-login`     |
+| AL-API-07 | a bad email format and a wrong password type give 400  | P1       | `@regression @auth-login`     |
+| AL-API-08 | an extra field is rejected by forbidNonWhitelisted     | P1       | `@regression @auth-login`     |
+| AL-API-10 | the email is case insensitive                          | P1       | `@regression @auth-login`     |
+| AL-API-11 | the response carries no password                       | P0       | `@regression @auth-login @p0` |
+| AL-API-13 | GET /auth/me with a valid token returns the profile    | P1       | `@regression @auth-login`     |
+| AL-API-14 | GET /auth/me without a token gives 401                 | P0       | `@regression @auth-login @p0` |
+| AL-API-15 | an invalid token on /auth/me gives 401, not 500        | P1       | `@regression @auth-login`     |
 
-## Кейсы
+## Cases
 
-### AL-API-01 — успешный логин возвращает токен
+### AL-API-01 — a successful login returns a token
 
-- **Приоритет:** P0
-- **Тип:** API-контрактный
-- **Теги:** `@p0`
-- **Предусловия:** пользователь `SEED_USERS.teacher` есть в сиде.
-- **Шаги:**
-  1. `POST /auth/login` с телом `{ email: teacher.email, password: teacher.password }`.
-- **Ожидаемый результат:**
-  - Статус **200**, а не 201. Nest отвечает на POST кодом 201 по умолчанию: без
-    `@HttpCode(HttpStatus.OK)` этот кейс краснеет — тем он и ценен.
-  - `Content-Type` содержит `application/json`.
-  - `accessToken` — непустая строка из трёх сегментов через точку.
-- **Имя теста в спеке:** `AL-API-01 — успешный логин возвращает токен`
+- **Priority:** P0
+- **Steps:** `POST /auth/login` with the seeded `teacher` email and password.
+- **Expected:** status **200** (not 201 — invariant 1 requires `@HttpCode(HttpStatus.OK)`),
+  `content-type: application/json`, and `accessToken` is a non-empty string of three dot-separated
+  segments.
 
-### AL-API-02 — неверный пароль даёт 401 в стандартной форме ошибки
+### AL-API-02 — a wrong password gives 401 in the standard error shape
 
-- **Приоритет:** P0
-- **Тип:** API-контрактный
-- **Теги:** `@p0`
-- **Предусловия:** пользователь `teacher` есть в сиде.
-- **Шаги:**
-  1. `POST /auth/login` с email `teacher` и `password: 'wrong-password'`.
-  2. Разобрать тело ответа.
-- **Ожидаемый результат:**
-  - Статус 401; тело точно равно
-    `{ message: 'Неверный email или пароль', error: 'Unauthorized', statusCode: 401 }`.
-  - `message` — **строка**, а не массив: ассерт «message всегда массив» покраснел бы на
-    корректном коде.
-  - Поля `accessToken` нет; в тексте ответа нет ни `stack`, ни путей к файлам проекта.
-- **Имя теста в спеке:** `AL-API-02 — неверный пароль даёт 401 в стандартной форме ошибки`
+- **Priority:** P0
+- **Steps:** `POST /auth/login` with a valid email and a wrong password.
+- **Expected:** status 401; the body is exactly
+  `{ message: 'Invalid email or password', error: 'Unauthorized', statusCode: 401 }` with `message`
+  a string; no `accessToken`; the response text contains neither `stack` nor `apps/api`.
 
-### AL-API-03 — неизвестный email даёт 401 с тем же сообщением
+### AL-API-03 — an unknown email gives 401 with the same message
 
-- **Приоритет:** P0
-- **Тип:** API-контрактный (безопасность)
-- **Теги:** `@p0`
-- **Предусловия:** email `nobody@purpleschool.test` в сиде отсутствует.
-- **Шаги:**
-  1. `POST /auth/login` с `{ email: 'nobody@purpleschool.test', password: teacher.password }`.
-  2. `POST /auth/login` с email `teacher` и неверным паролем.
-  3. Сравнить `message` двух ответов.
-- **Ожидаемый результат:**
-  - Оба ответа — 401, `message` **идентичны** и равны `Неверный email или пароль`.
-  - По ответу нельзя определить, существует ли аккаунт: перечисление пользователей закрыто.
-- **Имя теста в спеке:** `AL-API-03 — неизвестный email даёт 401 с тем же сообщением`
+- **Priority:** P0
+- **Steps:** `POST /auth/login` with an unknown email, then with a known email and a wrong password.
+- **Expected:** both give 401 and the two messages are identical (invariant 6) — the response must
+  not reveal whether the account exists.
 
-### AL-API-04 — отсутствующие и пустые поля дают 400
+### AL-API-04 — missing and empty fields give 400
 
-- **Приоритет:** P1
-- **Тип:** API-контрактный (валидация)
-- **Теги:** —
-- **Предусловия:** `ValidationPipe` зарегистрирован провайдером `APP_PIPE` в `AppModule`.
-- **Шаги:**
-  1. `POST /auth/login` с `{ email: teacher.email }` (без пароля).
-  2. `POST /auth/login` с `{ password: teacher.password }` (без email).
-  3. `POST /auth/login` с `{ email: '', password: '' }`.
-- **Ожидаемый результат:**
-  - Во всех трёх случаях 400 — ни 401, ни 500: валидация срабатывает раньше аутентификации.
-  - `message` — **массив строк**; на шаге 1 хотя бы одна строка упоминает `password`, на шаге 2 —
-    `email`, на шаге 3 — оба поля.
-- **Имя теста в спеке:** `AL-API-04 — отсутствующие и пустые поля дают 400`
+- **Priority:** P1
+- **Steps:** `POST /auth/login` without a password, without an email, and with both fields empty.
+- **Expected:** 400 in all three cases (validation runs before authentication, so neither 401 nor
+  500 is possible); `message` is an array naming the missing field.
 
-Кейс покрывает две бывшие проверки — «поле отсутствует» (номер `05`) и «поле пустое» (номер `06`):
-это одна и та же ветка `ValidationPipe`.
+### AL-API-07 — an invalid email format and a wrong password type give 400
 
-### AL-API-07 — невалидный формат email и неверный тип пароля дают 400
+- **Priority:** P1
+- **Steps:** send `email: 'not-an-email'`, then a numeric password.
+- **Expected:** 400 each; the messages contain `email must be an email` and
+  `password must be a string`.
 
-- **Приоритет:** P1
-- **Тип:** API-контрактный (валидация)
-- **Теги:** —
-- **Предусловия:** `LoginDto` описан как `@IsEmail()` + `@IsString() @IsNotEmpty()` и никаких
-  требований к сложности пароля не содержит (иначе неверный пароль давал бы 400 вместо 401).
-- **Шаги:**
-  1. `POST /auth/login` с `{ email: 'not-an-email', password: teacher.password }`.
-  2. `POST /auth/login` с `{ email: teacher.email, password: 12345 }`.
-- **Ожидаемый результат:**
-  - В обоих случаях 400, `message` — массив строк.
-  - На шаге 1 сообщение содержит `email must be an email`, на шаге 2 — `password must be a string`.
-  - Ни 401, ни 500.
-- **Имя теста в спеке:** `AL-API-07 — невалидный формат email и неверный тип пароля дают 400`
+### AL-API-08 — an extra field is rejected by forbidNonWhitelisted
 
-Кейс покрывает бывшую отдельную проверку типа поля (номер `09`).
+- **Priority:** P1
+- **Steps:** send a valid body plus `role: 'admin'`.
+- **Expected:** 400 with `property role should not exist`, and no `accessToken` in the body.
 
-### AL-API-08 — лишнее поле отвергается forbidNonWhitelisted
+### AL-API-10 — the email is case insensitive
 
-- **Приоритет:** P1
-- **Тип:** API-контрактный (валидация)
-- **Теги:** —
-- **Предусловия:** `ValidationPipe` создан с `{ whitelist: true, forbidNonWhitelisted: true }`.
-- **Шаги:**
-  1. `POST /auth/login` с валидными email и паролем плюс полем `role: 'admin'`.
-- **Ожидаемый результат:**
-  - Статус 400; `message` содержит `property role should not exist`.
-  - Токен не выдан (`accessToken` отсутствует) — иначе клиент мог бы протащить в модель поле,
-    которого нет в DTO.
-- **Имя теста в спеке:** `AL-API-08 — лишнее поле отвергается forbidNonWhitelisted`
+- **Priority:** P1
+- **Steps:** log in with the email uppercased, then call `GET /auth/me` with the token received.
+- **Expected:** 200 on both; `/auth/me` returns the canonical seeded email rather than what the
+  client sent.
 
-### AL-API-10 — email нечувствителен к регистру
+### AL-API-11 — the response carries no password
 
-- **Приоритет:** P1
-- **Тип:** API-контрактный
-- **Теги:** —
-- **Предусловия:** в сиде email хранится в нижнем регистре.
-- **Шаги:**
-  1. `POST /auth/login` с email пользователя `teacher` в верхнем регистре и верным паролем.
-  2. `GET /auth/me` с полученным токеном.
-- **Ожидаемый результат:**
-  - Шаг 1 → 200, `accessToken` выдан.
-  - Шаг 2 → `email` строго равен значению из сида (нижний регистр), а не тому, что прислал клиент.
-- **Имя теста в спеке:** `AL-API-10 — email нечувствителен к регистру`
+- **Priority:** P0
+- **Steps:** log in successfully and take the response **text**.
+- **Expected:** the text contains neither `password` (in any case), nor the seeded password value,
+  nor `scrypt`. Checked on the text because a serialized hash could hide in a nested field.
 
-### AL-API-11 — ответ не содержит пароль
+### AL-API-13 — GET /auth/me with a valid token returns the profile
 
-- **Приоритет:** P0
-- **Тип:** API-контрактный (безопасность)
-- **Теги:** `@p0`
-- **Предусловия:** `toPublicUser` срезает `passwordHash`.
-- **Шаги:**
-  1. `POST /auth/login` с валидными данными.
-  2. Получить тело ответа как **текст**, а не как разобранный объект.
-- **Ожидаемый результат:**
-  - Текст ответа не содержит подстрок `password` (в любом регистре), значения пароля из сида
-    и `scrypt`.
-  - Проверка по тексту принципиальна: ассерт по ключам объекта не заметил бы хеш, уехавший
-    во вложенном поле.
-- **Имя теста в спеке:** `AL-API-11 — ответ не содержит пароль`
+- **Priority:** P1
+- **Steps:** get a `teacher` token and call `GET /auth/me` with it.
+- **Expected:** 200; `id` is a string, `email` matches the seed, and there is no `password` or
+  `passwordHash`.
 
-### AL-API-13 — GET /auth/me с валидным токеном отдаёт профиль
+### AL-API-14 — GET /auth/me without a token gives 401
 
-- **Приоритет:** P1
-- **Тип:** API-контрактный
-- **Теги:** —
-- **Предусловия:** токен получен через `e2e/fixtures/auth.api.ts` (`loginApi`).
-- **Шаги:**
-  1. Залогиниться под `teacher` и взять `accessToken`.
-  2. `GET /auth/me` с заголовком `Authorization: Bearer <token>`.
-- **Ожидаемый результат:**
-  - Статус 200; тело содержит строковый `id` и `email`, равный email пользователя `teacher`
-    из сида.
-  - Полей `password` и `passwordHash` в теле нет.
-- **Имя теста в спеке:** `AL-API-13 — GET /auth/me с валидным токеном отдаёт профиль`
+- **Priority:** P0
+- **Steps:** call `GET /auth/me` with no `Authorization` header.
+- **Expected:** 401 with exactly
+  `{ message: 'Authentication required', error: 'Unauthorized', statusCode: 401 }` and no profile
+  data.
 
-### AL-API-14 — GET /auth/me без токена даёт 401
+### AL-API-15 — an invalid token on /auth/me gives 401, not 500
 
-- **Приоритет:** P0
-- **Тип:** API-контрактный (безопасность)
-- **Теги:** `@p0`
-- **Предусловия:** `JwtAuthGuard` навешен на `GET /auth/me`; глобального guard в приложении нет.
-- **Шаги:**
-  1. `GET /auth/me` без заголовка `Authorization`.
-- **Ожидаемый результат:**
-  - Статус 401; тело точно равно
-    `{ message: 'Требуется авторизация', error: 'Unauthorized', statusCode: 401 }`.
-  - Данных пользователя в теле нет.
-- **Имя теста в спеке:** `AL-API-14 — GET /auth/me без токена даёт 401`
-
-### AL-API-15 — невалидный токен на /auth/me даёт 401, а не 500
-
-- **Приоритет:** P1
-- **Тип:** API-контрактный (безопасность)
-- **Теги:** —
-- **Предусловия:** те же, что у предыдущего кейса.
-- **Шаги:**
-  1. `GET /auth/me` с заголовком `Authorization: Bearer not.a.jwt`.
-- **Ожидаемый результат:**
-  - Статус **401**, а не 500: неразбираемый токен — это отказ в доступе, а не сбой сервера.
-  - Форма тела та же, что у кейса без токена: одна ветка отказа на все случаи.
-- **Имя теста в спеке:** `AL-API-15 — невалидный токен на /auth/me даёт 401, а не 500`
-
-Вырожденные варианты этого кейса — `Authorization` без схемы `Bearer` и подделанная подпись — на
-уровне e2e удалены планом (та же ветка `throw new UnauthorizedException`) и проверяются юнитом
-guard-а: см. `auth-login.unit.cases.md`.
+- **Priority:** P1
+- **Steps:** call `GET /auth/me` with `Authorization: Bearer not.a.jwt`.
+- **Expected:** 401 with the same body. A 500 would mean a token parsing exception reaches the
+  error handler: a broken token is a refusal, not a server fault.

@@ -2,19 +2,19 @@ import { expect, type APIRequestContext } from '@playwright/test';
 import { SEED_USERS, type SeedUserKey } from './seed.js';
 
 /**
- * Логин через API для кейсов проекта `api` — браузер в этом проекте не поднимается.
- * UI-логин живёт отдельно, в `auth.fixture.ts`.
+ * API login for cases in the `api` project — no browser starts there. UI login lives separately in
+ * `auth.fixture.ts`.
  */
 
 /**
- * Кэш токенов на процесс воркера. `POST /auth/login` считает scrypt, а под `teacher`
- * логинится почти каждый кейс контракта — без кэша это десятки лишних хешей на прогон.
+ * Per-worker token cache. `POST /auth/login` runs scrypt, and nearly every contract case logs in
+ * as `teacher` — without the cache that is dozens of extra hashes per run.
  *
- * Модульная переменная, а не worker-фикстура: файл — обычный хелпер, его вызывают из спеков
- * с любым набором фикстур. Playwright запускает каждый воркер в своём процессе, поэтому
- * модульное состояние и так изолировано по воркерам.
+ * A module variable rather than a worker fixture: this file is a plain helper called from specs
+ * with any fixture set, and Playwright runs each worker in its own process, so module state is
+ * already isolated per worker.
  *
- * Токены не истекают внутри прогона: JWT_EXPIRES_IN = '1h', а таймаут теста — 60 с.
+ * Tokens do not expire mid-run: JWT_EXPIRES_IN is '1h' against a 60 s test timeout.
  */
 const tokenCache = new Map<SeedUserKey, string>();
 
@@ -23,9 +23,9 @@ interface LoginResponseBody {
 }
 
 /**
- * Возвращает `accessToken` сид-пользователя. Ожидание 200 — внутри хелпера: если сид
- * не применился, падать должен хелпер с внятным сообщением, а не ассерт самого кейса
- * где-то ниже на `undefined` в заголовке.
+ * Returns a seeded user's `accessToken`. The 200 expectation lives inside the helper: if the seed
+ * did not apply, the helper should fail with a clear message rather than some later assertion
+ * tripping over `undefined` in a header.
  */
 export async function loginApi(request: APIRequestContext, user: SeedUserKey): Promise<string> {
   const cached = tokenCache.get(user);
@@ -38,8 +38,8 @@ export async function loginApi(request: APIRequestContext, user: SeedUserKey): P
 
   expect(
     response.status(),
-    `Логин сид-пользователя ${user} (${email}) не удался. Это проблема сида или /auth/login, ` +
-      `не проверяемого кейса. Тело ответа: ${await response.text()}`,
+    `Login of seeded user ${user} (${email}) failed. This is a seed or /auth/login problem, not ` +
+      `the case under test. Response body: ${await response.text()}`,
   ).toBe(200);
 
   const body = (await response.json()) as LoginResponseBody;
@@ -47,7 +47,7 @@ export async function loginApi(request: APIRequestContext, user: SeedUserKey): P
 
   expect(
     typeof accessToken,
-    `POST /auth/login для ${user} ответил 200, но accessToken не строка`,
+    `POST /auth/login for ${user} answered 200, but accessToken is not a string`,
   ).toBe('string');
 
   const token = accessToken as string;
@@ -55,12 +55,12 @@ export async function loginApi(request: APIRequestContext, user: SeedUserKey): P
   return token;
 }
 
-/** Заголовки с Bearer-токеном. Отдельная функция, чтобы схема не переписывалась в каждом кейсе. */
+/** Bearer headers. A separate function so the scheme is not rewritten in every case. */
 export function authHeaders(token: string): Record<string, string> {
   return { Authorization: `Bearer ${token}` };
 }
 
-/** Сокращение для самого частого случая: залогиниться и сразу получить заголовки. */
+/** Shorthand for the most common case: log in and get the headers straight away. */
 export async function authHeadersFor(
   request: APIRequestContext,
   user: SeedUserKey,

@@ -1,24 +1,24 @@
-# Ориентация обязательна: план с пустым или отписочным разделом 0 не коммитится.
-# Проверка — чистый Node без Playwright и dev-серверов, поэтому укладывается в миллисекунды.
+# Orientation is mandatory: a plan with an empty or brush-off section 0 does not get committed.
+# Pure Node, no Playwright and no dev servers, so it finishes in milliseconds.
 node scripts/check-orientation.mjs
 
-# Lint и формат — по staged-файлам через lint-staged, а не полным `pnpm lint`: полный прогон
-# на этом репозитории идёт 49 с, а хук такой длины начинают обходить `--no-verify`.
+# Lint and format run over staged files through lint-staged rather than a full `pnpm lint`: the
+# full run takes 49 s here, and a hook that long starts getting bypassed with `--no-verify`.
 pnpm lint-staged
 
-# Юниты целиком (42 теста, 5,5 с). Именно целиком, а не выборкой по изменённым файлам: падение
-# чаще всего прилетает в модуль, который сам не менялся. Запуск — после lint-staged, чтобы тесты
-# видели уже исправленный `--fix`/`--write` текст, то есть ровно то, что уйдёт в коммит.
-# E2E здесь нет намеренно: Playwright поднимает два dev-сервера и стоит полторы минуты —
-# это работа `pnpm verify` и CI, а не хука на каждый коммит.
+# The whole unit suite (42 tests, 5.5 s). Whole rather than filtered by changed files: a failure
+# usually lands in a module that was not touched. It runs after lint-staged so the tests see the
+# text already fixed by `--fix`/`--write` — exactly what will go into the commit.
+# E2E is deliberately absent: Playwright starts two dev servers and costs over a minute — that is
+# the job of `pnpm verify` and CI, not of a hook on every commit.
 #
-# Единственный пропуск — коммит, где в индексе только `.md`. Все 11 юнит-спеков лежат в
-# `apps/*/src/**` и не читают ни одного markdown-файла, поэтому такой коммит не может изменить
-# их результат. Пропуск сделан не ради красоты: процесс реестра предписывает docs-коммит
-# (`pnpm ledger:fill`) после каждой фичи, и на нём 5,5 с юнитов не покупают ничего.
-# Любой не-`.md` файл в индексе (`package.json`, конфиг, сам этот хук) возвращает прогон.
+# The single exception is a commit holding only `.md` files. Every unit spec lives in
+# `apps/*/src/**` and reads no markdown, so such a commit cannot change their result. The skip is
+# not cosmetic: the ledger process prescribes a docs commit (`pnpm ledger:fill`) after every
+# feature, and 5.5 s of units buys nothing there. Any non-`.md` file in the index brings the run
+# back.
 if git diff --cached --name-only --diff-filter=ACMR | grep -qv '\.md$'; then
   pnpm test
 else
-  echo "pre-commit: кроме .md, в индексе ничего нет — юниты пропущены (ни один спек не читает markdown)"
+  echo "pre-commit: nothing but .md in the index — units skipped (no spec reads markdown)"
 fi

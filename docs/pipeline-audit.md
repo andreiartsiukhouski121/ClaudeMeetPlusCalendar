@@ -1,257 +1,253 @@
-# Аудит пайплайна разработки
+# Development pipeline audit
 
-Независимое ревью **процесса**, а не кода фич. Дата: 2026-09-08. Ревьюер не участвовал в первой
-итерации. Все числа ниже — либо результат команды, выполненной на этом репозитории сегодня, либо
-арифметика над предоставленными замерами. Где проверить не удалось, это сказано явно.
+> **ARCHIVE.** An independent review of the **process** (not of the feature code), dated
+> 2026-09-08. Kept as a dated record of what was measured and decided; the numbers are those
+> measured then and are deliberately not updated. Translated into English in `CH-014` and
+> condensed; every finding, number and verdict is preserved.
 
-Машина: Windows 11, `pnpm@10.32.1`, Node v24.14.0, тёплый `.next` (222 МБ), рабочее дерево на
-`master`, порты 3000/3001/3100/3101 перед началом свободны.
+The reviewer did not take part in the first iteration. Every number below is either the output of a
+command run on this repository that day or arithmetic over the supplied measurements. Where
+verification was impossible, it says so.
 
----
-
-## 1. Вердикт
-
-**Требует переработки в одном измерении и готов с оговорками во всех остальных.**
-
-Главная причина: **заявленная параллельная разработка физически невозможна в этом рабочем дереве**,
-и это не гипотеза — это воспроизведённый отказ. Next 16 держит регистрацию dev-сервера **на каталог
-проекта**, а не на порт, поэтому два `next dev` в `apps/web` взаимоисключающи при любых портах.
-Проверено: второй прогон Playwright умирает с `Process from config.webServer was not able to start`,
-и — что хуже — **обычный `pnpm dev` на :3000, который сами скилы предписывают держать поднятым для
-шага 9 приёмки, блокирует `pnpm e2e` полностью** (rc=1, ноль выполненных тестов). Это прямо
-опровергает утверждение `playwright-verify`: «обычные `pnpm dev` на 3000/3001 при этом продолжают
-работать параллельно и ничему не мешают».
-
-Второе: сьют **не зелёный**. `SEC-API-05` (тайминг) упал в первом же контрольном прогоне на
-незагруженной машине (отношение 2,518 против порога 2,5) и ещё раз под нагрузкой; из четырёх
-доведённых до конца прогонов он покраснел в двух. По `regression-verify` это блокер уровня «фича не
-принята», а по §5.1 исполнитель обязан считать, что «неправ код» — то есть пайплайн штатно
-производит ложный отчёт о возврате тайминговой уязвимости.
-
-Третье: числа, на которых держатся сразу три раздела документации («62 e2e», «41 юнит-тест»,
-«`pnpm verify` — 1 м 31 с», таблица ожидаемых чисел в тест-плане §6.6), устарели. Фактически 77 e2e
-и 42 юнита, `pnpm verify` — 42,85 с. Несовпадение с таблицей §6.6 сам `regression-verify` объявляет
-блокером, то есть **приёмка не может быть зелёной по своим же правилам**.
-
-Что действительно работает и стоит сохранить: мета-тест конвенции, парность `.cases.md` ↔ спек,
-требование фактического прогона перед словом «готово», контрольные опыты как идея, `e2e/security/**`
-как межфичевой сьют (он нашёл три реальных дефекта — это подтверждается историей коммитов).
+Machine: Windows 11, `pnpm@10.32.1`, Node v24.14.0, warm `.next` (222 MB), working tree on
+`master`, ports 3000/3001/3100/3101 free at the start.
 
 ---
 
-## 2. Топ-5 находок
+## 1. Verdict
 
-1. **P1 — параллельность заявлена, но невозможна:** `pnpm dev` на :3000 или второй прогон Playwright
-   на других портах в том же дереве роняют `next dev` насмерть («Another next dev server is already
-   running», rc=1, 0 тестов). См. §5 и §7 (проверенные факты 5–7).
-2. **P1 — `SEC-API-05` флакает в 2 прогонах из 4 и порождает ложное сообщение о возврате
-   тайминговой уязвимости**; замер к тому же систематически смещён порядком выборок. См. §6.
-3. **P1 — приёмка не может быть зелёной:** блокер «фактическое число тестов не совпало с таблицей
-   §6.6» срабатывает всегда (53 против 68 e2e, 38 против 42 юнитов). Правило, которое нельзя
-   выполнить, учит игнорировать все остальные блокеры. См. §1 и §6.
-4. **P1 — 46% токенов (1 005 347) ушло на ревью плана, доработку и повторные ревью, не породив ни
-   строки продуктового кода**, и весь этот класс работ роутился на самую дорогую модель. Разумный
-   роутинг плюс отмена лишних итераций даёт −48% денег и −33% токенов. См. §4.
-5. **P2 — `regression-verify` содержит три взаимно противоречащих предписания** («8 шагов
-   обязательны, пропуск — блокер» / «по умолчанию делай один `pnpm verify`» / «после фикса весь
-   пайплайн заново с шага 1» против «повторный полный прогон почти ничего не добавляет»).
-   Измеренная цена буквального следования: 118 с лестницы против 43 с `pnpm verify`. См. §3.1.
+**Needs rework in one dimension and is ready with caveats in every other.**
+
+The main reason: **the declared parallel development is physically impossible in this working
+tree**, and that is not a hypothesis but a reproduced failure. Next 16 registers its dev server
+**per project directory** rather than per port, so two `next dev` processes in `apps/web` are
+mutually exclusive at any ports. Verified: the second Playwright run dies with
+`Process from config.webServer was not able to start`, and — worse — **an ordinary `pnpm dev` on
+:3000, which the skills themselves prescribe keeping up for acceptance step 9, blocks `pnpm e2e`
+entirely** (rc=1, zero tests executed). That directly refutes `playwright-verify`'s claim that
+"ordinary `pnpm dev` on 3000/3001 keeps working in parallel and disturbs nothing".
+
+Second: the suite is **not green**. `SEC-API-05` (timing) failed on the very first control run on an
+idle machine (ratio 2.518 against a threshold of 2.5) and again under load; of four completed runs
+it went red in two. By `regression-verify` that is a "feature not accepted" blocker, and by §5.1 the
+implementer must assume "the code is wrong" — so the pipeline routinely produces a false report that
+a timing vulnerability has returned.
+
+Third: the numbers three sections of the documentation rest on ("62 e2e", "41 units", "`pnpm verify`
+— 1 m 31 s", the expected-count table in test plan §6.6) are stale. The facts are 77 e2e and 42
+units, and `pnpm verify` takes 42.85 s. `regression-verify` itself declares a mismatch with §6.6 a
+blocker, so **acceptance cannot be green by its own rules**.
+
+What genuinely works and should be kept: the convention meta-test, the `.cases.md` ↔ spec pairing,
+the demand for an actual run before the word "done", control experiments as an idea, and
+`e2e/security/**` as a cross-feature suite — it found three real defects, which the commit history
+confirms.
 
 ---
 
-## 3. Находки по семи измерениям
+## 2. Top five findings
 
-### 3.1 Эффективность
+1. **P1 — parallelism is declared but impossible:** `pnpm dev` on :3000, or a second Playwright run
+   on other ports in the same tree, kills `next dev` outright ("Another next dev server is already
+   running", rc=1, 0 tests). See §5 and §7 (verified facts 5–7).
+2. **P1 — `SEC-API-05` flakes in 2 runs out of 4 and produces a false report that the timing
+   vulnerability is back**; the measurement is also systematically biased by sample order. See §6.
+3. **P1 — acceptance cannot be green:** the blocker "the actual test count did not match table
+   §6.6" fires every time (53 against 68 e2e, 38 against 42 units). A rule that cannot be satisfied
+   teaches people to ignore every other blocker.
+4. **P1 — 46% of the tokens (1,005,347) went to plan review, rework and repeat reviews without
+   producing a line of product code**, and that whole class of work was routed to the most expensive
+   model. Sensible routing plus dropping the redundant iterations gives −48% cost and −33% tokens.
+   See §4.
+5. **P2 — `regression-verify` holds three mutually contradictory prescriptions** ("all 8 steps are
+   mandatory, skipping one is a blocker" / "by default just do one `pnpm verify`" / "after a fix,
+   the whole pipeline again from step 1" against "a repeat full run adds almost nothing"). Measured
+   cost of following it literally: 118 s of ladder against 43 s of `pnpm verify`. See §3.1.
 
-**P2. `regression-verify` даёт исполнителю два взаимоисключающих предписания в одном скиле.**
-`SKILL.md:55` — «Шаги 1–8 **обязательны**. Пропуск любого — блокер, а не экономия времени».
-`SKILL.md:67-73` — «**Поэтому по умолчанию приёмка идёт так:** `pnpm verify`», и там же
-перечислено, что `verify` покрывает «шаги 2, 3, 4 (в части `pnpm test`) и 5–8», то есть **шаг 1 не
-покрывает вовсе**, а шаг 4 подменяет (`pnpm test` вместо `pnpm test:<feature>`).
-Что сделает исполнитель, прочитав оба абзаца: либо прогонит лестницу и потратит вдвое больше, либо
-сделает `pnpm verify` и формально нарушит блокер. Измерено сегодня:
+---
 
-| Путь                                                   | Время       | Что покрыто                              |
-| ------------------------------------------------------ | ----------- | ---------------------------------------- |
-| Лестница 8 шагов буквально (для двух фич — 12 вызовов) | **118 с**   | шаги 1–8 + audit                         |
-| `pnpm verify`                                          | **42,85 с** | audit, lint, typecheck, 42 юнита, 77 e2e |
+## 3. Findings across seven dimensions
 
-Разница 75 с на проход. Шаги 1, 5, 6, 7 — **строгие подмножества** шага 8 (`pnpm e2e` запускает и
-`suite-integrity`, и `smoke`, и обе фичи, и security), то есть на зелёном пути они дают ноль
-информации. Точная правка: в §2 заменить «шаги 1–8 обязательны» на «обязателен зелёный
-`pnpm verify`; разбивка по шагам — инструмент локализации падения», и убрать из §3 блокер «пропуск
-шага».
+### 3.1 Efficiency
 
-**P2. Противоречие «после фикса всё заново» против «повторный прогон не добавляет информации».**
-`regression-verify` §5 п.6: «После фикса — **весь** пайплайн заново, с шага 1». Тот же файл,
-§2: «Что ещё не надо делать: **повторно прогонять полный сьют** ради ещё одного зелёного
-результата». Оба абзаца про одно и то же действие. Правка: оставить «после фикса — один
-`pnpm verify`», а «весь пайплайн с шага 1» удалить.
+**P2. `regression-verify` gives the implementer two mutually exclusive prescriptions in one skill.**
+One line says "steps 1–8 are **mandatory**. Skipping any is a blocker, not a saving". Another says
+"**therefore acceptance by default goes like this:** `pnpm verify`" — and lists what `verify`
+covers: "steps 2, 3, 4 (in the `pnpm test` part) and 5–8", that is, **it does not cover step 1 at
+all** and substitutes step 4 (`pnpm test` instead of `pnpm test:<feature>`). Reading both, the
+implementer either runs the ladder and spends twice as long, or runs `pnpm verify` and formally
+violates a blocker. Measured that day:
 
-**P1. Перекос «100 минут планирования против 85 минут кода» описан, но не устранён — он перенесён
-в новые артефакты в виде бюджета, который меньше наблюдаемого минимума.** Из десяти агентов первой
-итерации **ни один** не отработал быстрее 8,7 мин, медиана — 21,4 мин. Новый бюджет
-(`feature-pipeline` §7) назначает спайку 7 мин, плану 10, ревью 12 — то есть три из шести этапов
-уложены в интервал, в который за десять попыток попал один агент. Подробнее в §3.2.
+| Path                                                     | Time        | What it covers                           |
+| -------------------------------------------------------- | ----------- | ---------------------------------------- |
+| The 8-step ladder taken literally (12 calls, 2 features) | **118 s**   | steps 1–8 plus audit                     |
+| `pnpm verify`                                            | **42.85 s** | audit, lint, typecheck, 42 units, 77 e2e |
 
-**P2. Каноничность двух исторических планов не отменена — она подтверждена в двух местах.**
-`docs/plans/README.md:47-49` — «**исторический документ** … Как образец для подражания их брать не
-надо», но `docs/plans/README.md:9-11` — «Правило приоритета при расхождении: по тестам … главный —
-тест-план», `regression-verify` строки 11-12 — «Спецификация сьюта — `feature-plan-testing.md`»,
-`e2e/README.md:6-7` — «Канонический источник конвенции и полного перечня кейсов —
-`feature-plan-testing.md`». Итог: каждый новый исполнитель обязан читать 154 КБ документа,
-объявленного устаревшим. Измерено: два плана — 309 182 символа ≈ 124 тыс. токенов (оценка,
-см. §4.4). Правка: перенести живую конвенцию из тест-плана §1, §2, §5 в `e2e/README.md` (там она
-уже почти вся есть), а в обоих планах поставить шапку «архив, ссылаться нельзя» и снять их из всех
-ссылок скилов.
+A difference of 75 s per pass. Steps 1, 5, 6 and 7 are **strict subsets** of step 8 (`pnpm e2e` runs
+`suite-integrity`, `smoke`, both features and security), so on the green path they yield zero
+information. Exact fix: replace "steps 1–8 are mandatory" with "a green `pnpm verify` is mandatory;
+the step breakdown is a localization tool", and drop the "skipped step" blocker.
 
-**P3. Дублирование одного и того же абзаца в четырёх файлах.** Абзац «Измерено на этом
-репозитории … один `pnpm e2e` — 28 с; семь вызовов — 99 с; `pnpm verify` — 1 м 31 с» присутствует
-дословно в `CLAUDE.md:34-39`, `e2e/README.md:201-206`, `regression-verify:60-65`,
-`feature-pipeline:100-102`. Все четыре копии сегодня неверны (см. §3.2). Правка: одно место
-(`e2e/README.md`), в остальных — ссылка.
+**P2. "Everything again after a fix" contradicts "a repeat run adds no information".** §5 item 6
+says "After a fix — the **whole** pipeline again, from step 1". The same file, §2: "What else not to
+do: **repeat the full suite** for another green result." Both paragraphs are about the same action.
+Fix: keep "after a fix — one `pnpm verify`" and delete the other.
 
-**P3. `CLAUDE.md` обещает пятнадцать инвариантов, а содержит девятнадцать.** `CLAUDE.md:53` —
-«Пятнадцать правил»; `grep -cE "^[0-9]+\. " CLAUDE.md` → `19`. Мелочь, но это тот самый класс
-«бухгалтерии, внесённой правками документа», который сам пайплайн называет главной причиной
-перерасхода.
+**P1. The "100 minutes of planning against 85 of code" skew is described but not removed — it was
+carried into new artifacts as a budget below the observed minimum.** Of the ten agents in the first
+iteration, **none** finished faster than 8.7 minutes; the median was 21.4. The new budget
+(`feature-pipeline` §7) allots 7 minutes to the spike, 10 to the plan and 12 to the review — three
+of six stages placed inside an interval that one agent out of ten reached. More in §3.2.
 
-**P3. Описание `pnpm verify` в `CLAUDE.md:17` не упоминает `pnpm audit`**, который в скрипте стоит
-**первым** (`package.json:25`). Последствие — в §3.4.
+**P2. The canonical status of the two historical plans is not revoked — it is confirmed in two
+places.** `docs/plans/README.md` says "a **historical document** … not to be taken as a model", yet
+the same file also says "priority rule on divergence: for tests … the test plan wins",
+`regression-verify` says "the suite specification is `feature-plan-testing.md`", and `e2e/README.md`
+says "the canonical source of the convention and the full case list is `feature-plan-testing.md`".
+The result: every new implementer must read 154 KB of a document declared obsolete. Measured: the
+two plans are 309,182 characters ≈ 124k tokens. Fix: move the live convention from test plan §1, §2
+and §5 into `e2e/README.md` (where most of it already is), put an "archive, do not cite" banner on
+both plans, and remove them from every skill reference.
 
-### 3.2 Скорость
+**P3. The same paragraph duplicated across four files.** The "Measured on this repository … one
+`pnpm e2e` — 28 s; seven calls — 99 s; `pnpm verify` — 1 m 31 s" paragraph appears verbatim in
+`CLAUDE.md`, `e2e/README.md`, `regression-verify` and `feature-pipeline`. All four copies are now
+wrong (see §3.2). Fix: one place (`e2e/README.md`), a reference everywhere else.
 
-**P1. Бюджет 68 минут не подтверждается замерами первой итерации на трёх из шести этапов.**
-Наблюдаемые длительности агентов: минимум 8,7 мин, медиана 21,4 мин, максимум 28,5 мин. Пересчёт
-первой итерации «как если бы её прогнали по новому пайплайну», с подстановкой измеренных времён
-вместо назначенных:
+**P3. `CLAUDE.md` promises fifteen invariants and contains nineteen.** A trifle, but it is exactly
+the class of "bookkeeping introduced by editing the document" that the pipeline itself names as the
+main source of overspend.
 
-| Этап                   | Бюджет `feature-pipeline` §7 | Ближайший измеренный аналог                       | Реалистично                        |
-| ---------------------- | ---------------------------- | ------------------------------------------------- | ---------------------------------- |
-| Спайк                  | 7                            | нет аналога; быстрейший агент — 8,7               | 9                                  |
-| План                   | 10                           | планировщик плана имплементации — 16,4            | 16                                 |
-| Ревью плана            | 12                           | ревью №3 (узкое) — 8,7; ревью №1 — 24,5           | 9 при узком, 24 при полном         |
-| Реализация (бэк ∥ веб) | 25                           | max(18,5; 22,8) = 22,8                            | 23                                 |
-| Приёмка                | 10                           | — (`pnpm verify` = 43 с, остальное — ходы агента) | 10                                 |
-| Security               | 3                            | —                                                 | 3                                  |
-| **Итого**              | **68**                       |                                                   | **70 (узкое ревью) … 85 (полное)** |
+**P3. The `pnpm verify` description does not mention `pnpm audit`**, which stands **first** in the
+script. The consequence is in §3.4.
 
-Вывод: бюджет достижим, **но только если ревью останется узким, как ревью №3**, а план — в пределах
-150 строк. Никакого запаса в 68 минутах нет: любое возвращение к полному ревью (24,5 мин)
-выбрасывает бюджет на 85 минут. Правка: в §7 указать не одно число, а диапазон 70–85 и назвать
-условие («ревью — только три вопроса из §3, иначе +15 мин»).
+### 3.2 Speed
 
-**P1. «Две фичи ≈ 90 минут» опирается на параллельность, которой в этом дереве нет.**
-`feature-pipeline` §4 и §7 считают, что бэкенд и веб идут одновременно. Сегодня измерено, что два
-одновременных прогона Playwright в одном дереве невозможны в принципе (§3.5). Пока агенты работают
-в одном дереве, «параллельная реализация» означает «параллельное написание кода без возможности
-проверить его прогоном» — то есть последовательную проверку. Правка: сделать worktree
-**обязательным** условием параллельного этапа, а не опцией «при риске пересечения по файлам».
+**P1. The 68-minute budget is not supported by the first iteration's measurements on three of six
+stages.** Observed agent durations: minimum 8.7 min, median 21.4, maximum 28.5. Recomputing the
+first iteration "as if it had run through the new pipeline", substituting measured times:
 
-**P2. Замеры прогонов в документации завышены примерно вдвое.** Измерено сегодня:
-`pnpm verify` — **42,85 с** (заявлено 1 м 31 с); `pnpm e2e` — **27 с** (заявлено 28 с, сходится);
-лестница из 8 шагов — 118 с (в документах фигурируют «семь вызовов — 99 с», порядок тот же).
-Заявленный состав `verify` («41 юнит-тест + 62 e2e») не соответствует факту: 42 юнита и 77 e2e.
-Правка: перемерить один раз, записать в одном месте, добавить дату замера.
+| Stage                       | Budget (§7) | Nearest measured analogue                      | Realistic                   |
+| --------------------------- | ----------- | ---------------------------------------------- | --------------------------- |
+| Spike                       | 7           | no analogue; the fastest agent was 8.7         | 9                           |
+| Plan                        | 10          | the implementation plan author — 16.4          | 16                          |
+| Plan review                 | 12          | review 3 (narrow) — 8.7; review 1 — 24.5       | 9 narrow, 24 full           |
+| Implementation (back ∥ web) | 25          | max(18.5, 22.8) = 22.8                         | 23                          |
+| Acceptance                  | 10          | (`pnpm verify` = 43 s, the rest is agent time) | 10                          |
+| Security                    | 3           | —                                              | 3                           |
+| **Total**                   | **68**      |                                                | **70 (narrow) … 85 (full)** |
 
-**P2. Этапы, которые сжать нельзя.** Каждый вызов `pnpm e2e …` поднимает **оба** `webServer`,
-включая `next dev`, даже для `--project=api`: за лестницу из 12 вызовов `next dev` стартовал
-**7 раз** (`grep -c "next dev"` по логу лестницы = 7 = число вызовов e2e). Это ~9–10 с фиксированной
-платы за вызов и объясняет, почему разбивка по шагам дорога. Сжать это можно только конфигом
-(`webServer` на уровне проекта), а не дисциплиной. Правка: перенести web-`webServer` в проект `web`
-— тогда `--project=api` перестанет поднимать Next и станет действительно дешёвым шагом.
+Conclusion: the budget is reachable, **but only if the review stays narrow like review 3** and the
+plan stays within 150 lines. There is no slack in 68 minutes: any return to a full review (24.5 min)
+pushes the budget to 85. Fix: state a range of 70–85 in §7 and name the condition.
 
-**P3. Заявленное сжатие «19 + 23 → 23 минуты» (`feature-pipeline` §4) не подтверждается**, потому
-что упирается в §3.5: без worktree один из двух агентов не сможет прогнать e2e. Формально
-экономия 19 минут существует только для этапа «написать код, не проверяя».
+**P1. "Two features ≈ 90 minutes" rests on parallelism this tree does not have.**
+`feature-pipeline` §4 and §7 assume the backend and the web side run simultaneously. It was measured
+that day that two simultaneous Playwright runs in one tree are impossible in principle (§3.5). While
+agents share a tree, "parallel implementation" means "writing code in parallel with no way to verify
+it by running" — that is, sequential verification. Fix: make a worktree a **mandatory** condition of
+the parallel stage rather than an option "if files might overlap".
 
-### 3.3 Стоимость: токены, модели, роутинг
+**P2. The run measurements in the documentation are roughly double the truth.** Measured that day:
+`pnpm verify` — **42.85 s** (claimed 1 m 31 s); `pnpm e2e` — **27 s** (claimed 28 s, agrees); the
+8-step ladder — 118 s. The declared composition of `verify` ("41 units + 62 e2e") does not match the
+fact: 42 units and 77 e2e. Fix: measure once, record in one place, add the measurement date.
 
-Полный расчёт — в §4. Коротко:
+**P2. Stages that cannot be compressed.** Every `pnpm e2e …` call starts **both** `webServer`s,
+`next dev` included, even for `--project=api`: across a 12-call ladder `next dev` started **7
+times** (= the number of e2e calls). That is a fixed ~9–10 s per call and explains why the step
+breakdown is expensive. Only a config change can fix it (moving the web `webServer` into the `web`
+project), not discipline.
 
-**P1. 1 005 347 токенов (46,5% расхода) — ревью плана №1–№3 и агент-доработчик.** Продуктового кода
-они не породили. По времени это 83,1 мин из 193 (43%).
+**P3. The claimed compression "19 + 23 → 23 minutes" is not supported**, because it runs into §3.5:
+without a worktree, one of the two agents cannot run e2e at all. Formally the 19-minute saving
+exists only for the stage "write code without verifying it".
 
-**P1. Ни одному из десяти агентов не передан параметр `model`** — по контракту инструмента `Agent`
-все они унаследовали модель родителя (Opus-класс) либо дефолт для субагентов. Механическая правка
-markdown (агент-доработчик, 288 292 токена — второй по расходу в списке) шла на той же модели, что
-написание кода.
+### 3.3 Cost: tokens, models, routing
 
-**P1. Планировщики были запущены read-only типом `Plan` и не смогли записать файлы** — их вывод
-ведущий агент перепечатывал руками (~2000 строк). Это не только его время: перепечатанный текст
-становится output-токенами в самом дорогом контексте и потом переплачивается как input в каждом
-следующем ходе. Правка: планировщик — тип с правом записи (`general-purpose` или собственное
-определение агента), с явным «запиши файл по пути `docs/plans/<фича>.md` и верни только путь и
-5 строк резюме».
+The full calculation is in §4. In short:
 
-**P2. `.claude/agents/*.md` в репозитории нет** (`ls .claude/agents` → каталога нет). Помимо
-фиксации модели это дало бы: урезанный набор инструментов (ревьюеру плана не нужны `Write`, `Edit`,
-`Bash`), стабильный системный промпт вместо промпта на ~1500 слов в каждом вызове, и
-воспроизводимость — сейчас поведение пайплайна зависит от того, что ведущий агент напишет в промпте
-в этот раз.
+**P1. 1,005,347 tokens (46.5% of the spend) went to plan reviews 1–3 and the rework agent.** They
+produced no product code. In time that is 83.1 minutes out of 193 (43%).
 
-### 3.4 Безопасность самой разработки
+**P1. Not one of the ten agents was passed a `model` parameter** — by the `Agent` tool's contract
+they all inherited the parent's model (Opus class). A mechanical markdown edit (the rework agent,
+288,292 tokens — second largest in the list) ran on the same model as writing code.
 
-**P1. `.mcp.json` ставит неприкреплённый пакет из сети при каждом старте.**
-`.mcp.json:5-6` — `"command": "npx", "args": ["-y", "@playwright/mcp@latest", …]`. `-y` подавляет
-подтверждение установки, `@latest` снимает любой контроль версии. Практический смысл: код, который
-получает доступ к браузеру и к содержимому страниц этого проекта, обновляется молча и без
-подтверждения; компрометация пакета или ошибка в мажорной версии прилетает при следующем старте
-Claude Code. Правка: закрепить версию (`@playwright/mcp@0.0.x`) и снять `-y`, а обновление сделать
-осознанным шагом; ещё лучше — установить пакет в devDependencies корня и запускать
-`pnpm exec playwright-mcp`, тогда версия попадает под `pnpm-lock.yaml` и под `pnpm audit`.
+**P1. The planners were launched as the read-only `Plan` type and could not write files** — the lead
+agent retyped their output by hand (~2000 lines). That is not only its time: retyped text becomes
+output tokens in the most expensive context and is then paid for again as input on every later turn.
+Fix: give the planner a type with write access and an explicit "write the file at
+`docs/plans/<feature>.md` and return only the path plus a five-line summary".
 
-**P1. Права субагентов не ограничены.** Все десять агентов первой итерации — `general-purpose` с
-полным набором инструментов. Лишнее конкретно: ревьюеру плана (три вызова, 717 055 токенов) нужны
-только `Read`/`Grep`/`Glob`; ему выдана запись в любой файл и запуск любой команды. Агенту-приёмщику
-нужны `Bash` + `Read`, но не `Write`. Правка: определения агентов в `.claude/agents/` с полем
-`tools`; для ревьюера — только чтение. Это же убирает риск «ревьюер решил заодно починить», который
-`regression-verify` §5 п.5 запрещает словами, а не механизмом.
+**P2. There are no `.claude/agents/*.md` in the repository** (`ls .claude/agents` → no such
+directory). Besides pinning the model, they would give: a trimmed tool set (a plan reviewer needs no
+`Write`, `Edit` or `Bash`), a stable system prompt instead of a ~1500-word prompt per call, and
+reproducibility — today the pipeline's behaviour depends on what the lead agent happens to put in
+the prompt.
 
-**P1. Хук `pre-commit` молча меняет содержимое коммита.** `.husky/pre-commit` → `pnpm lint-staged`;
-`package.json:54-61` → `eslint --fix` и `prettier --write` на всех staged-файлах. lint-staged по
-устройству возвращает изменённые файлы в индекс, поэтому в коммит попадает **не то**, что исполнитель
-читал и проверял прогоном. Для агента это особенно опасно: он отчитывается «зелёный прогон на этом
-диффе», а закоммичен другой дифф. Проверку на живом коммите я не выполнял — по условиям аудита
-менять репозиторий нельзя, — поэтому находка опирается на конфигурацию и документированное
-поведение lint-staged. Правка: заменить `--fix`/`--write` на проверяющие варианты
-(`eslint --max-warnings=0`, `prettier --check`) и падать, а не исправлять; форматирование делать
-явным `pnpm format` до коммита.
+### 3.4 Security of the development process itself
 
-**P2. `Stop-Process` по PID из `netstat` — рабочая практика, но пайплайн подталкивает к худшему
-варианту.** `regression-verify` §1 и `playwright-verify` §7 дают правильный рецепт (найти PID,
-убить один), и оба честно предупреждают про `Get-Process node | Stop-Process -Force`. Реальный риск
-обнаружился в другом месте: при столкновении двух прогонов **сам Next печатает готовую команду**
-`taskkill /PID 18932 /F to stop it and start a new one` (зафиксировано в логе пробы 1). Агент,
-следующий подсказке инструмента, убьёт dev-сервер другого агента или пользователя. Правка: в скилах
-явно написать «PID из подсказки Next не убивать: это чужой сервер; правильный ответ — свой
-worktree».
+**P1. `.mcp.json` installs an unpinned package from the network on every start.**
+`"command": "npx", "args": ["-y", "@playwright/mcp@latest", …]`. `-y` suppresses the install
+confirmation and `@latest` removes any version control. In practice: code that gets access to the
+browser and to this project's page content updates silently and without confirmation; a compromised
+package or a major-version mistake arrives at the next Claude Code start. Fix: pin the version and
+drop `-y`, making updates a deliberate step; better still, install it into the root devDependencies
+and run `pnpm exec`, so the version falls under `pnpm-lock.yaml` and `pnpm audit`.
 
-**P2. `pnpm verify` начинается с сетевого шага и без сети не выполняется вовсе.**
-`package.json:25` — `pnpm audit … && pnpm lint && …`. Проверено: `pnpm audit --audit-level high` с
-недоступным реестром → `rc=1`; следовательно ни один тест не запускается, а исполнитель получает
-стек-трейс сети вместо результата проверки. Правка: перенести `audit` в конец цепочки или в
-отдельный скрипт `verify:deps`.
+**P1. Subagent permissions are unrestricted.** All ten agents of the first iteration were
+`general-purpose` with the full tool set. Concretely excessive: the plan reviewer (three calls,
+717,055 tokens) needs only `Read`/`Grep`/`Glob`, yet was granted write access to any file and the
+ability to run any command. Fix: agent definitions in `.claude/agents/` with a `tools` field;
+read-only for the reviewer. That also removes the "the reviewer decided to fix it while it was
+there" risk, which `regression-verify` §5 item 5 forbids in words but not by mechanism.
 
-**Чего в пайплайне нет — что нужно, а что карго-культ:**
+**P1. The `pre-commit` hook silently changes the content of a commit.** `.husky/pre-commit` runs
+`pnpm lint-staged`, which runs `eslint --fix` and `prettier --write` over all staged files.
+lint-staged by design returns the modified files to the index, so what is committed is **not** what
+the implementer read and verified by running. For an agent that is especially dangerous: it reports
+"a green run on this diff" while a different diff was committed. The check on a live commit was not
+performed (the audit's terms forbid changing the repository), so this finding rests on the
+configuration and on lint-staged's documented behaviour. Fix: replace `--fix`/`--write` with
+checking variants and fail instead of fixing; do the formatting explicitly with `pnpm format` before
+committing.
 
-| Проверка                                                            | Вердикт         | Почему                                                                                                                                                           |
-| ------------------------------------------------------------------- | --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Сканирование секретов **в истории git**                             | **нужно**       | `SEC-API-10` смотрит только рабочее дерево. Достаточно одного `git log -p -S` по шаблонам ключей в CI; сейчас утёкший и удалённый `.env` не будет найден никогда |
-| Закрепление версии MCP-пакета                                       | **нужно**       | см. выше, это единственный неприкреплённый исполняемый код в контуре разработки                                                                                  |
-| `pnpm install --frozen-lockfile` в приёмке                          | **нужно**       | сейчас нигде не выполняется; расхождение lock-файла обнаруживается только «когда-нибудь»                                                                         |
-| CI (`.github/workflows`)                                            | **нужно позже** | remote отсутствует; `docs/plans/README.md:32-43` называет пропуск явно и правильно                                                                               |
-| SAST                                                                | **нужно позже** | на 288 statements кода отдача ниже, чем у уже имеющегося type-aware ESLint (`no-unsafe-*`, `no-floating-promises` в `apps/api` как ошибки)                       |
-| Проверка лицензий                                                   | **карго-культ** | приватный учебный монорепозиторий без распространения                                                                                                            |
-| Проверка целостности lock-файла подписью/`--verify-store-integrity` | **карго-культ** | нет CI, нет публикации; `--frozen-lockfile` закрывает практическую часть                                                                                         |
+**P2. `Stop-Process` by PID from `netstat` is sound practice, but the pipeline nudges towards the
+worse variant.** `regression-verify` §1 and `playwright-verify` §7 give the right recipe (find the
+PID, kill one) and both honestly warn about `Get-Process node | Stop-Process -Force`. The real risk
+turned up elsewhere: when two runs collide, **Next itself prints a ready-made command**
+`taskkill /PID 18932 /F to stop it and start a new one` (recorded in probe 1's log). An agent
+following the tool's suggestion will kill another agent's or the user's dev server. Fix: state
+explicitly in the skills that the PID from Next's hint must not be killed — the right answer is your
+own worktree.
 
-### 3.5 Изолированность и бесконфликтность параллельной разработки
+**P2. `pnpm verify` begins with a network step and does not run at all offline.** The script is
+`pnpm audit … && pnpm lint && …`. Verified: `pnpm audit --audit-level high` with an unreachable
+registry → `rc=1`; consequently not a single test runs, and the implementer gets a network stack
+trace instead of a check result. Fix: move `audit` to the end of the chain or into a separate
+`verify:deps` script.
 
-Это измерение проверялось прогонами, а не чтением. Результаты опровергают заявление пайплайна.
+**What the pipeline lacks — what is needed and what is cargo cult:**
 
-**P1. `.next` — не изолируется портами. Второй прогон не запускается вообще.**
-Проба: два `pnpm e2e` одновременно в одном дереве, `E2E_WEB_PORT=3200/3201` и `3300/3301`.
-Результат: прогон B — `77 passed`; прогон A — **rc=1, ноль тестов**:
+| Check                                          | Verdict          | Why                                                                                                                                                        |
+| ---------------------------------------------- | ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Scanning for secrets **in git history**        | **needed**       | `SEC-API-10` only looks at the working tree. One `git log -p -S` over key patterns in CI is enough; today a leaked and deleted `.env` would never be found |
+| Pinning the MCP package version                | **needed**       | see above — the only unpinned executable code in the development loop                                                                                      |
+| `pnpm install --frozen-lockfile` in acceptance | **needed**       | not done anywhere today; a lock file divergence surfaces "eventually"                                                                                      |
+| CI (`.github/workflows`)                       | **needed later** | no remote yet; the omission is named explicitly and correctly in `docs/plans/README.md`                                                                    |
+| SAST                                           | **needed later** | on 288 statements of code the return is lower than from the type-aware ESLint already in place                                                             |
+| Licence checks                                 | **cargo cult**   | a private learning monorepo with no distribution                                                                                                           |
+| Lock file integrity by signature               | **cargo cult**   | no CI, no publishing; `--frozen-lockfile` covers the practical part                                                                                        |
+
+### 3.5 Isolation of parallel development
+
+This dimension was checked by running things rather than by reading. The results refute the
+pipeline's claims.
+
+**P1. `.next` is not isolated by ports. The second run does not start at all.** Probe: two
+`pnpm e2e` at once in one tree, with `E2E_WEB_PORT=3200/3201` and `3300/3301`. Result: run B —
+`77 passed`; run A — **rc=1, zero tests**:
 
 ```
 [WebServer] ✓ Ready in 584ms
@@ -262,433 +258,423 @@ worktree».
 Error: Process from config.webServer was not able to start. Exit code: 1
 ```
 
-Ключевое — строка `Dir:`: регистрация dev-сервера привязана к **каталогу проекта**, а не к порту.
-Значит `E2E_WEB_PORT` не изолирует ничего, и утверждение `CLAUDE.md:41-49` / `feature-pipeline` §4 /
-`e2e/README.md:215-216` («двум агентам — свои диапазоны портов … проверено прогоном») **неверно** для
-проекта `web`. Проверено также, что это не специфично для Playwright: обычный `pnpm dev` (web) на
-:3000 роняет `pnpm e2e` тем же сообщением (проба 5) — то есть шаг 9 приёмки (интерактивная проверка
-на `pnpm dev`) и шаг 8 (`pnpm e2e`) **взаимоисключающи в одном дереве**, а `playwright-verify:22-23`
-утверждает обратное дословно.
+The `Dir:` line is the key: dev server registration is bound to the **project directory**, not the
+port. So `E2E_WEB_PORT` isolates nothing, and the claim in `CLAUDE.md` / `feature-pipeline` §4 /
+`e2e/README.md` ("two agents get their own port ranges … verified by a run") is **false** for the
+`web` project. It was also verified that this is not Playwright-specific: an ordinary `pnpm dev`
+(web) on :3000 kills `pnpm e2e` with the same message (probe 5) — meaning acceptance step 9 (the
+interactive check on `pnpm dev`) and step 8 (`pnpm e2e`) are **mutually exclusive in one tree**,
+while `playwright-verify` states the opposite verbatim.
 
-**P1. Если агент забыл выдать порты, оба прогона портят друг друга — и один из отказов выглядит как
-security-дефект.** Проба: два `pnpm e2e` на портах по умолчанию, второй запущен через 12 с.
-Результат: A — `77 passed (54.0s)` (вдвое медленнее одиночного прогона); B — `3 failed, 1 did not
-run, 73 passed`, а именно:
+**P1. If an agent forgets the ports, the two runs corrupt each other — and one failure looks like a
+security defect.** Probe: two `pnpm e2e` on the default ports, the second started 12 s later.
+Result: A — `77 passed (54.0s)` (twice as slow as a solo run); B — `3 failed, 1 did not run,
+73 passed`, namely:
 
-- `SEC-API-05` — «медианы: неизвестный email 309 мс, неверный пароль 114 мс — разница выдаёт
-  существование аккаунта». Ложное сообщение о возврате тайминговой уязвимости;
-- `HD-FN-07` (мутирующий, создание встречи) — `element(s) not found`: два прогона писали в один
-  in-memory store через один и тот же Nest на :3101;
-- `SEC-FN-05` — `page.goto: net::ERR_CONNECTION_REFUSED at http://127.0.0.1:3100/`: прогон A
-  закончился первым и снёс серверы, которые прогон B переиспользовал через `reuseExistingServer`.
+- `SEC-API-05` — "medians: unknown email 309 ms, wrong password 114 ms — the difference reveals the
+  account exists". A false report that the timing vulnerability is back;
+- `HD-FN-07` (mutating, meeting creation) — `element(s) not found`: both runs wrote into one
+  in-memory store through one Nest on :3101;
+- `SEC-FN-05` — `page.goto: net::ERR_CONNECTION_REFUSED at http://127.0.0.1:3100/`: run A finished
+  first and tore down the servers run B was reusing through `reuseExistingServer`.
 
-То есть `reuseExistingServer: !isCI` при совпадении портов не «даёт чужие результаты» (как
-осторожно сказано в документации), а **срывает прогон в момент завершения соседа**.
+So `reuseExistingServer: !isCI` with matching ports does not merely "give someone else's results" —
+it **aborts the run the moment the neighbour finishes**.
 
-**P2. `test-results/`, `playwright-report/`, `blob-report/` — общие и безымянные относительно
-прогона.** Проверено: `playwright-report/index.html` — один файл (отчёт того, кто финишировал
-позже, затирает первый); `test-results/.last-run.json` — один; файлы состояния сессии называются
-`auth-state-w<индекс воркера>-<пользователь>.json` (`e2e/fixtures/auth.fixture.ts:40-45`), то есть у
-двух прогонов имена совпадают. Playwright чистит `outputDir` на старте, поэтому старт второго
-прогона удаляет состояния сессий работающего первого. Правка: `outputDir` и `reporter.outputFolder`
-с суффиксом порта (`test-results-${WEB_PORT}`), либо — надёжнее — worktree.
+**P2. `test-results/`, `playwright-report/`, `blob-report/` are shared and carry no run identity.**
+Verified: `playwright-report/index.html` is a single file (whoever finishes later overwrites the
+first); `test-results/.last-run.json` is single; session state files are named
+`auth-state-w<worker index>-<user>.json`, so two runs collide. Playwright clears `outputDir` on
+start, so starting a second run deletes the session state of a running first. Fix: `outputDir` and
+`reporter.outputFolder` with a port suffix — or, more reliably, a worktree.
 
-**P2. Общий `JWT_SECRET` превращает «чужое состояние» из громкого отказа в тихую ошибку.**
-`playwright.config.ts:78` фиксирует `JWT_SECRET: 'e2e-secret'` для любого прогона. Проверено пробой:
-токен, выданный сервером A (:3401), принят сервером B (:3501) — `GET /auth/me` → `200`, хотя store у
-них разный (`total` = 2 против 1). Значит подхваченное чужое состояние сессии не отвергается, а
-аутентифицирует против другой базы. Правка: секрет производить от порта (`e2e-secret-${API_PORT}`) —
-тогда чужой токен даёт 401 и отказ становится громким.
+**P2. A shared `JWT_SECRET` turns "someone else's state" from a loud failure into a silent one.**
+`playwright.config.ts` pins `JWT_SECRET: 'e2e-secret'` for every run. Verified by probe: a token
+issued by server A (:3401) was accepted by server B (:3501) — `GET /auth/me` → `200` — although
+their stores differ (`total` 2 against 1). So picked-up foreign session state is not rejected but
+authenticates against a different database. Fix: derive the secret from the port, and a foreign
+token gives 401, making the failure loud.
 
-**P2. In-memory store изолирован между процессами — это единственное, что подтвердилось.**
-Проба: два Nest на :3401 и :3501, встреча создана только на первом → `total` 2 против 1. Внутри
-**одного** прогона store общий для проектов `api` и `web` (оба ходят на один Nest), что документация
-описывает верно, и меры (`planner`/`organizer`, `serial`, относительные счётчики) адекватны.
+**P2. The in-memory store is isolated between processes — the only thing that held up.** Probe: two
+Nest instances on :3401 and :3501, a meeting created only on the first → `total` 2 against 1. Within
+**one** run the store is shared between the `api` and `web` projects (both talk to one Nest), which
+the documentation describes correctly, and the measures (`planner`/`organizer`, `serial`, relative
+counters) are adequate.
 
-**P2. Общий git-индекс: отказ громкий, но работа агента прерывается.** Проба в отдельном
-репозитории: два одновременных `git add -A` → один `rc=0`, второй `rc=128`,
-`fatal: Unable to create '.git/index.lock': File exists`. В одном дереве это к тому же означает
-общую рабочую ветку: `git checkout -b feat/…` одного агента переключает файлы под ногами другого, а
-`pre-commit` с `--fix` затрагивает staged-файлы соседа.
+**P2. A shared git index: the failure is loud but the agent's work is interrupted.** Probe in a
+separate repository: two simultaneous `git add -A` → one `rc=0`, the other `rc=128`,
+`fatal: Unable to create '.git/index.lock': File exists`. In one tree that also means a shared
+working branch: one agent's `git checkout -b feat/…` switches files under the other, and `pre-commit`
+with `--fix` touches the neighbour's staged files.
 
-**P2. `node_modules` — не изолирован, и отказ тихий.** Проба: два одновременных
-`pnpm install --frozen-lockfile` в одном дереве. Оба вернули **rc=0**, но второй напечатал
-`WARN Failed to create bin at …\apps\api\node_modules\.bin\vitest. ENOENT` и
-`… .bin\tsc.ps1`. То есть гонка за bin-шимы завершается «успехом» с предупреждением; дерево
-осталось рабочим (`pnpm test` → 29 + 13 passed), но воспроизводимость этого никто не гарантирует.
-Так как добавление зависимости — штатный шаг фичи (`T0.2` первой итерации именно такой), это
-реальный сценарий.
+**P2. `node_modules` is not isolated, and the failure is silent.** Probe: two simultaneous
+`pnpm install --frozen-lockfile` in one tree. Both returned **rc=0**, but the second printed
+`WARN Failed to create bin at …\apps\api\node_modules\.bin\vitest. ENOENT`. So the race for bin shims
+ends in "success" with a warning; the tree stayed usable (`pnpm test` → 29 + 13 passed), but nobody
+guarantees that is reproducible. Since adding a dependency is a routine feature step, this is a real
+scenario.
 
-**P2. Граф зависимостей §5 плана имплементации даёт формально независимые задачи, конфликтующие по
-файлам.** Проверено по истории коммитов: `apps/api/src/app.module.ts` правили **и** фича 1
-(`7c4fc5b`, +26 строк), **и** фича 2 (`4bedc02`, +3 строки); `e2e/README.md` правили оба коммита
-фич и ещё три коммита сверху. В графе `T1.3` (`app.module + APP_PIPE`) и `T2.2` (`DTO + controller`,
-зависит только от `T1.2` и `T2.1`) формально параллельны, а трогают один файл. То же для
-`e2e/README.md` (пункт чек-листа приёмки «`e2e/README.md` дополнен строкой фичи» — для каждой фичи)
-и для `*.unit.cases.md`, который обязан пополняться и бэкендом, и вебом. Правка: в шаблоне плана
-добавить обязательный столбец «файлы» **с проверкой на пересечение**: задачи с общим файлом не
-помечаются параллельными, а общий файл (`app.module.ts`, `e2e/README.md`) выносится в отдельную
-задачу-мерж.
+**P2. The dependency graph of implementation plan §5 yields formally independent tasks that conflict
+by file.** Verified from the commit history: `apps/api/src/app.module.ts` was edited by **both**
+feature 1 (`7c4fc5b`, +26 lines) and feature 2 (`4bedc02`, +3); `e2e/README.md` was edited by both
+feature commits and three more on top. In the graph, `T1.3` and `T2.2` are formally parallel yet
+touch one file. The same holds for `e2e/README.md` (the acceptance checklist item "`e2e/README.md`
+gained a row" applies per feature) and for `*.unit.cases.md`, which both the backend and the web
+side must extend. Fix: add a mandatory "files" column to the plan template **with an overlap check**
+— tasks sharing a file are not marked parallel, and a shared file becomes its own merge task.
 
-**P2. Скил `agent-team` закрывает главный риск, но упомянут не там, где нужен, и живёт вне
-репозитория.** `feature-pipeline` §4 упоминает его как факультативный («при риске пересечения по
-файлам»), тогда как измерения показывают, что worktree — **единственный** способ вообще запустить
-два прогона. При этом сам скил лежит в `C:\Users\User\.claude\skills\agent-team`, то есть в
-пользовательском каталоге, а не в `.claude/skills/` репозитория: на другой машине или в свежем клоне
-пайплайн сошлётся на несуществующий скил. Правка: (1) в `feature-pipeline` §4, `CLAUDE.md` и
-`TEMPLATE.md` §3 сделать worktree обязательным для любого параллельного этапа, с объяснением про
-`Dir:`-регистрацию Next; (2) либо перенести `agent-team` в репозиторий, либо не ссылаться на него как
-на часть проектного пайплайна.
+**P2. The `agent-team` skill closes the main risk but is mentioned in the wrong place and lives
+outside the repository.** `feature-pipeline` §4 calls it optional ("if files might overlap"), while
+the measurements show a worktree is the **only** way to run two runs at all. The skill itself lives
+in the user directory rather than in the repository's `.claude/skills/`: on another machine or in a
+fresh clone the pipeline would reference a non-existent skill. Fix: (1) make a worktree mandatory for
+any parallel stage in `feature-pipeline` §4, `CLAUDE.md` and `TEMPLATE.md`, explaining the `Dir:`
+registration; (2) either move `agent-team` into the repository or stop referring to it as part of
+the project pipeline.
 
-Сводная матрица — в §5.
+### 3.6 Completeness of the checks
 
-### 3.6 Полнота проверок и тестирования
+**P1. `SEC-API-05` is not a "flake risk" but a measured 50% flake, and its measurement is
+systematically biased.** Observations that day: a solo run on an idle machine — **failed** (141 ms
+against 56 ms, ratio 2.518 against a threshold of 2.5); a run under parallel load — **failed** (309
+against 114, ratio 2.71); two other runs passed (in one, the case took 735 ms). Two failures out of
+four completed runs. The cause is not load as such: the spec measures five requests for the unknown
+email first and only then five for the wrong password. The first series pays the warm-up (JIT, the
+first `scrypt`), the second does not, and the ratio is computed as `max/min`, so it fires in
+**either** direction. Hence the inverted sign of the observed difference: the "vulnerability" shows
+the _unknown_ email as slower, which is exactly what the defence was built against. A threshold of
+2.5 against a baseline difference of 2.5 is a threshold set flush against the measured quantity.
+Fix: interleave the samples, discard the first two as warm-up, take 15 samples, compare medians
+against a threshold of 2.0 **and** add an absolute floor ("a difference under 50 ms is not a
+signal"). Until then, drop `@p0` and move the case into a separate script that does not block
+acceptance.
 
-**P1. `SEC-API-05` — не «риск флака», а измеренный флак 50%, и его замер систематически смещён.**
-Наблюдения сегодня: одиночный прогон на незагруженной машине — **упал** (141 мс против 56 мс,
-ratio 2,518 против порога 2,5); прогон под параллельной нагрузкой — **упал** (309 против 114,
-ratio 2,71); два других прогона — прошли (в одном кейс занял 735 мс). Итого 2 падения из 4
-доведённых прогонов. Причина не в нагрузке как таковой: в `security.api.spec.ts:150-166` сначала
-целиком измеряются 5 запросов для неизвестного email, и только потом 5 запросов для неверного
-пароля. Первая серия платит разогрев (JIT, первый `scrypt`), вторая — нет, и отношение считается как
-`max/min`, то есть срабатывает в **любую** сторону. Отсюда и обратный знак наблюдаемой разницы:
-«уязвимость» показывает, что _неизвестный_ email медленнее, хотя защита ровно от этого и делалась.
-Порог 2,5 при базовой разнице 2,5 — это порог, поставленный вплотную к измеряемой величине.
-Правка: чередовать выборки (`unknown, wrong, unknown, wrong, …`), выбросить первые 2 замера как
-разогрев, взять 15 сэмплов, сравнивать медианы с порогом 2,0 **и** добавить абсолютный порог
-(«разница меньше 50 мс — не сигнал»). Пока это не сделано — снять `@p0` и перевести кейс в
-отдельный скрипт, не блокирующий приёмку.
+**P1. The blocker "the actual test count did not match table §6.6" is impossible to satisfy.** The
+table expects 53 e2e and 38 units (+1 baseline). Measured: `pnpm e2e` → **77 tests** (68 feature,
+smoke and security, plus 9 meta), `pnpm test` → **42** (29 api + 13 web). The cause is the
+`e2e/security/**` suite (15 cases) added after the table was written. Until the table is updated,
+any honest implementer must declare the feature not accepted. Fix: delete the expected-count table
+and move the check into the meta-test (it can count files and IDs), or drop the item from the
+blockers — "comparing against a number in markdown" is exactly the bookkeeping the pipeline itself
+names as a source of false blockers.
 
-**P1. Блокер «фактическое число тестов не совпало с таблицей §6.6» невыполним.** Таблица
-`feature-plan-testing.md` §6.6 ожидает 53 e2e и 38 юнитов (+1 baseline). Измерено: `pnpm e2e` →
-**77 тестов** (68 фичевых/смоук/security + 9 мета), `pnpm test` → **42** (29 api + 13 web).
-Причина — сьют `e2e/security/**` (15 кейсов), добавленный коммитом `daf86b2` после составления
-таблицы. Пока таблица не обновлена, любой честный исполнитель обязан объявить фичу непринятой.
-Правка: удалить таблицу ожидаемых чисел из плана и перенести проверку в мета-тест (он умеет считать
-файлы и ID), либо снять этот пункт из блокеров: «сверка с числом в markdown» — ровно та
-бухгалтерия, которую пайплайн сам называет источником ложных блокеров.
+**P1. Coverage is not measured in the pipeline, and what was measured is half of what it looks
+like.** The absence of the metric is itself a finding: the pipeline claims "every level of checks"
+without a single number. Measured that day:
 
-**P1. Покрытие в пайплайне не измеряется, а измеренное — вдвое ниже видимого.** Само отсутствие
-метрики — находка: пайплайн утверждает «все уровни проверок», не имея ни одного числа. Измерено
-сегодня:
+| What                        | Command                                             | Result                    |
+| --------------------------- | --------------------------------------------------- | ------------------------- |
+| api, as the task suggests   | `pnpm --filter @purpleschool/api test:cov`          | **96.07%** stmts (98/102) |
+| api, across all `src` files | the same plus `--coverage.include='src/**/*.ts'`    | **68.53%** stmts (98/143) |
+| web, across all `src` files | `vitest run --coverage --coverage.include='src/**'` | **26.20%** stmts (38/145) |
+| both applications together  | arithmetic                                          | **47.2%** (136/288)       |
 
-| Что                        | Команда                                             | Результат                 |
-| -------------------------- | --------------------------------------------------- | ------------------------- |
-| api, как предлагает задача | `pnpm --filter @purpleschool/api test:cov`          | **96,07%** stmts (98/102) |
-| api, по всем файлам `src`  | тот же + `--coverage.include='src/**/*.ts'`         | **68,53%** stmts (98/143) |
-| web, по всем файлам `src`  | `vitest run --coverage --coverage.include='src/**'` | **26,20%** stmts (38/145) |
-| два приложения вместе      | арифметика                                          | **47,2%** (136/288)       |
+That is, the stock `test:cov` counts only the files the tests **imported** in the denominator: 96% is
+the coverage of six files, not of the application. The actual holes: `apps/api/src/config/auth.config.ts`
+— **0%** (the "`JWT_SECRET` unset → warn + dev default" branch, unverifiable over HTTP),
+`apps/api/src/auth/password.service.ts` — 50%, and in web `lib/actions/auth.ts`,
+`lib/actions/meetings.ts`, `lib/dal.ts` and `proxy.ts` (all 0%) — that is, **the whole server-side
+session check layer** that invariants 10 and 19 rest on. It is covered by e2e, and e2e coverage is
+not measured at all. Fix: set `coverage.include: ['src/**']` and thresholds in both vitest configs,
+add `@vitest/coverage-v8` to `apps/web` devDependencies, and record the number once in the
+acceptance report. A threshold as a blocker is not needed; "the number is stated" is enough.
 
-То есть штатный `test:cov` считает знаменателем только те файлы, которые тесты **импортировали**:
-96% — это покрытие шести файлов, а не приложения. Дыры по факту: `apps/api/src/config/auth.config.ts`
-— **0%** (это ветка «`JWT_SECRET` не задан → warn + dev-дефолт», через HTTP непроверяемая),
-`apps/api/src/auth/password.service.ts` — 50%, а в web — `lib/actions/auth.ts` и
-`lib/actions/meetings.ts` (0%), `lib/dal.ts` (0%), `proxy.ts` (0%), то есть **весь серверный слой
-проверки сессии**, на который инварианты 10 и 19 `CLAUDE.md` прямо опираются. Он покрыт только e2e,
-а покрытие e2e не измеряется вообще. Правка: в `apps/api/vitest.config.ts` и
-`apps/web/vitest.config.ts` задать `coverage.include: ['src/**']` и порог (`thresholds`), добавить
-`@vitest/coverage-v8` в devDependencies `apps/web` (сейчас он там не объявлен и подтянулся только из
-общего стора), и один раз зафиксировать число в отчёте приёмки. Порог как блокер — не нужно,
-достаточно «число названо».
-
-**P2. Правило размера сьюта противоречит содержимому сьюта, и это не спасает оговорка «в первом
-проходе».** `e2e/README.md:177` — «**В первом проходе — только `@p0`, и не больше восьми кейсов на
-файл**». Факт: `home-dashboard.api.spec.ts` — 16 тестов (9 из них `@p0`),
+**P2. The suite size rule contradicts the suite's own contents, and "in the first pass" does not save
+it.** `e2e/README.md` says "**in the first pass, only `@p0`, and no more than eight cases per
+file**". The fact: `home-dashboard.api.spec.ts` — 16 tests (9 of them `@p0`),
 `home-dashboard.functional.spec.ts` — 13 (8 `@p0`), `auth-login.api.spec.ts` — 11 (5 `@p0`),
-`auth-login.functional.spec.ts` — 10 (5 `@p0`). Ни один фичевый файл правило не соблюдает, а
-формулировка «в первом проходе» не отличает «первый проход этой фичи» от «первая версия сьюта».
-Правка: переписать как ограничение на **прирост** («новая фича — не больше 8 кейсов на файл в первом
-коммите; больше — с обоснованием в `.cases.md`») и не пытаться автоматизировать: механическое
-ограничение на число кейсов легко обходится дроблением файла.
+`auth-login.functional.spec.ts` — 10 (5 `@p0`). Not one feature file obeys the rule, and "in the
+first pass" does not distinguish "this feature's first pass" from "the suite's first version". Fix:
+rewrite it as a limit on the **increment** ("a new feature: no more than 8 cases per file in the
+first commit; more requires a justification in the `.cases.md`") and do not try to automate it — a
+mechanical cap on case count is trivially bypassed by splitting the file.
 
-**P2. Чего мета-тест не ловит — три дыры, и одна из них сработает на следующей же фиче.**
-Проверено запуском регулярок, взятых из самого файла (`e2e/suite-integrity.api.spec.ts:36`,
-`CASE_ID_SOURCE = '(?:AL|HD|SM|SEC)-(?:API|FN|UT)-\d{2}'`):
+**P2. What the meta-test does not catch — three gaps, one of which fires on the very next feature.**
+Verified by running the regexes taken from the file itself
+(`CASE_ID_SOURCE = '(?:AL|HD|SM|SEC)-(?:API|FN|UT)-\d{2}'`):
 
-- **новый префикс фичи невидим.** `## PR-API-01 …` — не распознаётся ни как заголовок кейса, ни как
-  строка таблицы. Для третьей фичи правила 5, 6 и 7 станут **вакуумно зелёными**: объявленных ID
-  ноль, значит проверять нечего. Это ровно тот отказ, от которого написана «самопроверка обхода» —
-  но она проверяет непустоту **списка файлов**, а не непустоту списка ID;
-- **номер ≥ 100 невидим** (`\d{2}`): `## AL-API-100` не распознаётся;
-- **правило 5 удовлетворяется упоминанием ID в комментарии**: проверка — `specText.includes(id)`
-  (`строка 311`), поэтому `// AL-API-07 автоматизируем позже` в спеке считается автоматизацией.
-  Так же пройдёт закомментированный тест.
+- **a new feature prefix is invisible.** `## PR-API-01 …` is recognized neither as a case heading nor
+  as a table row. For a third feature, rules 5, 6 and 7 become **vacuously green**: zero declared
+  IDs means nothing to check. That is exactly the failure the "walk self-check" was written against
+  — but it checks the file list is non-empty, not the ID list;
+- **numbers ≥ 100 are invisible** (`\d{2}`): `## AL-API-100` is not recognized;
+- **rule 5 is satisfied by an ID mentioned in a comment**: the check is `specText.includes(id)`, so
+  `// AL-API-07 to be automated later` in a spec counts as automation. A commented-out test passes
+  the same way.
 
-Кроме этого мета-тест не проверяет: наличие тегов (`@regression`/`@<slug>`/`@p0` — пункт чек-листа
-приёмки, не автоматизирован), непустоту спека, `test.fixme` без ссылки на задачу (ESLint-правило
-`no-skipped-test` его не видит — это осознанно задокументировано в `eslint.config.mjs:30`), и —
-главное — **полноту `PROTECTED_ROUTES`/`PROTECTED_PAGES`**. Правка: (1) собирать префиксы из имён
-каталогов `e2e/regression/*`, а не из литерала; `\d{2,3}`; (2) правило 5 сверять с
-`test('<ID> — `, а не с `includes`; (3) добавить правило 9: перечислить маршруты из декораторов
-`@Controller/@Get/@Post` в `apps/api/src/**` и потребовать, чтобы каждый защищённый попал в
-`PROTECTED_ROUTES`. Сейчас «единственное, что связывает security-сьют с растущим приложением»
-(формулировка `CLAUDE.md:96-99` и `docs/security.md:29-35`) — это ручная дисциплина, и она названа
-единственной связью в четырёх документах, ни в одном из которых нет проверки.
+Beyond that, the meta-test does not check: the presence of tags (`@regression`/`@<slug>`/`@p0`, an
+acceptance checklist item that is not automated), that a spec is non-empty, `test.fixme` without a
+task link (the `no-skipped-test` ESLint rule does not see it, which is deliberately documented), and
+— most importantly — **the completeness of `PROTECTED_ROUTES`/`PROTECTED_PAGES`**. Fix: (1) collect
+prefixes from the directory names under `e2e/regression/*` rather than from a literal, and use
+`\d{2,3}`; (2) match rule 5 against `test('<ID> — ` rather than `includes`; (3) add a rule 9 that
+enumerates routes from the `@Controller/@Get/@Post` decorators and requires every protected one to
+appear in `PROTECTED_ROUTES`. Today "the only thing connecting the security suite to a growing
+application" is manual discipline, and it is called the only connection in four documents, none of
+which contains a check.
 
-**P2. Контрольные опыты — главная заявленная ценность, но они не существуют как артефакт.**
-`feature-pipeline` §6 называет их первым из трёх «что не сокращать», `regression-verify` шаг 10
-предписывает их для **каждого нового кейса**, и обе фичи имеют предписанные точки
-(`verifyPassword` → `true`; `countByOwner` → `items.length`). При этом: в репозитории нет ни файла,
-ни скрипта, ни записи о том, что опыт проводился; отчёт живёт в переписке. Проверить, проводились ли
-они, я не могу — следов нет. Риск конкретный: тест, зелёный при сломанной фиче, обнаруживается
-только повторным ручным опытом, а «по памяти исполнителя» это ровно тот пропуск, который пайплайн
-запрещает не называть. Правка: сделать их исполняемыми — скрипт `pnpm mutate:<точка>`, который
-применяет патч из `e2e/mutations/<имя>.patch`, прогоняет `pnpm e2e --grep <ожидаемые ID>`, требует
-**красного** результата и откатывает патч; в отчёте приёмки — вывод этого скрипта. Это тот же «один
-`sed` плюс отфильтрованный прогон», но воспроизводимый и проверяемый.
+**P2. Control experiments are the main claimed value, yet they do not exist as an artifact.**
+`feature-pipeline` §6 names them first among "what not to cut", `regression-verify` step 10
+prescribes them for **every new case**, and both features have prescribed control points
+(`verifyPassword` → `true`; `countByOwner` → `items.length`). Yet there is no file, no script and no
+record in the repository that any experiment was performed; the report lives in a chat. Whether they
+were done cannot be verified — there is no trace. The concrete risk: a test that is green with the
+feature broken is discovered only by another manual experiment, and "from the implementer's memory"
+is exactly the kind of omission the pipeline forbids leaving unstated. Fix: make them executable — a
+`pnpm mutate:<point>` script that applies a patch from `e2e/mutations/<name>.patch`, runs
+`pnpm e2e --grep <expected IDs>`, requires a **red** result and reverts the patch; the acceptance
+report then carries that script's output. It is the same "one `sed` plus a filtered run", only
+reproducible and verifiable.
 
-**Чего нет вообще — что нужно, а что нет:**
+**What is missing entirely — what is needed and what is not:**
 
-| Отсутствует                          | Вердикт                | Обоснование                                                                                                                                                                                                                                                                                                                                |
-| ------------------------------------ | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| CI (`.github/workflows`)             | нужно позже            | remote нет; пропуск назван явно в `docs/plans/README.md:32-43`. Ветки `isCI` в конфиге уже подготовлены                                                                                                                                                                                                                                    |
-| Метрика покрытия                     | **нужно сейчас**       | измерено 47,2%; без числа фраза «все уровни проверок» непроверяема                                                                                                                                                                                                                                                                         |
-| Проверка синхронности `.env.example` | нужно сейчас, дёшево   | сравнить `grep -o 'process\.env\.[A-Z_]*'` с ключами `.env.example`: сегодня в коде читается `TZ`, которого нет в `.env.example`, а в комментарии `apps/api/.env.example` упомянут `SESSION_MAX_AGE_SECONDS`, которого нет в коде. 10 строк в мета-тесте                                                                                   |
-| Контрактные тесты web↔api помимо e2e | **карго-культ здесь**  | web ходит в api только через `api-client.ts`, и `HD-FN-11` уже фиксирует, что браузер не ходит на :3101. Отдельный pact-контракт добавил бы третий артефакт к тем же двум сторонам в одном репозитории                                                                                                                                     |
-| Тесты React-компонентов              | **согласен с отказом** | компоненты в `apps/web/src/components` — это разметка без ветвлений (`meeting-list.tsx` — 27 строк, `logout-button.tsx` — 21); их поведение целиком проверяется `*.functional.spec.ts` через роли и метки. Но отказ должен быть записан вместе с ценой: 0% юнит-покрытия серверных экшенов — это не «компоненты», и вот его надо закрывать |
-| Mutation testing                     | нужно позже            | контрольные опыты — его ручной аналог; сначала автоматизировать их (см. выше), потом обсуждать Stryker                                                                                                                                                                                                                                     |
-| a11y-проверки                        | нужно позже, но дёшево | сьют уже целиком на `getByRole`/`getByLabel`, то есть половина работы сделана; `@axe-core/playwright` на две страницы — один кейс                                                                                                                                                                                                          |
-| Визуальные регрессии                 | **карго-культ здесь**  | CSS-модули с хешами, две страницы, скриншоты на Windows-агенте будут флакать на шрифтах                                                                                                                                                                                                                                                    |
-| Нагрузка и перф                      | **карго-культ здесь**  | in-memory store, нет развёртывания. Единственный перф-чувствительный кейс (`SEC-API-05`) уже показал, что измерять время под нагрузкой прогона этот стенд не умеет                                                                                                                                                                         |
+| Missing                           | Verdict                  | Reasoning                                                                                                                                                                                                                                                                                                                                                              |
+| --------------------------------- | ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| CI (`.github/workflows`)          | needed later             | no remote; the omission is named explicitly. The `isCI` branches in the config are already prepared                                                                                                                                                                                                                                                                    |
+| A coverage metric                 | **needed now**           | measured at 47.2%; without a number the phrase "every level of checks" is unverifiable                                                                                                                                                                                                                                                                                 |
+| An `.env.example` sync check      | needed now, cheap        | compare `grep -o 'process\.env\.[A-Z_]*'` with the `.env.example` keys: today `TZ` is read in code but absent from the file, and a comment mentions `SESSION_MAX_AGE_SECONDS`, which is not in the code. Ten lines in the meta-test                                                                                                                                    |
+| Contract tests web↔api beyond e2e | **cargo cult here**      | web reaches api only through `api-client.ts`, and `HD-FN-11` already pins that the browser never reaches :3101. A separate pact contract would add a third artifact to the same two sides in one repository                                                                                                                                                            |
+| React component tests             | **the refusal is right** | the components in `apps/web/src/components` are branchless markup (`meeting-list.tsx` — 27 lines, `logout-button.tsx` — 21); their behaviour is fully checked by `*.functional.spec.ts` through roles and labels. But the refusal must be recorded together with its price: 0% unit coverage of the server actions is not "components", and that is what needs closing |
+| Mutation testing                  | needed later             | control experiments are its manual analogue; automate those first, then discuss Stryker                                                                                                                                                                                                                                                                                |
+| a11y checks                       | needed later, cheap      | the suite is already entirely on `getByRole`/`getByLabel`, so half the work is done; `@axe-core/playwright` on two pages is one case                                                                                                                                                                                                                                   |
+| Visual regression                 | **cargo cult here**      | hashed CSS modules, two pages, and screenshots on a Windows agent would flake on fonts                                                                                                                                                                                                                                                                                 |
+| Load and performance              | **cargo cult here**      | an in-memory store and no deployment. The one performance-sensitive case (`SEC-API-05`) has already shown this rig cannot measure time under the load of a run                                                                                                                                                                                                         |
 
-### 3.7 Сквозной вопрос: инженерия против ритуала
+### 3.7 Engineering against ritual
 
-**Реальная инженерия** (даёт информацию, которую иначе не получить):
+**Real engineering** (it yields information obtainable no other way):
 
-- `e2e/suite-integrity.api.spec.ts` — ловит класс отказов, невидимый для типов, линта и ревью
-  (файл без суффикса молча не запускается). Написан один раз, работает всегда. Дыры из §3.6
-  лечатся, а не отменяют идею;
-- `e2e/security/**` — три дефекта на живом коде (`X-Powered-By`, тайминг, `ERR_TOO_MANY_REDIRECTS`),
-  подтверждённые коммитом `daf86b2`. Это единственная часть пайплайна с доказанной отдачей;
-- требование фактического прогона перед словом «готово» — отличает результат от отчёта;
-- парность `.cases.md` ↔ спек — держит документацию от расхождения с кодом машинной проверкой;
-- раздел «Инварианты проекта» в `CLAUDE.md` — 19 правил вместо 2000 строк планов. Направление верное
-  (см. §4.4 про то, что этого пока недостаточно).
+- `e2e/suite-integrity.api.spec.ts` — catches a class of failure invisible to types, lint and review
+  (a file without a suffix silently never runs). Written once, works forever. The gaps from §3.6 are
+  treatable rather than fatal to the idea;
+- `e2e/security/**` — three defects in live code (`X-Powered-By`, timing, `ERR_TOO_MANY_REDIRECTS`),
+  confirmed by commit `daf86b2`. The only part of the pipeline with proven return;
+- the demand for an actual run before the word "done" — it separates a result from a report of one;
+- the `.cases.md` ↔ spec pairing — it keeps the documentation from drifting, by machine;
+- the "Project invariants" section in `CLAUDE.md` — 19 rules instead of 2000 lines of plans. The
+  direction is right (see §4.4 on why it is not yet enough).
 
-**Ритуал** (воспроизводит форму без содержания):
+**Ritual** (it reproduces the form without the substance):
 
-- **лестница из 8 шагов** на зелёном пути: шаги 1, 5, 6, 7 — подмножества шага 8, платят 75 с и не
-  добавляют ни одного наблюдения;
-- **«после фикса весь пайплайн заново с шага 1»** — прямо противоречит собственному наблюдению
-  скила о бесполезности повторного прогона;
-- **таблица ожидаемых чисел тестов** — сверка markdown с реальностью руками; уже разошлась и уже
-  делает приёмку формально невозможной;
-- **матрица покрытия** (`feature-plan-testing.md` §7) — 40 строк, отменённые собственным шаблоном
-  (`TEMPLATE.md:13`: «Матрица покрытия не нужна»), но всё ещё лежащие в «каноническом источнике»;
-- **три документа ревью плана** (`plan-review-1..3.md`, 1416 строк) — 46,5% токенов первой итерации;
-  их содержание либо перенесено в инварианты, либо было бухгалтерией самих документов;
-- **четыре копии абзаца «Экономика прогонов»**, все четыре с устаревшими числами;
-- **утверждение «проверено прогоном» про параллельные порты** — самый дорогой вид ритуала: ссылка на
-  проверку, которой не было в том виде, в котором её описывают.
+- **the 8-step ladder** on the green path: steps 1, 5, 6 and 7 are subsets of step 8, cost 75 s and
+  add no observation;
+- **"after a fix, the whole pipeline again from step 1"** — it directly contradicts the same skill's
+  own observation that a repeat run is useless;
+- **the expected-test-count table** — comparing markdown against reality by hand; already diverged
+  and already makes acceptance formally impossible;
+- **the coverage matrix** (test plan §7) — 40 lines, cancelled by the project's own template
+  ("a coverage matrix is not needed") yet still sitting in the "canonical source";
+- **the three plan review documents** (1416 lines) — 46.5% of the first iteration's tokens; their
+  content either moved into the invariants or was bookkeeping about the documents themselves;
+- **four copies of the "Run economics" paragraph**, all four with stale numbers;
+- **the claim "verified by a run" about parallel ports** — the most expensive kind of ritual: a
+  reference to a check that never happened in the form described.
 
 ---
 
-## 4. Стоимость
+## 4. Cost
 
-### 4.1 Модели и цены
+### 4.1 Models and prices
 
-Источник — скил `claude-api` (кэш от 2026-06-24), первичные ставки Claude API:
+Source: the `claude-api` skill (cache of 2026-06-24), list Claude API rates:
 
-| Модель           | ID                 | Input $/1M | Output $/1M | Смешанная ставка при 90/10 |
-| ---------------- | ------------------ | ---------- | ----------- | -------------------------- |
-| Claude Opus 5    | `claude-opus-5`    | 5,00       | 25,00       | **7,00**                   |
-| Claude Sonnet 5  | `claude-sonnet-5`  | 2,00       | 10,00       | **2,80**                   |
-| Claude Haiku 4.5 | `claude-haiku-4-5` | 1,00       | 5,00        | **1,40**                   |
-| Claude Fable 5.1 | `claude-fable-5-1` | 10,00      | 50,00       | 14,00                      |
+| Model            | ID                 | Input $/1M | Output $/1M | Blended at 90/10 |
+| ---------------- | ------------------ | ---------- | ----------- | ---------------- |
+| Claude Opus 5    | `claude-opus-5`    | 5.00       | 25.00       | **7.00**         |
+| Claude Sonnet 5  | `claude-sonnet-5`  | 2.00       | 10.00       | **2.80**         |
+| Claude Haiku 4.5 | `claude-haiku-4-5` | 1.00       | 5.00        | **1.40**         |
+| Claude Fable 5.1 | `claude-fable-5-1` | 10.00      | 50.00       | 14.00            |
 
-Допущения расчёта, названные явно: (1) 2 161 851 — суммарные токены, разбивки input/output нет,
-поэтому взято 90% input / 10% output — типичное для агентных субагентов, где контекст
-переотправляется каждый ход; при 95/5 все суммы ниже на 14%; (2) кэширование промпта не учтено —
-данных о `cache_read_input_tokens` нет, при активном кэше input-часть дешевеет до ~10%, и тогда
-абсолютные суммы падают, а **относительная** экономия от роутинга сохраняется; (3) модель родителя —
-Opus-класс (`claude-opus-5[1m]`), ставка Opus 5.
+Assumptions, stated explicitly: (1) 2,161,851 is the total token count with no input/output split,
+so 90% input / 10% output is assumed — typical for agentic subagents, where the context is resent
+every turn; at 95/5 every sum below falls by 14%; (2) prompt caching is not accounted for — there is
+no `cache_read_input_tokens` data, and with an active cache the input part drops to ~10%, so the
+absolute sums fall while the **relative** saving from routing holds; (3) the parent model is Opus
+class.
 
-### 4.2 Стоимость первой итерации и стоимость того же при разумном роутинге
+### 4.2 Cost of the first iteration, and of the same work with sensible routing
 
-| Роль                            | Токенов       | Мин     | Факт: Opus 5 | Предлагаемая модель | Стоимость при роутинге |
-| ------------------------------- | ------------- | ------- | ------------ | ------------------- | ---------------------- |
-| Планировщик тест-плана          | 59 733        | 8,7     | $0,42        | Sonnet 5            | $0,17                  |
-| Планировщик плана имплементации | 115 530       | 16,4    | $0,81        | **Opus 5**          | $0,81                  |
-| Ревью плана №1                  | 232 729       | 24,5    | $1,63        | Sonnet 5            | $0,65                  |
-| Агент-доработчик плана          | 288 292       | 28,5    | $2,02        | Haiku 4.5           | $0,40                  |
-| Ревью плана №2                  | 276 118       | 21,4    | $1,93        | Sonnet 5            | $0,77                  |
-| Ревью плана №3 (узкое)          | 208 208       | 8,7     | $1,46        | Sonnet 5            | $0,58                  |
-| Каркас сьюта T0                 | 174 354       | 16,1    | $1,22        | Sonnet 5            | $0,49                  |
-| Бэкенд фичи 1                   | 226 880       | 18,5    | $1,59        | **Opus 5**          | $1,59                  |
-| Веб-часть фичи 1                | 261 229       | 22,8    | $1,83        | **Opus 5**          | $1,83                  |
-| Фича 2 целиком                  | 318 778       | 27,3    | $2,23        | **Opus 5**          | $2,23                  |
-| **Итого**                       | **2 161 851** | **193** | **$15,13**   |                     | **$9,52 (−37%)**       |
+| Role                       | Tokens        | Min     | Actual: Opus 5 | Proposed model | Cost with routing |
+| -------------------------- | ------------- | ------- | -------------- | -------------- | ----------------- |
+| Test plan author           | 59,733        | 8.7     | $0.42          | Sonnet 5       | $0.17             |
+| Implementation plan author | 115,530       | 16.4    | $0.81          | **Opus 5**     | $0.81             |
+| Plan review 1              | 232,729       | 24.5    | $1.63          | Sonnet 5       | $0.65             |
+| Plan rework agent          | 288,292       | 28.5    | $2.02          | Haiku 4.5      | $0.40             |
+| Plan review 2              | 276,118       | 21.4    | $1.93          | Sonnet 5       | $0.77             |
+| Plan review 3 (narrow)     | 208,208       | 8.7     | $1.46          | Sonnet 5       | $0.58             |
+| Suite scaffold T0          | 174,354       | 16.1    | $1.22          | Sonnet 5       | $0.49             |
+| Feature 1 backend          | 226,880       | 18.5    | $1.59          | **Opus 5**     | $1.59             |
+| Feature 1 web              | 261,229       | 22.8    | $1.83          | **Opus 5**     | $1.83             |
+| Feature 2 end to end       | 318,778       | 27.3    | $2.23          | **Opus 5**     | $2.23             |
+| **Total**                  | **2,161,851** | **193** | **$15.13**     |                | **$9.52 (−37%)**  |
 
-Сценарий «новый пайплайн + роутинг» (спайк ~60 тыс. токенов на Sonnet добавлен; ревью №2, ревью №3 и
-агент-доработчик отменены как класс работ; тест-план как документ упразднён, его 59 733 токена
-переразмечены в «написание `.cases.md`»):
+Scenario "new pipeline + routing" (a ~60k-token spike on Sonnet added; review 2, review 3 and the
+rework agent dropped as a class of work; the test plan as a document abolished, its 59,733 tokens
+re-labelled as "writing `.cases.md`"):
 
-| Сценарий                          | Токенов          | Стоимость (90/10) | Стоимость (95/5) |
-| --------------------------------- | ---------------- | ----------------- | ---------------- |
-| A. Как было: всё на Opus 5        | 2 161 851        | **$15,13**        | $12,97           |
-| B. Тот же объём, разумный роутинг | 2 161 851        | **$9,52** (−37%)  | $8,16            |
-| C. Новый пайплайн + роутинг       | 1 449 233 (−33%) | **$7,93 (−48%)**  | $6,80            |
+| Scenario                           | Tokens           | Cost (90/10)     | Cost (95/5) |
+| ---------------------------------- | ---------------- | ---------------- | ----------- |
+| A. As it was: everything on Opus 5 | 2,161,851        | **$15.13**       | $12.97      |
+| B. Same volume, sensible routing   | 2,161,851        | **$9.52** (−37%) | $8.16       |
+| C. New pipeline + routing          | 1,449,233 (−33%) | **$7.93 (−48%)** | $6.80       |
 
-**Честная оговорка про деньги.** Абсолютные суммы малы: пятнадцать долларов на две фичи — это не та
-величина, ради которой стоит переделывать процесс. Реальная валюта здесь — **wall-clock (193 минуты
-агентского времени) и контекст**, а деньги — только их индикатор. Поэтому главный вывод §4 не «−48%
-стоимости», а «−33% токенов и −83 минуты, потраченных на чтение и правку документов». Роутинг —
-второй по важности рычаг; первый — не делать работу, которая не даёт информации.
+**An honest caveat about money.** The absolute sums are small: fifteen dollars for two features is
+not a figure worth redesigning a process over. The real currency here is **wall-clock (193 minutes of
+agent time) and context**, with money only as their indicator. So the main conclusion of §4 is not
+"−48% cost" but "−33% tokens and −83 minutes spent reading and editing documents". Routing is the
+second lever; the first is not doing work that yields no information.
 
-### 4.3 Матрица «роль → модель»
+### 4.3 The role → model matrix
 
-| Роль                            | Характер работы                                         | Модель                                                                | Обоснование                                                                                                                                                                                                                                                 |
-| ------------------------------- | ------------------------------------------------------- | --------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Спайк допущений                 | написать 20 строк, запустить, прочитать ошибку          | **Sonnet 5**                                                          | верификация внешняя (рантайм), ошибка слабой модели ловится прогоном за секунды. Дешёвая модель здесь безопасна именно потому, что судья — не модель                                                                                                        |
-| План имплементации              | архитектура, компромиссы, границы фич                   | **Opus 5**                                                            | ошибка стоит целой итерации реализации; проверить план прогоном нельзя                                                                                                                                                                                      |
-| Написание `.cases.md`           | перечислить кейсы по шаблону                            | **Sonnet 5**                                                          | шаблон жёсткий, парность и ID проверяет мета-тест                                                                                                                                                                                                           |
-| Ревью плана (одно, три вопроса) | чтение документа на противоречия                        | **Sonnet 5**, при архитектурном сомнении — Opus 5                     | после спайка из ревью ушёл класс «поведение библиотек» (4 из 5 самых дорогих находок ревью №1). Осталась сверка полноты и зависимостей — работа на внимание, не на изобретательность. Риск назван: если ревью снова начнёт судить архитектуру, вернуть Opus |
-| Механическая правка markdown    | применить готовый список правок                         | **Haiku 4.5**, а лучше — не отдельный агент                           | 288 292 токена на «внести правки в документ» — второй расход в списке. Правки должен применять сам планировщик, у которого документ уже в контексте                                                                                                         |
-| Реализация фичи (бэкенд, веб)   | продуктовый код                                         | **Opus 5**                                                            | ошибка попадает в продукт; инварианты 1–19 требуют удержания в голове большого контекста                                                                                                                                                                    |
-| Каркас сьюта, фикстуры          | код по готовой конвенции                                | **Sonnet 5**                                                          | конвенция описана, отклонение ловит мета-тест и линт                                                                                                                                                                                                        |
-| Приёмка                         | запустить `pnpm verify`, прочитать вывод, сверить числа | **Haiku 4.5**, а по `feature-pipeline` §5 — вообще не отдельный агент | судья — код возврата, не модель                                                                                                                                                                                                                             |
-| Диффовое security-ревью         | чтение диффа на класс уязвимостей                       | **Opus 5**                                                            | ровно тот случай, где ошибка модели не ловится ничем автоматическим                                                                                                                                                                                         |
+| Role                               | Nature of the work                            | Model                                       | Reasoning                                                                                                                                                                                      |
+| ---------------------------------- | --------------------------------------------- | ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Assumption spike                   | write 20 lines, run them, read the error      | **Sonnet 5**                                | verification is external (the runtime); a weak model's mistake is caught by the run in seconds                                                                                                 |
+| Implementation plan                | architecture, trade-offs, feature boundaries  | **Opus 5**                                  | a mistake costs a whole implementation iteration, and a plan cannot be verified by running it                                                                                                  |
+| Writing `.cases.md`                | list cases against a template                 | **Sonnet 5**                                | the template is rigid; pairing and IDs are checked by the meta-test                                                                                                                            |
+| Plan review (one, three questions) | reading a document for contradictions         | **Sonnet 5**, Opus 5 on architectural doubt | after the spike, the "library behaviour" class left the review (4 of the 5 most expensive findings of review 1). What remains is completeness and dependencies — attention work, not invention |
+| Mechanical markdown edits          | apply a prepared list of fixes                | **Haiku 4.5**, better: not a separate agent | 288,292 tokens for "apply edits to a document" was the second largest line. The planner, who already has the document in context, should apply them                                            |
+| Feature implementation             | product code                                  | **Opus 5**                                  | a mistake reaches the product; invariants 1–19 require holding a large context                                                                                                                 |
+| Suite scaffold, fixtures           | code against an established convention        | **Sonnet 5**                                | the convention is written down; deviation is caught by the meta-test and the lint                                                                                                              |
+| Acceptance                         | run `pnpm verify`, read output, check numbers | **Haiku 4.5**, or no separate agent at all  | the judge is an exit code, not a model                                                                                                                                                         |
+| Diff-level security review         | reading a diff for a class of vulnerability   | **Opus 5**                                  | exactly the case where a model's mistake is caught by nothing automatic                                                                                                                        |
 
-**Стоит ли заводить `.claude/agents/*.md`: да, и не ради цены.** Что это даёт помимо −37%:
-(1) фиксирует модель — сейчас поведение зависит от того, вспомнит ли ведущий агент про `model`
-(в первой итерации не вспомнил ни разу); (2) урезает инструменты — ревьюер без `Write`/`Edit`
-физически не может «заодно починить», что сейчас запрещено только текстом
-(`regression-verify` §5 п.5); (3) убирает промпт на ~1500 слов из каждого вызова — системный промпт
-агента пишется один раз и версионируется; (4) делает пайплайн воспроизводимым: определение агента
-попадает в git и в ревью, а промпт в переписке — нет; (5) снимает конкретный дефект первой итерации
-— планировщик, запущенный read-only типом `Plan`, не смог записать файл, и 2000 строк пришлось
-перепечатывать руками.
+**Is `.claude/agents/*.md` worth introducing: yes, and not for the price.** Beyond −37% it gives:
+(1) a pinned model — today behaviour depends on whether the lead agent remembers `model` (in the
+first iteration it never did); (2) a trimmed tool set — a reviewer without `Write`/`Edit` physically
+cannot "fix it while it is there", which today is forbidden only by text; (3) it removes a ~1500-word
+prompt from every call — an agent's system prompt is written once and versioned; (4) it makes the
+pipeline reproducible: an agent definition lands in git and in review, a prompt in a chat does not;
+(5) it removes a concrete defect of the first iteration — a planner launched as the read-only `Plan`
+type could not write a file, and 2000 lines had to be retyped by hand.
 
-### 4.4 Сколько стоит чтение одних и тех же документов
+### 4.4 What reading the same documents costs
 
-Измерено (`wc -c`), токены — оценка `символы / 2,5` (для кириллического markdown; точного
-токенизатора на машине нет: `ant` не установлен, `ANTHROPIC_API_KEY` не задан, поэтому
-`count_tokens` вызвать нельзя — числа ниже приблизительны с точностью ±20%):
+Measured with `wc -c`; tokens are estimated as characters / 2.5 (for Cyrillic markdown; no exact
+tokenizer was available on the machine, so the numbers are ±20%):
 
-| Документ                                    | Символов    | ≈ токенов    |
+| Document                                    | Characters  | ≈ tokens     |
 | ------------------------------------------- | ----------- | ------------ |
-| `docs/plans/feature-plan-implementation.md` | 154 708     | ≈61 900      |
-| `docs/plans/feature-plan-testing.md`        | 154 474     | ≈61 800      |
-| `docs/plans/plan-review-1..3.md`            | 201 094     | ≈80 400      |
-| `e2e/README.md`                             | 23 523      | ≈9 400       |
-| `.claude/skills/regression-verify/SKILL.md` | 22 812      | ≈9 100       |
-| `CLAUDE.md`                                 | 15 129      | ≈6 100       |
-| `.claude/skills/playwright-verify/SKILL.md` | 14 416      | ≈5 800       |
-| `.claude/skills/feature-pipeline/SKILL.md`  | 13 563      | ≈5 400       |
-| `docs/security.md`                          | 7 970       | ≈3 200       |
-| `docs/plans/{README,TEMPLATE}.md`           | 13 639      | ≈5 500       |
-| **Весь корпус**                             | **621 328** | **≈248 000** |
+| `docs/plans/feature-plan-implementation.md` | 154,708     | ≈61,900      |
+| `docs/plans/feature-plan-testing.md`        | 154,474     | ≈61,800      |
+| `docs/plans/plan-review-1..3.md`            | 201,094     | ≈80,400      |
+| `e2e/README.md`                             | 23,523      | ≈9,400       |
+| `.claude/skills/regression-verify/SKILL.md` | 22,812      | ≈9,100       |
+| `CLAUDE.md`                                 | 15,129      | ≈6,100       |
+| `.claude/skills/playwright-verify/SKILL.md` | 14,416      | ≈5,800       |
+| `.claude/skills/feature-pipeline/SKILL.md`  | 13,563      | ≈5,400       |
+| `docs/security.md`                          | 7,970       | ≈3,200       |
+| `docs/plans/{README,TEMPLATE}.md`           | 13,639      | ≈5,500       |
+| **The whole corpus**                        | **621,328** | **≈248,000** |
 
-Промпты агентов первой итерации содержали список из восьми документов. Если каждый из пяти агентов
-прочитал хотя бы половину корпуса — это ≈620 тыс. токенов, **29% всего расхода**, на чтение одного и
-того же. Если каждый прочитал два больших плана целиком — те же 620 тыс. только на них.
+The first iteration's agent prompts listed eight documents. If each of five agents read even half
+the corpus, that is ≈620k tokens — **29% of the entire spend** — on reading the same thing. If each
+read both large plans in full, that is the same 620k on those alone.
 
-**Помог ли раздел «Инварианты проекта»?** Частично и не там, где нужно. Он экономит **вывод** правил
-заново (это его цель, и она достигнута: 19 правил вместо поиска по 2000 строк), но **не сокращает
-чтение**, потому что: (1) сам `CLAUDE.md` вырос до 15 КБ и читается всегда; (2) два больших плана
-по-прежнему объявлены каноническими в `regression-verify` и `e2e/README.md` (§3.1), то есть их всё
-равно открывают; (3) `regression-verify` (22,8 КБ) дублирует блокеры, уже перечисленные в
-`e2e/README.md` и в тест-плане §6.3 — три копии одного списка.
+**Did the "Project invariants" section help?** Partly, and not where it was needed. It saves
+**re-deriving** rules (its goal, and it is achieved: 19 rules instead of searching 2000 lines) but
+**does not reduce reading**, because: (1) `CLAUDE.md` itself grew to 15 KB and is always read;
+(2) the two large plans are still declared canonical by `regression-verify` and `e2e/README.md`
+(§3.1), so they get opened anyway; (3) `regression-verify` (22.8 KB) duplicates blockers already
+listed in `e2e/README.md` and in test plan §6.3 — three copies of one list.
 
-Правка, дающая наибольшую экономию контекста: (1) архивировать оба плана и все три ревью — минус
-≈204 тыс. токенов из зоны обязательного чтения; (2) собрать блокеры в один файл; (3) в промпте
-агента — не список документов, а ровно два адреса: `CLAUDE.md` (инварианты) и раздел плана его
-задачи, как уже предписывает `feature-pipeline` §4 — предписание верное, ему просто нечем помочь,
-пока планы каноничны.
-
----
-
-## 5. Матрица параллельности
-
-| Ресурс                                                                            | Изолирован?             | Чем подтверждено                                                                                                                                                                                                                                                                                         | Что делать                                                                                                                                                                                  |
-| --------------------------------------------------------------------------------- | ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `apps/web/.next` (dev-сервер Next)                                                | **Нет, и это фатально** | Два `pnpm e2e` на портах 3200/3201 и 3300/3301 в одном дереве: один прогон `77 passed`, второй — `⨯ Another next dev server is already running`, `Dir: C:\GIT\PurpleSchool\apps\web`, `webServer was not able to start`, rc=1, 0 тестов. Отдельно: `pnpm dev` на :3000 + `pnpm e2e` → тот же отказ, rc=1 | **worktree на агента — обязателен**, не опционален. Порты этого не решают: регистрация привязана к каталогу проекта. В скилах убрать утверждение, что `pnpm dev` на :3000 не мешает прогону |
-| Порты 3100/3101 при забытых переменных                                            | Нет                     | Два `pnpm e2e` по умолчанию: A `77 passed (54 с)`, B `3 failed, 1 did not run` — в т.ч. `ERR_CONNECTION_REFUSED at 127.0.0.1:3100` после завершения A (он снёс серверы, которые B переиспользовал)                                                                                                       | `reuseExistingServer: false` при заданных `E2E_*_PORT`; и не полагаться на порты как на механизм изоляции                                                                                   |
-| `test-results/`                                                                   | Нет                     | Один `.last-run.json`; файлы состояния — `auth-state-w<индекс>-<user>.json` (`auth.fixture.ts:40-45`), имена совпадают у любых двух прогонов; Playwright чистит `outputDir` на старте                                                                                                                    | `outputDir: \`test-results-${WEB_PORT}\``                                                                                                                                                   |
-| `playwright-report/`, `blob-report/`                                              | Нет                     | `playwright-report/` — единственный `index.html` (597 КБ), перезаписывается каждым прогоном                                                                                                                                                                                                              | `outputFolder` с суффиксом порта                                                                                                                                                            |
-| Состояние сессии между прогонами                                                  | Нет, и отказ **тихий**  | `JWT_SECRET: 'e2e-secret'` — константа для любого прогона (`playwright.config.ts:78`). Проба: токен сервера :3401 принят сервером :3501 (`/auth/me` → 200) при разном содержимом store (`total` 2 против 1)                                                                                              | `JWT_SECRET: \`e2e-secret-${API_PORT}\`` — чужой токен станет 401, отказ громким                                                                                                            |
-| In-memory store Nest (между процессами)                                           | **Да**                  | Встреча создана только на :3401 → `total` = 2 против 1 на :3501                                                                                                                                                                                                                                          | ничего; документация описывает верно                                                                                                                                                        |
-| In-memory store внутри одного прогона                                             | Нет (по устройству)     | проекты `api` и `web` ходят в один Nest; описано в плане §7 п.9                                                                                                                                                                                                                                          | меры уже есть: `planner`/`organizer`, `serial`, относительные счётчики. Оставить                                                                                                            |
-| Git-индекс                                                                        | Нет, отказ громкий      | Два `git add -A`: rc=0 и rc=128, `Unable to create '.git/index.lock': File exists`                                                                                                                                                                                                                       | worktree (у каждого свой индекс). В одном дереве недопустимы ещё и `checkout -b` и `pre-commit --fix`                                                                                       |
-| `node_modules` / pnpm store                                                       | Нет, отказ **тихий**    | Два `pnpm install --frozen-lockfile`: оба rc=0, второй — `WARN Failed to create bin at …\.bin\vitest. ENOENT`                                                                                                                                                                                            | установку зависимостей делать только ведущему агенту, до старта параллельного этапа; в worktree — свой `node_modules`                                                                       |
-| Файлы задач (`app.module.ts`, `e2e/README.md`, `*.unit.cases.md`, `package.json`) | Нет                     | `git log --stat`: `app.module.ts` правили коммиты обеих фич (`7c4fc5b` +26, `4bedc02` +3); `e2e/README.md` — оба коммита фич и три коммита сверху                                                                                                                                                        | в таблицу задач шаблона — обязательный столбец «файлы» и правило «пересекаются файлы → не параллельно»; общие файлы (`e2e/README.md`, `app.module.ts`) — отдельная задача-мерж              |
+The edit with the largest context saving: (1) archive both plans and all three reviews — ≈204k
+tokens out of the mandatory-reading zone; (2) gather the blockers into one file; (3) in an agent's
+prompt, not a list of documents but exactly two addresses: `CLAUDE.md` and the plan section for its
+task, as `feature-pipeline` §4 already prescribes — the prescription is right, it simply cannot help
+while the plans are canonical.
 
 ---
 
-## 6. Что удалить
+## 5. Parallelism matrix
 
-Артефакты и правила, создающие работу без информации. Порядок — по величине выигрыша.
-
-1. **`docs/plans/plan-review-1.md`, `plan-review-2.md`, `plan-review-3.md`** (1416 строк,
-   ≈80 тыс. токенов). Своё дело они сделали; содержательные находки уже живут в инвариантах
-   `CLAUDE.md` и в комментариях кода. Как источник знаний они опасны: описывают состояние планов,
-   которого больше нет.
-2. **Каноничность `feature-plan-implementation.md` и `feature-plan-testing.md`** (309 КБ). Сами
-   файлы можно оставить как исторические, но убрать из `regression-verify` (строки 11-12),
-   `e2e/README.md` (строки 6-7) и `docs/plans/README.md` (строки 9-11) все ссылки на них как на
-   «канонический источник». Живая конвенция — `e2e/README.md`, живые инварианты — `CLAUDE.md`.
-3. **Таблица ожидаемых чисел тестов** (`feature-plan-testing.md` §6.6) и связанный с ней блокер в
-   `regression-verify` §3. Уже разошлась (53 против 68, 38 против 42) и делает приёмку формально
-   невозможной. Проверять числа должен мета-тест, а не человек, сверяющий markdown.
-4. **Матрица покрытия** (`feature-plan-testing.md` §7, ~40 строк). Отменена собственным шаблоном
-   (`TEMPLATE.md:13`), её роль выполняют правила 5 и 7 мета-теста.
-5. **Требование «шаги 1–8 обязательны, пропуск любого — блокер»** (`regression-verify` §2 и §3).
-   Заменить на «зелёный `pnpm verify`»; разбивку оставить как инструмент отладки. Измеренная цена
-   ритуала — 75 с на каждый проход приёмки, а приёмка идёт после каждого фикса.
-6. **Пункт «После фикса — весь пайплайн заново, с шага 1»** (`regression-verify` §5 п.6).
-   Противоречит §2 того же файла.
-7. **Три лишние копии абзаца «Экономика прогонов»** (в `CLAUDE.md`, `regression-verify`,
-   `feature-pipeline`) — оставить одну, в `e2e/README.md`, с датой замера.
-8. **`@p0` у `SEC-API-05`** — до переделки замера (чередование выборок, отбрасывание разогрева,
-   абсолютный порог). Кейс, который краснеет в половине прогонов и при этом объявлен блокером
-   уровня «фича не принята», обучает исполнителя не верить блокерам вообще.
-9. **Утверждения «проверено прогоном» про параллельные порты** — в `CLAUDE.md:41-49`,
-   `feature-pipeline` §4, `e2e/README.md:215-216`, `playwright-verify:22-23`. Либо удалить, либо
-   заменить на измеренный факт: «параллельно — только в отдельных worktree; в одном дереве второй
-   `next dev` не стартует ни на каком порту».
-
-Что удалять **не надо**, хотя соблазн есть: мета-тест (лечится, а не удаляется), `e2e/security/**`
-(единственная часть с доказанной отдачей), парность `.cases.md` ↔ спек, требование фактического
-прогона, инварианты в `CLAUDE.md`.
+| Resource                                                                | Isolated?                         | Evidence                                                                                                                                                                                                                               | What to do                                                                                                                     |
+| ----------------------------------------------------------------------- | --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `apps/web/.next` (the Next dev server)                                  | **No, and it is fatal**           | Two `pnpm e2e` on 3200/3201 and 3300/3301 in one tree: one run `77 passed`, the other `⨯ Another next dev server is already running`, `Dir: …apps\web`, rc=1, 0 tests. Separately: `pnpm dev` on :3000 + `pnpm e2e` → the same failure | **a worktree per agent is mandatory**, not optional. Ports do not solve it: registration is bound to the project directory     |
+| Ports 3100/3101 with forgotten variables                                | No                                | Two default `pnpm e2e`: A `77 passed (54 s)`, B `3 failed, 1 did not run` — including `ERR_CONNECTION_REFUSED` after A tore down the shared servers                                                                                    | `reuseExistingServer: false` when `E2E_*_PORT` is set; and do not treat ports as an isolation mechanism                        |
+| `test-results/`                                                         | No                                | One `.last-run.json`; state files named `auth-state-w<index>-<user>.json` collide between any two runs; Playwright clears `outputDir` on start                                                                                         | `outputDir` with a port suffix                                                                                                 |
+| `playwright-report/`, `blob-report/`                                    | No                                | `playwright-report/` holds a single `index.html` (597 KB), overwritten by every run                                                                                                                                                    | `outputFolder` with a port suffix                                                                                              |
+| Session state between runs                                              | No, and the failure is **silent** | `JWT_SECRET: 'e2e-secret'` is constant for any run. Probe: a token from :3401 accepted by :3501 (`/auth/me` → 200) with different store contents                                                                                       | Derive the secret from the port: a foreign token then gives 401 and the failure is loud                                        |
+| Nest in-memory store (between processes)                                | **Yes**                           | A meeting created only on :3401 → `total` 2 against 1 on :3501                                                                                                                                                                         | nothing; the documentation describes it correctly                                                                              |
+| In-memory store within one run                                          | No (by design)                    | the `api` and `web` projects talk to one Nest                                                                                                                                                                                          | the measures already exist: `planner`/`organizer`, `serial`, relative counters. Keep them                                      |
+| The git index                                                           | No, failure is loud               | Two `git add -A`: rc=0 and rc=128, `Unable to create '.git/index.lock'`                                                                                                                                                                | a worktree (each has its own index). In one tree, `checkout -b` and `pre-commit --fix` are also unsafe                         |
+| `node_modules` / the pnpm store                                         | No, failure is **silent**         | Two `pnpm install --frozen-lockfile`: both rc=0, the second warned `Failed to create bin … .bin\vitest ENOENT`                                                                                                                         | only the lead agent installs dependencies, before the parallel stage starts; in a worktree, its own `node_modules`             |
+| Shared task files (`app.module.ts`, `e2e/README.md`, `*.unit.cases.md`) | No                                | `git log --stat`: `app.module.ts` edited by both feature commits; `e2e/README.md` by both plus three more                                                                                                                              | add a mandatory "files" column to the task table and the rule "files overlap → not parallel"; shared files become a merge task |
 
 ---
 
-## 7. Проверенные факты
+## 6. What to delete
 
-| №   | Утверждение пайплайна                                                | Команда                                                              | Результат                                                                                                                                                 | Вердикт                                                   |
-| --- | -------------------------------------------------------------------- | -------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
-| 1   | «один `pnpm e2e` — 28 с»                                             | `pnpm e2e` (тёплый `.next`)                                          | 27 с, 77 тестов                                                                                                                                           | подтверждено                                              |
-| 2   | «`pnpm verify` целиком — 1 м 31 с (41 юнит + 62 e2e)»                | `time pnpm verify`                                                   | **42,85 с**, 42 юнита, 77 e2e                                                                                                                             | опровергнуто                                              |
-| 3   | «сьют зелёный» (условие приёмки)                                     | `pnpm e2e`                                                           | **1 failed**: `SEC-API-05`, 141 мс против 56 мс, ratio 2,518 при пороге 2,5                                                                               | опровергнуто                                              |
-| 4   | «`SEC-API-05` — порог мягкий намеренно»                              | 4 прогона за сессию                                                  | падений 2 из 4; под нагрузкой 309 против 114 (ratio 2,71)                                                                                                 | опровергнуто (флак 50%)                                   |
-| 5   | «двум агентам — свои диапазоны портов … проверено прогоном»          | два `pnpm e2e`, порты 3200/3201 и 3300/3301, одно дерево             | один прогон 77 passed, второй rc=1, `⨯ Another next dev server is already running`, `Dir: …apps\web`, 0 тестов                                            | **опровергнуто**                                          |
-| 6   | «обычные `pnpm dev` на 3000/3001 … ничему не мешают»                 | `pnpm dev` (web, :3000) → 200, затем `pnpm e2e`                      | `pnpm e2e` rc=1, `Another next dev server is already running`, 0 тестов                                                                                   | **опровергнуто**                                          |
-| 7   | «если агент забыл порты — получит чужие результаты»                  | два `pnpm e2e` на портах по умолчанию                                | хуже: A 77 passed (54 с); B 3 failed + 1 did not run, включая `ERR_CONNECTION_REFUSED` после завершения A                                                 | подтверждено с усилением                                  |
-| 8   | «in-memory store общий» (внутри прогона) / изоляция между процессами | два Nest на :3401 и :3501, `POST /meetings` только на первый         | `total` 2 против 1 — изолирован по процессам                                                                                                              | подтверждено                                              |
-| 9   | «переиспользованный сервер даёт ложный результат в любую сторону»    | токен сервера A на сервер B (общий `JWT_SECRET`)                     | `GET /auth/me` → **200** при другом содержимом store                                                                                                      | подтверждено (отказ тихий)                                |
-| 10  | git-индекс при двух агентах                                          | два `git add -A` в тестовом репозитории                              | rc=0 и rc=128, `Unable to create '.git/index.lock'`                                                                                                       | подтверждено (отказ громкий)                              |
-| 11  | `node_modules` при одновременной установке                           | два `pnpm install --frozen-lockfile`                                 | оба rc=0, второй — `WARN Failed to create bin … .bin\vitest ENOENT`                                                                                       | подтверждено (отказ тихий)                                |
-| 12  | «каждый запуск `pnpm e2e …` поднимает оба `webServer`»               | лестница из 12 вызовов, `grep -c "next dev"`                         | 7 запусков `next dev` = 7 вызовов e2e, включая `--project=api`                                                                                            | подтверждено                                              |
-| 13  | «разбивка по шагам дороже одного прогона»                            | лестница 8 шагов против `pnpm verify`                                | 118 с против 42,85 с                                                                                                                                      | подтверждено                                              |
-| 14  | «покрытие api — 96%» (следствие штатной команды)                     | `test:cov` против `--coverage.include='src/**'`                      | 96,07% (98/102) против **68,53%** (98/143)                                                                                                                | опровергнуто (знаменатель — только импортированные файлы) |
-| 15  | покрытие web                                                         | `vitest run --coverage --coverage.include='src/**'`                  | **26,20%** (38/145); `actions/auth.ts`, `actions/meetings.ts`, `dal.ts`, `proxy.ts` — 0%                                                                  | измерено впервые                                          |
-| 16  | «мета-тест ловит нарушения конвенции»                                | регулярки из самого файла против гипотетических строк                | `## PR-API-01` — **не ловится** (правила 5–7 станут вакуумными для новой фичи); `AL-API-100` — не ловится; ID в комментарии спека сходит за автоматизацию | опровергнуто частично                                     |
-| 17  | «фактическое число тестов = таблица §6.6» (блокер)                   | `pnpm e2e`, `pnpm test`                                              | 68 e2e против 53; 42 юнита против 38                                                                                                                      | опровергнуто                                              |
-| 18  | «не больше восьми кейсов на файл»                                    | подсчёт `test(` по файлам                                            | 16 / 13 / 11 / 10 — ни один фичевый файл не соблюдает                                                                                                     | опровергнуто                                              |
-| 19  | «`CLAUDE.md` — пятнадцать правил»                                    | `grep -cE "^[0-9]+\. " CLAUDE.md`                                    | 19                                                                                                                                                        | опровергнуто                                              |
-| 20  | «`pnpm verify` — вся проверка одним подъёмом»                        | `pnpm audit` с недоступным реестром                                  | rc=1 → ни один тест не запускается                                                                                                                        | подтверждено как дефект                                   |
-| 21  | «15 security-кейсов» (`docs/security.md`)                            | `pnpm e2e --grep @security --list`                                   | `Total: 15 tests in 2 files`                                                                                                                              | подтверждено                                              |
-| 22  | контрольные опыты как главная ценность                               | поиск артефакта в репозитории                                        | ни файла, ни скрипта, ни записи; проверить проведение нельзя                                                                                              | **не проверяемо**                                         |
-| 23  | хук `pre-commit` меняет содержимое коммита                           | конфигурация `.husky/pre-commit` + `lint-staged` с `--fix`/`--write` | на живом коммите не проверялось (условие аудита — не менять репозиторий); вывод сделан из конфигурации                                                    | **не проверено, риск подтверждён по конфигурации**        |
-| 24  | `.mcp.json` ставит неприкреплённую версию                            | чтение `.mcp.json`                                                   | `npx -y @playwright/mcp@latest`                                                                                                                           | подтверждено                                              |
-| 25  | наличие CI и определений агентов                                     | `ls .github`, `ls .claude/agents`                                    | нет ни того, ни другого                                                                                                                                   | подтверждено                                              |
+Artifacts and rules that create work without information, ordered by the size of the win.
+
+1. **`docs/plans/plan-review-1.md`, `plan-review-2.md`, `plan-review-3.md`** (1416 lines, ≈80k
+   tokens). They did their job; the substantive findings already live in the `CLAUDE.md` invariants
+   and in code comments. As a source of knowledge they are dangerous: they describe a state of the
+   plans that no longer exists.
+2. **The canonical status of `feature-plan-implementation.md` and `feature-plan-testing.md`**
+   (309 KB). The files may stay as history, but every reference to them as "the canonical source" in
+   `regression-verify`, `e2e/README.md` and `docs/plans/README.md` must go. The live convention is
+   `e2e/README.md`, the live invariants are `CLAUDE.md`.
+3. **The expected-test-count table** (test plan §6.6) and the blocker tied to it in
+   `regression-verify` §3. It has already diverged (53 against 68, 38 against 42) and makes
+   acceptance formally impossible. Numbers should be checked by the meta-test, not by a human
+   comparing markdown.
+4. **The coverage matrix** (test plan §7, ~40 lines). Cancelled by the project's own template; rules
+   5 and 7 of the meta-test do its job.
+5. **The requirement "steps 1–8 are mandatory, skipping any is a blocker"** (`regression-verify` §2
+   and §3). Replace with "a green `pnpm verify`"; keep the breakdown as a debugging tool. The
+   measured price of the ritual is 75 s per acceptance pass, and acceptance runs after every fix.
+6. **The item "After a fix — the whole pipeline again, from step 1"** (`regression-verify` §5 item
+   6). It contradicts §2 of the same file.
+7. **Three redundant copies of the "Run economics" paragraph** — keep one, in `e2e/README.md`, with
+   a measurement date.
+8. **`@p0` on `SEC-API-05`** — until the measurement is rebuilt (interleaved samples, discarded
+   warm-up, an absolute floor). A case that goes red in half the runs while being declared a
+   "feature not accepted" blocker teaches the implementer to distrust blockers in general.
+9. **The "verified by a run" claims about parallel ports** — in `CLAUDE.md`, `feature-pipeline` §4,
+   `e2e/README.md` and `playwright-verify`. Either delete them or replace them with the measured
+   fact: "parallel work only in separate worktrees; in one tree a second `next dev` starts on no
+   port at all".
+
+What **not** to delete, tempting though it is: the meta-test (treat it, do not remove it),
+`e2e/security/**` (the only part with proven return), the `.cases.md` ↔ spec pairing, the demand for
+an actual run, and the invariants in `CLAUDE.md`.
 
 ---
 
-## Приложение: пробы
+## 7. Verified facts
 
-Все пробы выполнены из скретчпада, репозиторий не изменялся (кроме создания этого файла).
-Логи: `…/scratchpad/probe/{baseline,par-a,par-b,same-a,same-b,ladder,verify,e2e-with-dev3000,nest-a,nest-b,inst-a,inst-b}.log`,
-`…/scratchpad/{meta3.mjs,cov,cov-web,gitlock}`. Осиротевшие процессы, поднятые пробами
-(порты 3401, 3501, 3000), сняты по PID; после прогона `netstat` по портам 3000/3001/3100/3101/3200/
-3201/3300/3301/3401/3501 не показывает LISTENING.
+| #   | Pipeline claim                                                  | Result                                                                                                                                       | Verdict                                                  |
+| --- | --------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------- |
+| 1   | "one `pnpm e2e` — 28 s"                                         | 27 s, 77 tests                                                                                                                               | confirmed                                                |
+| 2   | "`pnpm verify` end to end — 1 m 31 s (41 units + 62 e2e)"       | **42.85 s**, 42 units, 77 e2e                                                                                                                | refuted                                                  |
+| 3   | "the suite is green" (an acceptance condition)                  | **1 failed**: `SEC-API-05`, 141 ms against 56 ms, ratio 2.518 against a threshold of 2.5                                                     | refuted                                                  |
+| 4   | "`SEC-API-05` — the threshold is loose on purpose"              | 2 failures in 4 runs; under load 309 against 114 (ratio 2.71)                                                                                | refuted (50% flake)                                      |
+| 5   | "two agents get their own port ranges … verified by a run"      | one run 77 passed, the other rc=1, `⨯ Another next dev server is already running`, `Dir: …apps\web`, 0 tests                                 | **refuted**                                              |
+| 6   | "ordinary `pnpm dev` on 3000/3001 … disturbs nothing"           | `pnpm e2e` rc=1, `Another next dev server is already running`, 0 tests                                                                       | **refuted**                                              |
+| 7   | "if an agent forgets the ports it gets someone else's results"  | worse: A 77 passed (54 s); B 3 failed + 1 did not run, including `ERR_CONNECTION_REFUSED` after A finished                                   | confirmed and strengthened                               |
+| 8   | in-memory store shared within a run / isolated across processes | `total` 2 against 1 — isolated per process                                                                                                   | confirmed                                                |
+| 9   | "a reused server gives a false result in either direction"      | `GET /auth/me` → **200** with different store contents                                                                                       | confirmed (the failure is silent)                        |
+| 10  | the git index with two agents                                   | rc=0 and rc=128, `Unable to create '.git/index.lock'`                                                                                        | confirmed (the failure is loud)                          |
+| 11  | `node_modules` under simultaneous install                       | both rc=0, the second warned `Failed to create bin … .bin\vitest ENOENT`                                                                     | confirmed (the failure is silent)                        |
+| 12  | "every `pnpm e2e …` starts both `webServer`s"                   | 7 `next dev` starts = 7 e2e calls, `--project=api` included                                                                                  | confirmed                                                |
+| 13  | "the step breakdown costs more than one run"                    | 118 s against 42.85 s                                                                                                                        | confirmed                                                |
+| 14  | "api coverage — 96%"                                            | 96.07% (98/102) against **68.53%** (98/143)                                                                                                  | refuted (the denominator counts only imported files)     |
+| 15  | web coverage                                                    | **26.20%** (38/145); `actions/auth.ts`, `actions/meetings.ts`, `dal.ts`, `proxy.ts` — 0%                                                     | measured for the first time                              |
+| 16  | "the meta-test catches convention violations"                   | `## PR-API-01` — **not caught** (rules 5–7 go vacuous for a new feature); `AL-API-100` — not caught; an ID in a comment passes as automation | partly refuted                                           |
+| 17  | "the actual test count = table §6.6" (a blocker)                | 68 e2e against 53; 42 units against 38                                                                                                       | refuted                                                  |
+| 18  | "no more than eight cases per file"                             | 16 / 13 / 11 / 10 — not one feature file obeys it                                                                                            | refuted                                                  |
+| 19  | "`CLAUDE.md` — fifteen rules"                                   | 19                                                                                                                                           | refuted                                                  |
+| 20  | "`pnpm verify` — the whole check on one server start"           | `pnpm audit` with an unreachable registry → rc=1, not a single test runs                                                                     | confirmed as a defect                                    |
+| 21  | "15 security cases" (`docs/security.md`)                        | `Total: 15 tests in 2 files`                                                                                                                 | confirmed                                                |
+| 22  | control experiments as the main value                           | no file, no script, no record; whether they happened cannot be checked                                                                       | **unverifiable**                                         |
+| 23  | the `pre-commit` hook changes commit content                    | not tested on a live commit (the audit must not change the repository); the conclusion comes from the configuration                          | **not verified; the risk is confirmed by configuration** |
+| 24  | `.mcp.json` installs an unpinned version                        | `npx -y @playwright/mcp@latest`                                                                                                              | confirmed                                                |
+| 25  | the presence of CI and agent definitions                        | neither exists                                                                                                                               | confirmed                                                |
+
+---
+
+## Appendix: probes
+
+Every probe ran from a scratchpad; the repository was not modified (apart from creating this file).
+Orphaned processes started by the probes (ports 3401, 3501, 3000) were killed by PID; afterwards
+`netstat` showed no LISTENING on 3000/3001/3100/3101/3200/3201/3300/3301/3401/3501.

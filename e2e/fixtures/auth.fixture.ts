@@ -3,39 +3,35 @@ import { expect, test as base, type Browser, type Page, type WorkerInfo } from '
 import { SEED_USERS, type SeedUserKey } from './seed.js';
 
 /**
- * Сессия для функциональных кейсов (проект `web`).
+ * Session for functional cases (project `web`).
  *
- * Ограничение архитектуры: сессионная cookie httpOnly и ставится Server Action веб-приложения,
- * JWT из Nest браузер не видит. Поэтому логинимся через UI, а не подделкой cookie: собирая
- * cookie руками, тест дублировал бы прод-логику сессии и краснел/зеленел невпопад при её
- * изменении. UI-логин проходит реальный путь «форма → Server Action → POST /auth/login → cookie»
- * и заодно проверяет, что этот путь жив.
+ * An architectural constraint: the session cookie is httpOnly and set by a Server Action, so the
+ * browser never sees the JWT from Nest. Hence we log in through the UI rather than forging a
+ * cookie — building one by hand would duplicate production session logic and go red or green at
+ * the wrong moments. UI login walks the real path "form → Server Action → POST /auth/login →
+ * cookie" and proves that path still works.
  *
- * Схема — три сущности, и это не избыточность (тест-план §5.5):
+ * Three entities, and none of them is redundant:
  *
- *  - `authUser` — ТЕСТОВАЯ опция. Worker-scoped опцией её делать нельзя: Playwright 1.62.1
- *    отвергает `test.use({ authUser })` в `describe` для worker-scoped опции ошибкой
- *    «Cannot use({ authUser }) in a describe group, because it forces a new worker» — падает
- *    весь спек, а не отдельный кейс. А мутирующие кейсы фичи 2 обязаны переключаться на
- *    `organizer` внутри `describe`, потому что в том же файле живут кейсы под `teacher`,
- *    а разбить файл на два — нарушить требование «на фичу два файла тестов».
- *  - `authStateFor` — WORKER-фикстура, значение которой — функция «пользователь → путь к файлу
- *    storageState». Кэшируется именно функция: симметричный обход (worker-фикстура с самим
- *    состоянием) закрыт другой рантайм-проверкой — «worker fixture cannot depend on a test
- *    fixture». У функции зависимости от тестовой опции нет, а логин под каждого пользователя
- *    всё равно выполняется один раз на воркер. Оба запрета — рантайм-проверки Playwright,
- *    `pnpm typecheck` их не ловит: типы пару `{ scope: 'worker', option: true }` разрешают.
- *  - `authedPage` — TEST-фикстура. Worker-scoped `page`, переиспользуемая несколькими тестами,
- *    ломает изоляцию: остаются URL предыдущего теста и накопленные подписки `page.on('console')`
- *    — это бьёт прямо в HD-FN-10 («список проблем консоли пуст»). Переиспользуется только
- *    состояние; контекст и страница создаются на каждый тест.
+ *  - `authUser` — a TEST option. It cannot be worker-scoped: Playwright 1.62.1 rejects
+ *    `test.use({ authUser })` inside a `describe` for a worker-scoped option with "Cannot use(…)
+ *    in a describe group, because it forces a new worker", which kills the whole spec rather than
+ *    one case. Mutating cases must switch to `organizer` inside a `describe`, because the same
+ *    file also holds cases under `teacher`.
+ *  - `authStateFor` — a WORKER fixture whose value is a function "user → storageState path". The
+ *    function is what gets cached: the symmetric approach (a worker fixture holding the state
+ *    itself) is blocked by another runtime rule, "worker fixture cannot depend on a test fixture".
+ *    A function has no dependency on the test option, and login per user still happens once per
+ *    worker. Both prohibitions are runtime checks — `pnpm typecheck` does not catch them.
+ *  - `authedPage` — a TEST fixture. A worker-scoped `page` reused across tests breaks isolation:
+ *    the previous test's URL and accumulated `page.on('console')` subscriptions survive, which
+ *    hits HD-FN-10 directly. Only the state is reused; context and page are created per test.
  */
 
 /**
- * Файл состояния лежит в `outputDir` проекта: он и так вычищается между прогонами, и его
- * не надо добавлять в `.gitignore` отдельной строкой. Имя пользователя в суффиксе обязательно
- * — один воркер держит состояния нескольких пользователей, и без суффикса они перезатирали бы
- * друг друга.
+ * The state file lives in the project's `outputDir`: it is wiped between runs anyway and needs no
+ * separate `.gitignore` line. The user suffix is mandatory — one worker holds states for several
+ * users, and without it they would overwrite each other.
  */
 function storageStatePath(workerInfo: WorkerInfo, user: SeedUserKey): string {
   return path.join(
@@ -45,16 +41,13 @@ function storageStatePath(workerInfo: WorkerInfo, user: SeedUserKey): string {
 }
 
 /**
- * UI-логин: реальный путь «форма → Server Action → POST /auth/login → cookie». Подделывать
- * cookie руками нельзя — тест дублировал бы прод-логику сессии и краснел/зеленел невпопад при
- * её изменении (тест-план §5.5). Возвращает путь к файлу `storageState`, который потом
- * переиспользует `authedPage`.
+ * UI login. Returns the path to the `storageState` file that `authedPage` reuses.
  *
- * `baseURL` берётся из настроек проекта: `browser.newContext()` его НЕ наследует, и без
- * явной передачи `page.goto('/auth/login')` упал бы на относительном URL.
+ * `baseURL` is taken from the project settings: `browser.newContext()` does NOT inherit it, and
+ * without passing it explicitly `page.goto('/auth/login')` would fail on a relative URL.
  *
- * Локаторы — те же, что в функциональных кейсах (роль и метка): если разметка формы
- * разъедется с ними, сломается и логин фикстуры, и AL-FN-01 — в одном месте, а не по-разному.
+ * The locators match the functional cases (role and label): if the form markup drifts away from
+ * them, both the fixture login and AL-FN-01 break in one place rather than differently.
  */
 async function uiLogin(
   browser: Browser,
@@ -69,16 +62,16 @@ async function uiLogin(
   try {
     await page.goto('/auth/login');
     await page.getByLabel('Email').fill(email);
-    await page.getByLabel('Пароль').fill(password);
-    await page.getByRole('button', { name: 'Войти' }).click();
+    await page.getByLabel('Password').fill(password);
+    await page.getByRole('button', { name: 'Sign in' }).click();
 
-    // Ждём именно смену URL, а не `waitForNavigation`: переход делает redirect Server Action-а.
-    // Если он не случился, падать должна фикстура с внятным сообщением, а не кейс где-то ниже
-    // на пустой странице.
+    // We wait for the URL to change rather than for a navigation event: the transition comes from
+    // the Server Action's redirect. If it did not happen, the fixture should fail with a clear
+    // message instead of a case failing later on an empty page.
     await expect(
       page,
-      `UI-логин пользователя ${user} (${email}) не привёл на "/". Причина не в проверяемом ` +
-        'кейсе: смотри /auth/login, loginAction и сид пользователей.',
+      `UI login of ${user} (${email}) did not land on "/". The cause is not the case under test: ` +
+        'look at /auth/login, loginAction and the user seed.',
     ).toHaveURL('/');
 
     await context.storageState({ path: statePath });
@@ -93,7 +86,7 @@ export const test = base.extend<
   { authUser: SeedUserKey; authedPage: Page },
   { authStateFor: (user: SeedUserKey) => Promise<string> }
 >({
-  // worker-scoped: значение — функция, поэтому зависимости от тестовой опции нет.
+  // Worker-scoped: the value is a function, so it has no dependency on the test option.
   authStateFor: [
     async ({ browser }, use, workerInfo) => {
       const cache = new Map<SeedUserKey, string>();
@@ -112,7 +105,7 @@ export const test = base.extend<
     { scope: 'worker' },
   ],
 
-  // Тестовая опция: `test.use({ authUser: 'organizer' })` разрешён и в файле, и в describe.
+  // A test option: `test.use({ authUser: 'organizer' })` is allowed in a file and in a describe.
   authUser: ['teacher', { option: true }],
 
   authedPage: async ({ browser, authStateFor, authUser }, use) => {
@@ -122,8 +115,8 @@ export const test = base.extend<
 
     await use(page);
 
-    // Контекст закрывается вместе с тестом: состояние переиспользуется через файл, а не
-    // через живой контекст, иначе логаут в HD-FN-08 разлогинил бы и следующий тест.
+    // The context closes with the test: state is reused through the file rather than through a
+    // live context, or the sign-out in HD-FN-08 would log the next test out too.
     await context.close();
   },
 });

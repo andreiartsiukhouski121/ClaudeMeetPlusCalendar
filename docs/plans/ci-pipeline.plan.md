@@ -1,89 +1,90 @@
-# План: ci-pipeline
+# Plan: ci-pipeline
 
-Закрывает `BL-010`. Цель — тот же пайплайн проверок, что локальный, но на стороне GitHub, и
-доставка сборки как артефакта.
+Closes `BL-010`. The goal is the same set of checks as the local pipeline, but on GitHub's side,
+plus delivery of the build as an artifact.
 
-## 0. Ориентация: что в проекте уже есть
+## 0. Orientation: what the project already has
 
-- **Дубль:** совпадений нет — задача заведена как `BL-010` и ждала появления remote, теперь он
-  есть (`andreiartsiukhouski121/ClaudeMeetPlusCalendar`, пустой). Записей `CH-` про CI в реестре
-  нет; ближайшая — `CH-004`, она про локальный `pnpm verify`, а не про CI.
-- **Конфликт с реализованным:** трогает только новый каталог `.github/workflows/`; ни один
-  инвариант `CLAUDE.md` и ни один тест-кейс не меняется. Опирается на существующие ветки `isCI` в
-  `playwright.config.ts` (`forbidOnly`, `retries: 2`, `workers: 1`, `reuseExistingServer: false`) —
-  они уже написаны под CI и правки не требуют.
-- **Конфликт с планируемым:** `BL-006` (убрать дефолт `JWT_SECRET` для production) зависит от этой
-  задачи и станет выполнимым после неё; `BL-011` (лицензии/SBOM) и `BL-012` (секреты в истории
-  git) — естественные следующие шаги, которые встанут в тот же workflow, поэтому файл надо
-  оставить расширяемым, а не монолитным.
-- **Неясности:** термин «CD» в этом проекте пока не имеет предмета — площадки развёртывания нет,
-  секретов для неё нет. Уточнить у заказчика, куда деплоить; до тех пор доставка ограничивается
-  production-сборкой и артефактом, и это называется вслух, а не имитируется фиктивным деплоем.
+- **Duplicate:** no matches — the task was filed as `BL-010` and waited for a remote, which now
+  exists. There is no `CH-` entry about CI; the closest is `CH-004`, which is about the local
+  `pnpm verify` rather than CI.
+- **Conflicts with shipped:** touches only the new `.github/workflows/` directory; no invariant and
+  no test case changes. It relies on the existing `isCI` branches in `playwright.config.ts`
+  (`forbidOnly`, `retries: 2`, `workers: 1`, `reuseExistingServer: false`), which were written for
+  CI and need no edits.
+- **Conflicts with planned:** `BL-006` (remove the default `JWT_SECRET` for production) depends on
+  this task and becomes doable afterwards; `BL-011` (licences/SBOM) and `BL-012` (secrets in git
+  history) are the natural next steps that will join the same workflow, so the file must stay
+  extensible rather than monolithic.
+- **Open questions:** the term "CD" has no subject in this project yet — there is no deployment
+  platform and no secrets for one. Confirm with the customer where to deploy; until then delivery
+  stops at a production build and an artifact, and that is said out loud rather than faked.
 
-## 1. Спайк: чем проверены рискованные допущения
+## 1. Spike: how the risky assumptions were proven
 
-| Допущение                                         | Как проверено                 | Факт                                                     |
-| ------------------------------------------------- | ----------------------------- | -------------------------------------------------------- |
-| Токен `gh` позволяет пушить workflow-файлы        | `gh auth status`              | Есть область `workflow` — да                             |
-| Репозиторий пуст, push ничего не перезапишет      | `gh repo view --json isEmpty` | `isEmpty: true`, `defaultBranchRef` пустой               |
-| В коде нет настоящих секретов для публичного репо | `pnpm e2e --grep SEC-API-10`  | Зелёный: приватных ключей и выпущенных JWT нет           |
-| `pnpm verify` проходит на чистой установке        | локальный прогон              | 84 e2e + 42 юнита зелёные                                |
-| Playwright готов к CI без правок конфига          | чтение `playwright.config.ts` | Ветки `isCI` уже есть, `reuseExistingServer: false` в CI |
+| Assumption                                         | How it was proven              | Fact                                      |
+| -------------------------------------------------- | ------------------------------ | ----------------------------------------- |
+| The `gh` token can push workflow files             | `gh auth status`               | The `workflow` scope is present — yes     |
+| The repository is empty; a push overwrites nothing | `gh repo view --json isEmpty`  | `isEmpty: true`, `defaultBranchRef` empty |
+| The code holds no real secrets for a public repo   | `pnpm e2e --grep SEC-API-10`   | Green: no private keys and no issued JWTs |
+| `pnpm verify` passes on a clean install            | local run                      | 84 e2e + 42 units green                   |
+| Playwright is CI-ready without config edits        | reading `playwright.config.ts` | The `isCI` branches already exist         |
 
-## 2. Контракт
+## 2. Contract
 
-Не HTTP-контракт, а контракт workflow:
+Not an HTTP contract but the workflow's:
 
-| Триггер                 | Что делает                  | Блокирует ли мерж      |
-| ----------------------- | --------------------------- | ---------------------- |
-| `push` в `main`         | job `verify`, затем `build` | —                      |
-| `pull_request` в `main` | job `verify`, затем `build` | да, это и есть гейт PR |
-| `workflow_dispatch`     | то же, вручную              | —                      |
+| Trigger                  | What it does               | Blocks a merge            |
+| ------------------------ | -------------------------- | ------------------------- |
+| `push` to `main`         | job `verify`, then `build` | —                         |
+| `pull_request` to `main` | job `verify`, then `build` | yes — this is the PR gate |
+| `workflow_dispatch`      | the same, manually         | —                         |
 
-Job `verify` повторяет локальный пайплайн **по шагам**, а не одной командой `pnpm verify`.
-Обоснование: правило «один `pnpm verify`» из скила экономит **подъёмы dev-серверов**, а их делает
-только шаг `pnpm e2e`. Шаги `lint`, `typecheck`, `test`, `audit` серверов не поднимают, поэтому их
-разделение бесплатно и даёт в интерфейсе GitHub сразу видно, какой этап упал — там нельзя
-переспросить интерактивно.
+The `verify` job repeats the local pipeline **step by step** rather than as one `pnpm verify` call.
+The reason: the "one `pnpm verify`" rule saves **dev server starts**, and only the `pnpm e2e` step
+makes those. `lint`, `typecheck`, `test` and `audit` start no servers, so splitting them is free and
+the GitHub UI shows which stage failed — there is no asking interactively there.
 
-## 3. Данные
+## 3. Data
 
-Секретов не требуется: `JWT_SECRET` для e2e передаёт `playwright.config.ts` (`'e2e-secret'`),
-`API_URL` он же. Ни один шаг не обращается к внешним сервисам, кроме реестра npm (`pnpm install`,
-`pnpm audit`) и `fonts.googleapis.com` (`next/font/google` при первой сборке).
+No secrets are needed: `playwright.config.ts` passes `JWT_SECRET` (`'e2e-secret'`) and `API_URL`
+for the run. No step reaches an external service other than the npm registry (`pnpm install`,
+`pnpm audit`) and `fonts.googleapis.com` (`next/font/google` on the first build).
 
-## 4. Задачи
+## 4. Tasks
 
-| ID  | Что делать                                                        | Файлы                                  | Готово, когда                                 | Зависит от |
-| --- | ----------------------------------------------------------------- | -------------------------------------- | --------------------------------------------- | ---------- |
-| C1  | Workflow `ci.yml`: job `verify` по шагам + job `build`            | `.github/workflows/ci.yml`             | файл проходит `pnpm format:check`             | —          |
-| C2  | Привязать remote, переименовать `master` → `main`                 | `.git/config`                          | `git remote -v` показывает репозиторий        | C1         |
-| C3  | Push истории и workflow                                           | —                                      | ветка `main` на GitHub, workflow виден        | C2         |
-| C4  | Дождаться прогона и прочитать результат                           | —                                      | прогон **зелёный**; при падении — задача-фикс | C3         |
-| C5  | Записать `CH-` в реестр, закрыть `BL-010`, дописать новые пробелы | `docs/CHANGELOG.md`, `docs/BACKLOG.md` | `pnpm e2e e2e/ledger` зелёный                 | C4         |
+| ID  | What to do                                                  | Files                                  | Done when                                    | Depends on |
+| --- | ----------------------------------------------------------- | -------------------------------------- | -------------------------------------------- | ---------- |
+| C1  | Workflow `ci.yml`: a step-by-step `verify` job plus `build` | `.github/workflows/ci.yml`             | the file passes `pnpm format:check`          | —          |
+| C2  | Attach the remote, rename `master` → `main`                 | `.git/config`                          | `git remote -v` shows the repository         | C1         |
+| C3  | Push the history and the workflow                           | —                                      | branch `main` on GitHub, workflow visible    | C2         |
+| C4  | Wait for the run and read the result                        | —                                      | the run is **green**; on failure, a fix task | C3         |
+| C5  | Record a `CH-` entry, close `BL-010`, file any new gaps     | `docs/CHANGELOG.md`, `docs/BACKLOG.md` | `pnpm e2e e2e/ledger` green                  | C4         |
 
-Задача-фикс на падение прогона заводится отдельно и не переписывает этот план.
+A fix task for a failing run is filed separately and does not rewrite this plan.
 
-## 5. Риски
+## 5. Risks
 
-- **Кэш `.next` на CI холодный всегда.** Первая сборка Turbopack плюс загрузка `next/font/google`
-  по сети; в конфиге под это стоит `timeout: 180_000` у `webServer`. Если упрётся — это падение
-  сервера, а не тестов, и лечится кэшированием, а не правкой таймаутов тестов.
-- **`pnpm audit` ломает прогон при новой CVE в чужой зависимости.** Осознанно: шаг стоит последним,
-  так что к моменту его падения все остальные результаты уже видны.
-- **`husky` при `pnpm install` в CI.** Скрипт `prepare` ставит хуки, которые на CI бесполезны.
-  Отключается переменной `HUSKY=0`, иначе установка может упасть на отсутствующем `.git/hooks`.
-- **Разные ОС.** Разработка на Windows, CI на Ubuntu. Проект уже не завязан на Windows-специфику
-  после `.gitattributes` с `eol=lf` (`FX-005`), но первый прогон это и проверит.
-- **`workers: 1` на CI** делает прогон медленнее, зато снимает гонки на слабом раннере.
+- **The `.next` cache is always cold on CI.** The first Turbopack build plus fetching
+  `next/font/google` over the network; the config allows `timeout: 180_000` on `webServer` for
+  that. If it still runs out, that is a server failure rather than a test failure, and the cure is
+  caching, not editing test timeouts.
+- **`pnpm audit` breaks the run on a new CVE in someone else's dependency.** Deliberate: the step
+  runs last, so by the time it fails every other result is visible.
+- **`husky` during `pnpm install` on CI.** The `prepare` script installs hooks that are useless
+  there. Disabled with `HUSKY=0`, or the install can fail on a missing `.git/hooks`.
+- **Different operating systems.** Development on Windows, CI on Ubuntu. The project stopped
+  depending on Windows specifics after `.gitattributes` with `eol=lf` (`FX-005`), and the first run
+  is what verifies that.
+- **`workers: 1` on CI** makes the run slower but removes races on a weak runner.
 
-## 6. Допущения и осознанные пропуски
+## 6. Assumptions and deliberate omissions
 
-- **CD в смысле развёртывания не делается**, потому что нет площадки и нет секретов для неё. Job
-  `build` собирает production-сборку и выкладывает артефакт — это доставка без развёртывания.
-  Настоящий деплой требует решения заказчика: куда, чем и с какими секретами. Придумывать деплой
-  на Vercel с несуществующими токенами я не буду — это выглядело бы работающим и не работало.
-- **Branch protection не настраивается.** Требует изменения настроек репозитория, а не кода;
-  выносится в бэклог отдельным пунктом.
-- **Матрица ОС и версий Node не вводится.** Один раннер `ubuntu-latest` и версия из `.nvmrc`:
-  матрица имеет смысл для библиотеки, а не для приложения с одной целевой средой.
+- **CD in the sense of deployment is not done**, because there is no platform and no secrets for
+  one. The `build` job produces a production build and uploads an artifact — delivery without
+  deployment. A real deploy needs a customer decision: where, with what, and with which secrets.
+  Inventing a Vercel deploy with non-existent tokens would look like it works and would not.
+- **Branch protection is not configured.** It changes repository settings rather than code, and is
+  filed as its own backlog item.
+- **No OS or Node version matrix.** One `ubuntu-latest` runner and the version from `.nvmrc`: a
+  matrix makes sense for a library, not for an application with a single target environment.

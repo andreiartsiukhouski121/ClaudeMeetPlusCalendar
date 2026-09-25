@@ -1,87 +1,77 @@
-# Главная: юнит-кейсы (Vitest)
+# Dashboard: unit cases (Vitest)
 
-- **Парного спека у этого файла нет** — юнит-спеки живут рядом с кодом, в `apps/**`, а здесь
-  собрана карта фичи: какой кейс каким спеком закрыт (тест-план §1.7).
-- **Запуск:** `pnpm test:home-dashboard` (это `pnpm -r test -t "HD-UT-"`), полный прогон — `pnpm test`.
-- **Обязательное правило:** заголовок юнит-теста начинается с ID кейса —
-  `it('HD-UT-01 — …')`. Без этого фильтр `vitest -t "HD-UT-"` не отберёт фичу, а мета-тест
-  `e2e/suite-integrity.api.spec.ts` (правило 7) не сможет проверить, что кейс автоматизирован.
-- **Группировка:** каждая группа ниже начинается со строки с **путём спека**; мета-тест сверяет,
-  что путь существует и что все перечисленные под ним ID встречаются именно в этом файле.
+- **This file has no paired spec** — unit specs live next to the code in `apps/**`, and this is the
+  feature map: which case is covered by which spec.
+- **Run:** `pnpm test:home-dashboard` (that is `pnpm -r test -t "HD-UT-"`); everything: `pnpm test`.
+- **Mandatory rule:** a unit test title starts with its case ID — `it('HD-UT-01 — …')`. Without it
+  the `vitest -t "HD-UT-"` filter cannot select the feature, and meta-test rule 7 cannot verify the
+  case is automated.
+- **Grouping:** every group below starts with a line carrying the **spec path**; the meta-test
+  checks the path exists and that every ID listed under it appears in that file.
 
-Итого 13 кейсов, все автоматизированы: 9 в `apps/api` (`01…09`) и 4 в `apps/web`
-(`10`, `11`, `15`, `16`). Номер `12` объединён в кейс о независимости форматирования от
-таймзоны; номера `13` и `14` (склонение «встреча/встречи/встреч») **не переиспользуются** —
-функция склонения удалена из плана вместе с `lib/plural.ts`: счётчик рендерится фиксированной
-строкой `Всего встреч: N`, и склонять там нечего.
+13 cases, all automated: 9 in `apps/api` (`01…09`) and 4 in `apps/web` (`10`, `11`, `15`, `16`).
+Number `12` was merged into the time-zone independence case; `13` and `14` (Russian pluralization
+of "meeting") are **never reused** — the pluralization helper was removed together with its
+counter, which now renders as the fixed string `Meetings total: N`.
 
-Отдельного спека на маппер (`toMeetingDto`) нет намеренно: это деструктуризация в одну строку,
-а отсутствие `ownerId` в ответе проверяется на контрактном уровне кейсом `HD-API-01`. Спек без
-описанных кейсов уронил бы правило 8 мета-теста.
+There is deliberately no spec for the mapper (`toMeetingDto`): it is a one-line projection, and the
+absence of `ownerId` in the response is checked at contract level by `HD-API-01`. A spec without
+described cases would break meta-test rule 8.
 
-## Сводка
+## Summary
 
-| ID       | Приоритет | Что проверяет                                                      | Где автоматизирован |
-| -------- | --------- | ------------------------------------------------------------------ | ------------------- |
-| HD-UT-01 | P0        | сортировка по дате DESC при произвольном порядке входных данных    | `MeetingsService`   |
-| HD-UT-02 | P0        | применяется `limit`: 5 встреч и `limit=3` → 3                      | `MeetingsService`   |
-| HD-UT-03 | P0        | `countByOwner` — полное число встреч, а не длина среза             | `MeetingsService`   |
-| HD-UT-04 | P0        | фильтрация по `ownerId`: чужие встречи не попадают в результат     | `MeetingsService`   |
-| HD-UT-05 | P1        | пользователь без встреч: пустой список и `countByOwner` = 0        | `MeetingsService`   |
-| HD-UT-06 | P1        | дефолтный `limit` = 3, когда параметр не передан                   | `MeetingsService`   |
-| HD-UT-07 | P0        | `create` пишет `ownerId` из аргумента и `id` из `randomUUID()`     | `MeetingsService`   |
-| HD-UT-08 | P1        | `create` возвращает `id`, `title` и `durationMinutes ?? 60`        | `MeetingsService`   |
-| HD-UT-09 | P2        | при равных датах порядок детерминирован (вторичная сортировка)     | `MeetingsService`   |
-| HD-UT-10 | P1        | форматирование не зависит от `TZ`, включая границу суток           | `format-date`       |
-| HD-UT-11 | P1        | невалидная дата → плейсхолдер, без `Invalid Date` и без исключения | `format-date`       |
-| HD-UT-15 | P0        | значение `datetime-local` даёт одинаковую ISO при разных `TZ`      | `format-date`       |
-| HD-UT-16 | P1        | пустая строка и мусор → `null`, без исключения                     | `format-date`       |
+| ID       | Priority | What it checks                                                 | Where automated   |
+| -------- | -------- | -------------------------------------------------------------- | ----------------- |
+| HD-UT-01 | P0       | sorting by date DESC regardless of input order                 | `MeetingsService` |
+| HD-UT-02 | P0       | `limit` applies: 5 meetings with `limit=3` → 3                 | `MeetingsService` |
+| HD-UT-03 | P0       | `countByOwner` is the full count, not the slice length         | `MeetingsService` |
+| HD-UT-04 | P0       | filtering by `ownerId`: other users' meetings never appear     | `MeetingsService` |
+| HD-UT-05 | P1       | a user with no meetings: empty list and `countByOwner` = 0     | `MeetingsService` |
+| HD-UT-06 | P1       | the default `limit` is 3 when the parameter is omitted         | `MeetingsService` |
+| HD-UT-07 | P0       | `create` takes `ownerId` from its argument and `id` from UUID  | `MeetingsService` |
+| HD-UT-08 | P1       | `create` returns `id`, `title` and `durationMinutes ?? 60`     | `MeetingsService` |
+| HD-UT-09 | P2       | equal dates still give a deterministic order (secondary sort)  | `MeetingsService` |
+| HD-UT-10 | P1       | formatting does not depend on `TZ`, midnight boundary included | `format-date`     |
+| HD-UT-11 | P1       | an invalid date → placeholder, no `Invalid Date`, no exception | `format-date`     |
+| HD-UT-15 | P0       | a `datetime-local` value gives the same ISO under any `TZ`     | `format-date`     |
+| HD-UT-16 | P1       | an empty string and junk → `null`, without throwing            | `format-date`     |
 
 ## `apps/api/src/meetings/meetings.service.spec.ts`
 
-Спек тестирует `apps/api/src/meetings/meetings.service.ts`. Данные создаются через `create()`
-под собственными владельцами (`usr-unit-*`), а не берутся из сида: сид отсортирован по
-возрастанию дат, то есть «произвольный порядок» на нём не воспроизвести, и тест не должен
-краснеть от добавления встречи в сид. Сид-владельцы (`usr-teacher`, `usr-student`) этими
-тестами не трогаются.
+Test data is created through `create()` under dedicated owners (`usr-unit-*`) rather than taken
+from the seed: the seed is sorted ascending, so the "arbitrary order" of `HD-UT-01` cannot be
+reproduced on it, and a test must not go red because a meeting was added to the seed. The service
+is rebuilt before each test, or created meetings would leak between cases.
 
-Глобалы в `apps/api` включены (`vitest.config.ts`, `globals: true`), но импорт из `vitest`
-оставлен явным — так спек не зависит от настройки конфига.
-
-- `HD-UT-01` P0 — `findRecent` сортирует по дате DESC при входных данных в произвольном порядке.
-- `HD-UT-02` P0 — применяется `limit`: при 5 встречах и `limit=3` возвращается 3.
-- `HD-UT-03` P0 — `countByOwner` равен полному числу встреч владельца, а не длине результата
-  `findRecent`. Ровно та ошибка, которую воспроизводит контрольный опыт задачи `T2.10`.
-- `HD-UT-04` P0 — фильтрация по `ownerId`: встречи других пользователей не попадают в результат
-  (чужая встреча датирована 2030 годом, то есть без фильтра стояла бы первой).
-- `HD-UT-05` P1 — пользователь без встреч → пустой результат `findRecent` и `countByOwner` = 0.
-- `HD-UT-06` P1 — дефолтный `limit` = 3 применяется, когда параметр не передан (в том числе
-  когда пришёл `undefined` — именно так выглядит query без `limit`).
-- `HD-UT-07` P0 — `create(ownerId, input)` записывает `ownerId` **из аргумента** и `id` из
-  `randomUUID()`; поля `ownerId` во входе нет по типу, а на HTTP-уровне его отрезает
-  `forbidNonWhitelisted`.
-- `HD-UT-08` P1 — `create` возвращает созданную сущность с `id`, переданным `title` и
-  `durationMinutes ?? 60`.
-- `HD-UT-09` P2 — при одинаковых датах порядок детерминирован (вторичная сортировка по `id`),
-  иначе порядок в UI зависел бы от порядка вставки и кейс на порядок начал бы флакать.
+- `HD-UT-01` P0 — `findRecent` sorts by `startsAt` DESC even when the input order is shuffled;
+  the timestamp sequence is non-increasing.
+- `HD-UT-02` P0 — `findRecent` applies `limit`: five meetings with `limit=3` return three.
+- `HD-UT-03` P0 — `countByOwner` returns the owner's full count (5) while the page holds three, and
+  the two are explicitly different. This is invariant 4, and the control experiment
+  (`total = items.length`) must break this assertion.
+- `HD-UT-04` P0 — `findRecent` filters by `ownerId`. The foreign meeting is deliberately the newest
+  one, so without filtering it would come first.
+- `HD-UT-05` P1 — a user with no meetings gets an empty list and `countByOwner` = 0.
+- `HD-UT-06` P1 — the default `limit` of 3 applies both when the argument is omitted and when it is
+  `undefined` — the latter is exactly what `ListMeetingsQueryDto` yields without the parameter.
+- `HD-UT-07` P0 — `create` writes `ownerId` from its argument (invariant 5) and an `id` from
+  `randomUUID()` that does not match the seeded `mtg-*` shape.
+- `HD-UT-08` P1 — `create` returns the given title, the given duration, and 60 minutes when no
+  duration was supplied.
+- `HD-UT-09` P2 — with equal dates the order is deterministic thanks to the secondary sort by `id`,
+  and it is the same across two consecutive calls (invariant 7).
 
 ## `apps/web/src/lib/format-date.spec.ts`
 
-Спек тестирует `apps/web/src/lib/format-date.ts` — чистый модуль без `import 'server-only'`:
-Next алиасит этот импорт на пакет, которого нет в `node_modules`, и Vitest его не резолвит,
-поэтому всё тестируемое обязано лежать в файле без него.
+`process.env.TZ` genuinely affects later date operations in Node, so the time-zone checks are real
+rather than decorative; the original value is restored in `afterEach` so test order cannot matter.
 
-Глобалы в `apps/web` не включены, поэтому в спеке стоит `import { describe, expect, it } from 'vitest'`.
-Таймзона процесса подменяется через `process.env.TZ` и возвращается в `afterEach` — иначе
-проверка независимости от таймзоны была бы декоративной.
-
-- `HD-UT-10` P1 — `formatMeetingDateTime` даёт **одинаковую** строку при `TZ=UTC` и
-  `TZ=Asia/Tokyo`, в том числе на дате у границы суток (`2026-01-12T23:30:00.000Z`): дата не
-  сдвигается на день, потому что `timeZone` прибит к `'UTC'`. Покрывает бывший кейс `12`.
-- `HD-UT-11` P1 — невалидная дата → безопасный плейсхолдер, без `Invalid Date` в разметке и
-  без исключения: одна битая дата в данных не должна ронять всю страницу.
-- `HD-UT-15` P0 — `toIsoStartsAt('2030-01-01T10:00')` даёт ISO-строку, одинаковую при `TZ=UTC`
-  и `TZ=Asia/Tokyo`. Значение `datetime-local` — локальное время без зоны, и это ровно то
-  место, где легко потерять таймзону; от результата зависит создание встречи из UI.
-- `HD-UT-16` P1 — `toIsoStartsAt('')` и `toIsoStartsAt('не дата')` возвращают `null` и **не**
-  бросают, иначе Server Action падал бы в 500 вместо возврата состояния с ошибкой.
+- `HD-UT-10` P1 — `formatMeetingDateTime` gives the same string under `TZ=UTC` and `TZ=Asia/Tokyo`,
+  including for 23:30 UTC, which is already the next day in Tokyo. Without `timeZone: 'UTC'` the
+  date would shift.
+- `HD-UT-11` P1 — an invalid date yields the placeholder rather than `Invalid Date` in the markup
+  or an exception: one broken date must not take the dashboard down.
+- `HD-UT-15` P0 — `toIsoStartsAt` turns a zoneless `datetime-local` value into the same ISO string
+  under any `TZ`, while a value with an explicit zone is taken as is.
+- `HD-UT-16` P1 — an empty string, whitespace and junk return `null` without throwing, or the
+  Server Action would 500 instead of returning `{ error }`.

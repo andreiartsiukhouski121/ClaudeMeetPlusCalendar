@@ -2,22 +2,22 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 
 export const metadata: Metadata = {
-  title: 'Регистрация — PurpleSchool',
+  title: 'Sign up — PurpleSchool',
 };
 
 /**
- * Заглушка регистрации — осознанное допущение плана (§8 п.1). Спецификация требует только
- * ссылку на регистрацию, но ссылка в 404 непроверяема функциональным тестом (`AL-FN-06`
- * ждёт 200 и `h1`), поэтому страница существует и несёт ровно заголовок, пояснение и путь
- * назад. Формы регистрации, `POST /auth/register` и создания пользователей в проекте нет.
+ * Sign-up placeholder — a deliberate omission. The spec only asks for a link to sign-up, but a
+ * link into a 404 cannot be checked functionally (`AL-FN-06` expects 200 and an `h1`), so the page
+ * exists and carries exactly a heading, an explanation and a way back. There is no sign-up form,
+ * no `POST /auth/register` and no user creation in this project.
  */
 export default function RegisterPage() {
   return (
     <>
-      <h1>Регистрация</h1>
-      <p>Регистрация появится позже</p>
+      <h1>Sign up</h1>
+      <p>Sign-up is coming later</p>
       <p>
-        <Link href="/auth/login">Вернуться ко входу</Link>
+        <Link href="/auth/login">Back to sign in</Link>
       </p>
     </>
   );

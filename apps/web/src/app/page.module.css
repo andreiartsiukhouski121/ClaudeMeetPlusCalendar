@@ -1,7 +1,6 @@
 /*
- * Дашборд. CSS-модули без Tailwind (новых зависимостей план не разрешает, §1.2).
- * Классы хешируются сборкой, поэтому тесты адресуют элементы по роли и метке —
- * селектор по классу умер бы на следующем билде (тест-план §5.1).
+ * Dashboard. CSS modules, no Tailwind. Class names are hashed by the build, so tests address
+ * elements by role and label — a class selector would die on the next build.
  */
 
 .page {
@@ -28,11 +27,11 @@
 .greeting {
   font-size: 24px;
   font-weight: 600;
-  /* Длинный email не должен растягивать страницу по горизонтали. */
+  /* A long email must not stretch the page horizontally. */
   overflow-wrap: anywhere;
 }
 
-/* Счётчик — один текстовый узел, формат ровно «Всего встреч: N» (HD-FN-03). */
+/* The counter is a single text node, formatted exactly as "Meetings total: N" (HD-FN-03). */
 .counter {
   font-size: 16px;
   font-weight: 600;

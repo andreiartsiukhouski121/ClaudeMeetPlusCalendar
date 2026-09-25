@@ -3,9 +3,8 @@ import { defineConfig, globalIgnores } from 'eslint/config';
 import playwright from 'eslint-plugin-playwright';
 
 /**
- * Конфиг корня монорепозитория: линтит только файлы вне apps/*.
- * У каждого приложения свой eslint.config.mjs.
- * Сюда попадают playwright.config.ts и e2e/** — отчёты Playwright игнорируем.
+ * Monorepo root config: lints only files outside apps/*. Each app has its own eslint.config.mjs.
+ * That covers playwright.config.ts and e2e/**; Playwright reports are ignored.
  */
 export default defineConfig([
   globalIgnores([
@@ -16,18 +15,18 @@ export default defineConfig([
     'blob-report/**',
   ]),
   ...baseConfig,
-  // Type-aware правил в базе нет, поэтому забытый `await expect(...)` ловим синтаксически:
-  // без этого тест молча проходит, ничего не проверив.
+  // The base has no type-aware rules, so a forgotten `await expect(...)` is caught syntactically:
+  // without this the test passes silently, having checked nothing.
   {
     ...playwright.configs['flat/recommended'],
     files: ['e2e/**/*.ts'],
-    // flat/recommended держит эти четыре правила в `warn`, а ESLint с предупреждениями выходит
-    // с кодом 0 — то есть `waitForTimeout` и `test.skip` проходили бы шаг «pnpm lint» зелёными,
-    // хотя тест-план §6.3 называет их блокерами. Значит error.
-    // Вариант `eslint . --max-warnings=0` отвергнут: он делает блокером любое предупреждение
-    // во всём репозитории, включая правила, к устойчивости тестов не относящиеся.
-    // `test.fixme` при этом остаётся разрешённым: no-skipped-test знает только про
-    // `test.skip`/`describe.skip` — механизм «нашли дефект → test.fixme со ссылкой» не ломается.
+    // flat/recommended keeps these four at `warn`, and ESLint exits 0 on warnings — so
+    // `waitForTimeout` and `test.skip` would pass `pnpm lint` green while the suite rules call
+    // them blockers. Hence error.
+    // `eslint . --max-warnings=0` was rejected: it would make every warning in the repository a
+    // blocker, including rules unrelated to test robustness.
+    // `test.fixme` stays allowed: no-skipped-test only knows `test.skip`/`describe.skip`, so the
+    // "found a defect → test.fixme with a link" mechanism keeps working.
     rules: {
       ...playwright.configs['flat/recommended'].rules,
       'playwright/no-wait-for-timeout': 'error',

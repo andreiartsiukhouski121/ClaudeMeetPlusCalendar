@@ -11,20 +11,18 @@ import { PasswordService } from './password.service.js';
 import { TokenService } from './token.service.js';
 
 /**
- * ОДНО И ТО ЖЕ сообщение и при неизвестном email, и при неверном пароле — требование
- * безопасности: по ответу нельзя перечислять существующие аккаунты (AL-API-03, AL-UT-02,
- * AL-UT-03).
+ * Invariant 6: the same message for an unknown email and a wrong password, so responses cannot be
+ * used to enumerate accounts (AL-API-03, AL-UT-02, AL-UT-03).
  */
-export const INVALID_CREDENTIALS_MESSAGE = 'Неверный email или пароль';
+export const INVALID_CREDENTIALS_MESSAGE = 'Invalid email or password';
 
 /**
- * Хеш-пустышка для выравнивания времени ответа. Считается один раз при загрузке модуля от
- * случайной строки: подобрать к нему пароль невозможно, а `verify` по нему делает ровно столько
- * же работы, сколько по настоящему.
+ * Dummy hash that keeps response timing flat. Computed once at module load from a random string:
+ * no password can match it, and verifying against it costs exactly as much as the real thing.
  *
- * Константа модуля, а не поле класса, сознательно: порядок инициализации полей относительно
- * parameter properties зависит от настроек транспиляции, а промах здесь означал бы `verify` по
- * `undefined` в security-критичной ветке.
+ * A module constant rather than a class field on purpose: field initialization order relative to
+ * parameter properties depends on transpilation settings, and a miss here would mean verifying
+ * against `undefined` in a security-critical branch.
  */
 const DUMMY_PASSWORD_HASH = hashPassword(randomBytes(16).toString('hex'));
 
@@ -40,19 +38,17 @@ export class AuthService {
     const user = this.usersService.findByEmail(normalizeEmail(dto.email));
 
     /*
-     * Пароль сверяется ВСЕГДА, даже когда пользователя нет: иначе неизвестный email отвечает
-     * быстрее, чем неверный пароль, и одинакового сообщения уже недостаточно — аккаунты
-     * перечисляются по времени ответа.
+     * Invariant 18: the password is always verified, even when the user does not exist. Otherwise
+     * an unknown email answers faster than a wrong password and the identical message is no longer
+     * enough — accounts get enumerated by response time.
      *
-     * Измерено до правки на этом коде: неизвестный email — 52 мс, неверный пароль — 86–114 мс.
-     * Разница стабильная и различима с первой попытки (SEC-API-05).
+     * Measured before the fix: unknown email 52 ms, wrong password 86–114 ms (SEC-API-05).
      */
     const passwordMatches = this.passwordService.verify(
       dto.password,
       user?.passwordHash ?? DUMMY_PASSWORD_HASH,
     );
 
-    // Ветка отказа одна на оба случая: и «нет такого email», и «пароль не тот».
     if (user === undefined || !passwordMatches) {
       throw new UnauthorizedException(INVALID_CREDENTIALS_MESSAGE);
     }

@@ -1,74 +1,73 @@
-# Бэклог
+# Backlog
 
-Что ещё предстоит, что сознательно отложено и что **отклонено с причиной**. Парный документ —
-[CHANGELOG.md](CHANGELOG.md) (что уже сделано).
+What is still ahead, what was deliberately deferred, and what was **rejected with a reason**. The
+companion document is [CHANGELOG.md](CHANGELOG.md) (what is already done).
 
-Оба файла читаются **до** планирования новой задачи, не после. Порядок — в скиле
-`feature-pipeline`, шаг 0 «Ориентация»; форма ответа — раздел 0 шаблона
+Both files are read **before** planning a new task, not after. The order is in the
+`feature-pipeline` skill, step 0 "Orientation"; the answer form is section 0 of
 [docs/plans/TEMPLATE.md](plans/TEMPLATE.md).
 
-**Правила ведения**
+**Rules**
 
-- Новые пункты — сверху таблицы. ID не переиспользуются.
-- `Конфликтует с` заполняется обязательно, хотя бы значением «нет»: пункт, про который не подумали
-  в разрезе остального бэклога, — источник второй реализации того же самого.
-- Закрытый пункт **не удаляется**: статус меняется на `закрыт`, добавляется ссылка на ID в
-  `CHANGELOG.md`. История решений ценнее краткости файла.
-- Раздел «Отклонено» существует, чтобы одно и то же не предлагали заново каждые две недели.
-- Структуру проверяет `e2e/ledger/ledger.api.spec.ts` на каждом `pnpm verify`.
+- New items go at the top of the table. IDs are never reused.
+- `Conflicts with` is mandatory, if only as "no": an item nobody weighed against the rest of the
+  backlog is where a second implementation of the same thing comes from.
+- A closed item is **never deleted**: its status becomes `closed` and it gains a reference to an ID
+  in `CHANGELOG.md`. The history of decisions is worth more than a short file.
+- The Rejected section exists so the same idea is not proposed again every other week.
+- The structure is checked by `e2e/ledger/ledger.api.spec.ts` on every `pnpm verify`.
 
-Приоритеты: **P1** — блокирует продакшен или следующую фичу; **P2** — нужно, но терпит; **P3** —
-улучшение, делается попутно.
-
----
-
-## Открыто
-
-| ID     | P   | Область      | Что                                                                                                      | Зависит от        | Конфликтует с                                                                                                     |
-| ------ | --- | ------------ | -------------------------------------------------------------------------------------------------------- | ----------------- | ----------------------------------------------------------------------------------------------------------------- |
-| BL-018 | P3  | процесс      | Снять override `multer` из `pnpm-workspace.yaml`, когда `@nestjs/platform-express` поднимет диапазон сам | релиз Nest        | нет; override только поднимает версию внутри диапазона, поведение не меняет                                       |
-| BL-017 | P3  | процесс      | Обновить actions, когда выйдут версии на Node 24 (сейчас предупреждение о депрекации Node 20)            | релизы actions    | нет; предупреждение, не ошибка — прогон зелёный                                                                   |
-| BL-016 | P2  | процесс      | Настоящий CD: выбрать площадку, добавить секреты и job развёртывания                                     | решение заказчика | нет; job `build` уже отдаёт артефакт, деплой встанет после него                                                   |
-| BL-015 | P2  | процесс      | Branch protection на `main`: обязательный зелёный `verify` перед мержем                                  | `CH-008`          | нет; настройка репозитория, а не кода                                                                             |
-| BL-014 | P3  | процесс      | Проверить схему frontmatter `.claude/agents/*.md` и завести определения роль→модель                      | —                 | нет; до тех пор `model` передаётся параметром `Agent` (см. `feature-pipeline` §5)                                 |
-| BL-013 | P3  | процесс      | Инструмент для worktree на агента: создание, порты, снос                                                 | —                 | нет                                                                                                               |
-| BL-012 | P2  | безопасность | Сканирование секретов по **истории** git (`SEC-API-10` смотрит только рабочее дерево)                    | —                 | нет; расширяет `SEC-API-10`, не заменяет                                                                          |
-| BL-011 | P3  | безопасность | Проверка лицензий зависимостей / SBOM                                                                    | —                 | нет                                                                                                               |
-| BL-009 | P3  | web          | Часовой пояс отображения из профиля пользователя вместо прибитого UTC                                    | —                 | **да:** `HD-UT-10`…`HD-UT-12` и `formatMeetingDateTime` завязаны на `timeZone: 'UTC'`; менять вместе с кейсами    |
-| BL-008 | P2  | фича         | Настоящая регистрация: страница `/auth/register` + `POST /auth/register`                                 | —                 | **да:** сейчас `/auth/register` — заглушка, её проверяет `AL-FN-06`; кейс придётся переписать                     |
-| BL-007 | P2  | фича         | Редактирование и удаление встречи                                                                        | —                 | **да:** `PROTECTED_ROUTES` в `security.api.spec.ts` и список эндпоинтов в `apps/api/README.md` придётся дополнить |
-| BL-006 | P2  | безопасность | Убрать дефолт `JWT_SECRET` из кода для production-сборки                                                 | `BL-010`          | нет                                                                                                               |
-| BL-005 | P2  | безопасность | Заголовки безопасности (CSP, HSTS, `X-Frame-Options`)                                                    | реальный хостинг  | нет                                                                                                               |
-| BL-004 | P2  | безопасность | Сид → миграция с уже посчитанными хешами вместо плейнтекста в `users.seed.ts`                            | появление БД      | **да:** `e2e/fixtures/seed.ts` — зеркало сида, менять синхронно, иначе краснеет `SM-API-02`                       |
-| BL-003 | P3  | безопасность | Свой CSRF-токен вместо опоры на защиту Server Actions и `sameSite=lax`                                   | —                 | нет                                                                                                               |
-| BL-002 | P2  | безопасность | Refresh-токены: сейчас сессия живёт час, дальше вход заново                                              | —                 | **да:** `SESSION_MAX_AGE_SECONDS` обязан совпадать с `JWT_EXPIRES_IN` (`AL-UT-22`)                                |
-| BL-001 | P1  | безопасность | **Rate limiting на `POST /auth/login`** — сейчас перебор ничем не ограничен                              | —                 | нет                                                                                                               |
-
-## Закрыто
-
-Не удаляются: история решений ценнее краткости файла.
-
-| ID     | Что было                                               | Закрыто записью |
-| ------ | ------------------------------------------------------ | --------------- |
-| BL-010 | CI: `.github/workflows/ci.yml` со шагами `pnpm verify` | `CH-008`        |
-
-`BL-001` — единственный пункт, который я считаю блокирующим для продакшена. Всё остальное в
-разделе «безопасность» — осознанные компромиссы демо без БД, перечисленные в
-[security.md](security.md).
+Priorities: **P1** blocks production or the next feature; **P2** is needed but can wait; **P3** is
+an improvement done in passing.
 
 ---
 
-## Отклонено
+## Open
 
-Чтобы не предлагать заново. Отклонение — не «никогда», а «не сейчас и вот почему».
+| ID     | P   | Area     | What                                                                                                   | Depends on        | Conflicts with                                                                                          |
+| ------ | --- | -------- | ------------------------------------------------------------------------------------------------------ | ----------------- | ------------------------------------------------------------------------------------------------------- |
+| BL-018 | P3  | process  | Drop the `multer` override from `pnpm-workspace.yaml` once `@nestjs/platform-express` raises its range | a Nest release    | no; the override only raises a version inside the range and changes no behaviour                        |
+| BL-017 | P3  | process  | Update the actions once Node 24 versions ship (a Node 20 deprecation warning is shown now)             | action releases   | no; a warning, not an error — the run is green                                                          |
+| BL-016 | P2  | process  | Real CD: pick a platform, add secrets and a deployment job                                             | customer decision | no; the `build` job already produces an artifact and a deploy would follow it                           |
+| BL-015 | P2  | process  | Branch protection on `main`: a green `verify` required before merging                                  | `CH-008`          | no; a repository setting rather than code                                                               |
+| BL-014 | P3  | process  | Verify the `.claude/agents/*.md` frontmatter schema and define role→model agents                       | —                 | no; until then `model` is passed as an `Agent` parameter (see `feature-pipeline` §5)                    |
+| BL-013 | P3  | process  | Tooling for a worktree per agent: creation, ports, teardown                                            | —                 | no                                                                                                      |
+| BL-012 | P2  | security | Scan for secrets across git **history** (`SEC-API-10` only looks at the working tree)                  | —                 | no; extends `SEC-API-10` rather than replacing it                                                       |
+| BL-011 | P3  | security | Dependency licence checks / SBOM                                                                       | —                 | no                                                                                                      |
+| BL-009 | P3  | web      | Display time zone from the user profile instead of hard-pinned UTC                                     | —                 | **yes:** `HD-UT-10`…`HD-UT-12` and `formatMeetingDateTime` depend on `timeZone: 'UTC'`; change together |
+| BL-008 | P2  | feature  | Real sign-up: an `/auth/register` page plus `POST /auth/register`                                      | —                 | **yes:** `/auth/register` is a placeholder checked by `AL-FN-06`; the case will need rewriting          |
+| BL-007 | P2  | feature  | Editing and deleting a meeting                                                                         | —                 | **yes:** `PROTECTED_ROUTES` and the endpoint list in `apps/api/README.md` will need extending           |
+| BL-006 | P2  | security | Remove the default `JWT_SECRET` from the code for production builds                                    | `BL-010`          | no                                                                                                      |
+| BL-005 | P2  | security | Security headers (CSP, HSTS, `X-Frame-Options`)                                                        | real hosting      | no                                                                                                      |
+| BL-004 | P2  | security | Seed → migration with pre-computed hashes instead of plaintext in `users.seed.ts`                      | a database        | **yes:** `e2e/fixtures/seed.ts` mirrors the seed; change both or `SM-API-02` goes red                   |
+| BL-003 | P3  | security | A dedicated CSRF token instead of relying on Server Action protection and `sameSite=lax`               | —                 | no                                                                                                      |
+| BL-002 | P2  | security | Refresh tokens: the session currently lives an hour, then requires signing in again                    | —                 | **yes:** `SESSION_MAX_AGE_SECONDS` must match `JWT_EXPIRES_IN` (`AL-UT-22`)                             |
+| BL-001 | P1  | security | **Rate limiting on `POST /auth/login`** — brute force is currently unlimited                           | —                 | no                                                                                                      |
 
-| Что                                                     | Почему отклонено                                                                                                                                                                                                         |
-| ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Юнит-покрытие `lib/dal.ts`, `proxy.ts`, `lib/actions/*` | Модули помечены `server-only` либо являются Server Actions — Vitest их не резолвит принципиально. Проходят через них `SEC-FN-04`, `SEC-FN-05`, `HD-FN-01`, `HD-FN-08`. Вынести оттуда логику ради метрики — ухудшить код |
-| Тесты React-компонентов в jsdom                         | UI покрыт функциональными Playwright-тестами на реальном браузере; jsdom дал бы вторую, менее достоверную копию тех же проверок                                                                                          |
-| Удалить `docs/plans/plan-review-*.md` (1416 строк)      | Это запись того, **почему** решения приняты именно такими, включая девять блокеров, которые иначе выглядят беспричинными правками. Помечены историческими — этого достаточно                                             |
-| Склонение счётчика встреч (`pluralizeMeetings`)         | Формат `Всего встреч: N` и склонение взаимоисключающи; при склонении ломается локатор `HD-FN-03`. Функция удалена вместе с кейсами `HD-UT-13`/`HD-UT-14`                                                                 |
-| Mutation testing                                        | Роль «проверить, что тесты не проходят вслепую» уже выполняют обязательные контрольные опыты (шаг 10 приёмки), и стоят они секунды против минут полного мутационного прогона                                             |
-| Глобальный `fullyParallel: false` ради устранения гонок | Замедлил бы весь сьют из-за пяти мутирующих кейсов. Гонки решены выделенными владельцами + `serial`-блоком + относительными счётчиками                                                                                   |
-| Эндпоинт сброса состояния для тестов                    | Тестовый чёрный ход в продовом API. Изоляция достигнута данными: свои владельцы под мутации                                                                                                                              |
-| `pnpm audit --audit-level=low` в `verify`               | Сделал бы блокером любое предупреждение в дереве зависимостей. Порог `high` ловит то, что действительно требует реакции                                                                                                  |
+## Closed
+
+Never deleted: the history of decisions is worth more than a short file.
+
+| ID     | What it was                                             | Closed by |
+| ------ | ------------------------------------------------------- | --------- |
+| BL-010 | CI: `.github/workflows/ci.yml` with `pnpm verify` steps | `CH-008`  |
+
+`BL-001` is the only item I consider a production blocker. Everything else under security is a
+deliberate concession of a demo without a database, listed in [security.md](security.md).
+
+---
+
+## Rejected
+
+So it is not proposed again. A rejection is not "never" but "not now, and here is why".
+
+| What                                                        | Why rejected                                                                                                                                                                                                         |
+| ----------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Unit coverage for `lib/dal.ts`, `proxy.ts`, `lib/actions/*` | The modules are `server-only` or Server Actions — Vitest cannot resolve them in principle. `SEC-FN-04`, `SEC-FN-05`, `HD-FN-01`, `HD-FN-08` go through them. Extracting logic for a metric would make the code worse |
+| React component tests in jsdom                              | The UI is covered by functional Playwright tests in a real browser; jsdom would give a second, less trustworthy copy of the same checks                                                                              |
+| Deleting `docs/plans/plan-review-*.md` (1416 lines)         | They record **why** decisions came out this way, including nine blockers that would otherwise look like unmotivated edits. Marked as archive — that is enough                                                        |
+| Pluralizing the meeting counter                             | The `Meetings total: N` format and pluralization are mutually exclusive; pluralizing would break the `HD-FN-03` locator. The helper was deleted along with cases `HD-UT-13`/`HD-UT-14`                               |
+| Mutation testing                                            | The "prove the tests do not pass blindly" role is already filled by the mandatory control experiments, and they cost seconds against minutes of a full mutation run                                                  |
+| A global `fullyParallel: false` to remove races             | It would slow the whole suite down for the sake of five mutating cases. The races are solved by dedicated owners, a `serial` block and relative counters                                                             |
+| A state reset endpoint for tests                            | A test back door in a production API. Isolation is achieved through data: dedicated owners for mutations                                                                                                             |
+| `pnpm audit --audit-level=low` in `verify`                  | It would make any advisory in the dependency tree a blocker. The `high` threshold catches what actually needs a reaction                                                                                             |

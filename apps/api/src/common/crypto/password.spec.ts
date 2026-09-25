@@ -3,14 +3,14 @@ import { describe, expect, it } from 'vitest';
 import { hashPassword, verifyPassword } from './password.js';
 
 /**
- * Кейсы AL-UT-09…11 из `e2e/regression/auth-login/auth-login.unit.cases.md`.
- * Заголовок каждого теста начинается с ID кейса — иначе не работает ни
- * `pnpm test:auth-login` (фильтр `vitest -t "AL-UT-"`), ни правило 7 мета-теста сьюта.
+ * Cases AL-UT-09…11 from `e2e/regression/auth-login/auth-login.unit.cases.md`. Every test title
+ * starts with its case ID — otherwise neither `pnpm test:auth-login` (`vitest -t "AL-UT-"`) nor
+ * meta-test rule 7 works.
  */
 describe('common/crypto/password', () => {
   const PLAIN = 'Passw0rd!';
 
-  it('AL-UT-09 — hash не равен plain, имеет формат scrypt$salt$key и уникален на каждый вызов', () => {
+  it('AL-UT-09 — the hash differs from the plaintext, has the scrypt$salt$key shape and is unique per call', () => {
     const first = hashPassword(PLAIN);
     const second = hashPassword(PLAIN);
 
@@ -20,27 +20,27 @@ describe('common/crypto/password', () => {
     const parts = first.split('$');
     expect(parts).toHaveLength(3);
     expect(parts[0]).toBe('scrypt');
-    // 16 байт соли и 64 байта ключа в hex.
+    // 16 salt bytes and 64 key bytes in hex.
     expect(parts[1]).toMatch(/^[0-9a-f]{32}$/);
     expect(parts[2]).toMatch(/^[0-9a-f]{128}$/);
 
-    // Соль случайная, поэтому два хеша одного пароля различаются, но оба валидны.
+    // The salt is random, so two hashes of one password differ yet both verify.
     expect(second).not.toBe(first);
     expect(verifyPassword(PLAIN, first)).toBe(true);
     expect(verifyPassword(PLAIN, second)).toBe(true);
   });
 
-  it('AL-UT-10 — verifyPassword с верным паролем возвращает true', () => {
+  it('AL-UT-10 — verifyPassword returns true for the correct password', () => {
     expect(verifyPassword(PLAIN, hashPassword(PLAIN))).toBe(true);
   });
 
-  it('AL-UT-11 — неверный пароль, чужой формат и пустая строка дают false без исключения', () => {
+  it('AL-UT-11 — a wrong password, a foreign format and an empty string give false without throwing', () => {
     const stored = hashPassword(PLAIN);
 
     expect(verifyPassword('other-password', stored)).toBe(false);
 
-    // Битый или чужого формата хеш — false, а НЕ исключение: иначе одна повреждённая
-    // запись в хранилище превращает 401 в 500.
+    // A broken or foreign-format hash is false, never an exception: otherwise one corrupted record
+    // turns a 401 into a 500.
     for (const broken of [
       '',
       'not-a-hash',

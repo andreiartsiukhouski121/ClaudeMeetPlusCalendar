@@ -2,20 +2,19 @@ import { Type } from 'class-transformer';
 import { IsInt, IsOptional, Max, Min } from 'class-validator';
 
 /**
- * Query `GET /meetings?limit=` (контракт §2.2 п.4).
+ * Query of `GET /meetings?limit=`.
  *
- * **`@IsOptional()` обязателен.** Без него при `whitelist: true, transform: true`
- * отсутствующее поле всё равно проходит через `@IsInt/@Min/@Max`, и `GET /meetings`
- * **без параметра** отдаёт 400 (проверено пробой на `@nestjs/common@12.0.1` +
- * `class-validator@0.15.1`) — то есть дашборд не грузится вовсе. Ловит `HD-API-10` шаг 2,
- * страхует `SM-API-03`.
+ * Invariant 2: **`@IsOptional()` is mandatory.** Without it, under `whitelist: true,
+ * transform: true`, a missing field still runs through `@IsInt/@Min/@Max` and `GET /meetings`
+ * **without the parameter** answers 400 — the dashboard would not load at all. Verified by probe
+ * on `@nestjs/common@12.0.1` + `class-validator@0.15.1`; caught by `HD-API-10` step 2.
  *
- * Верхняя граница — 100, а не 50: `limit=100` используется как «отдай всё» в `HD-API-17`
- * и `SM-API-03`. Значение больше даёт 400 (§2.1).
+ * The upper bound is 100, not 50: `limit=100` is used as "give me everything" in `HD-API-17` and
+ * `SM-API-03`.
  *
- * Дефолт (3) подставляет **сервис**, а не DTO: значение по умолчанию в DTO не переживает
- * `plainToInstance` предсказуемо, а `findRecent` всё равно обязан иметь свой дефолт для
- * прямых вызовов (`HD-UT-06`).
+ * The default (3) is supplied by the **service**, not the DTO: a DTO default does not survive
+ * `plainToInstance` predictably, and `findRecent` needs its own default for direct calls anyway
+ * (`HD-UT-06`).
  */
 export class ListMeetingsQueryDto {
   @IsOptional()

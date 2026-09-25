@@ -1,91 +1,92 @@
-# Реестр изменений и бэклог — проверки целостности
+# Changelog and backlog — integrity checks
 
-- **Спек:** `e2e/ledger/ledger.api.spec.ts`
-- **Проект Playwright:** `api` (браузер не нужен, работа через `node:fs`)
-- **Теги:** `@ledger`
-- **Запуск:** `pnpm e2e e2e/ledger` (входит в `pnpm verify`)
+- **Spec:** `e2e/ledger/ledger.api.spec.ts`
+- **Playwright project:** `api` (no browser, plain `node:fs`)
+- **Tags:** `@ledger`
+- **Run:** `pnpm e2e e2e/ledger` (part of `pnpm verify`)
 
-Проверяется структура [`docs/CHANGELOG.md`](../../docs/CHANGELOG.md) и
+Checks the structure of [`docs/CHANGELOG.md`](../../docs/CHANGELOG.md) and
 [`docs/BACKLOG.md`](../../docs/BACKLOG.md).
 
-Зачем машинная проверка вместо доверия к аккуратности: в этом же проекте уже сгнила ручная таблица
-ожидаемых чисел в плане — она разошлась с реальностью (77 тестов против 53) и сделала блокер
-приёмки невыполнимым (`FX-013`). Реестр, который никто не проверяет, деградирует так же: сначала
-дубль ID, потом ссылка на несуществующий пункт, потом ему перестают верить и заводят второй.
+Why a machine check rather than trusting care: a hand-maintained table of expected numbers already
+rotted in this project — it drifted from reality (77 tests against 53) and made an acceptance
+blocker impossible to satisfy (`FX-013`). An unchecked ledger degrades the same way: first a
+duplicate ID, then a reference to a non-existent item, then nobody believes it and a second one
+gets started.
 
-Что эти кейсы **не** проверяют: смысл записей. Что задача не дубль по сути, а не по ID, решает
-шаг 0 «Ориентация» в скиле `feature-pipeline` — письменными ответами в плане, которые видно в
-ревью. Машина проверяет форму, человек — содержание.
+What these cases do **not** check: the meaning of the entries. Whether a task duplicates another in
+substance is settled by step 0 "Orientation" in the `feature-pipeline` skill — written answers in
+the plan, visible in review. The machine checks the form, a human checks the content.
 
-## Сводка
+## Summary
 
-| ID        | Заголовок                                                  | Приоритет |
-| --------- | ---------------------------------------------------------- | --------- |
-| LG-API-01 | оба файла реестра существуют и не пусты                    | P0        |
-| LG-API-02 | ID уникальны и соответствуют форме `FT-`/`CH-`/`FX-`/`BL-` | P0        |
-| LG-API-03 | у каждой записи в реестре изменений заполнен коммит        | P1        |
-| LG-API-04 | ссылки на коммиты разрешаются в git                        | P1        |
-| LG-API-05 | у каждого пункта бэклога заполнена графа «Конфликтует с»   | P0        |
-| LG-API-06 | нет ссылок на несуществующие `BL-`/`FX-`/`FT-`/`CH-`       | P0        |
+| ID        | Title                                                     | Priority |
+| --------- | --------------------------------------------------------- | -------- |
+| LG-API-01 | both ledger files exist and are not empty                 | P0       |
+| LG-API-02 | IDs are unique and match `FT-`/`CH-`/`FX-`/`BL-`          | P0       |
+| LG-API-03 | every changelog entry has its commit filled in            | P1       |
+| LG-API-04 | commit references resolve in git                          | P1       |
+| LG-API-05 | every backlog item has the "Conflicts with" column filled | P0       |
+| LG-API-06 | no references to non-existent `BL-`/`FX-`/`FT-`/`CH-`     | P0       |
 
-## Кейсы
+## Cases
 
-### LG-API-01 — оба файла реестра существуют и не пусты
+### LG-API-01 — both ledger files exist and are not empty
 
-- **Приоритет:** P0
-- **Шаги:** прочитать `docs/CHANGELOG.md` и `docs/BACKLOG.md`.
-- **Ожидаемый результат:** оба файла есть; в каждом найдена хотя бы одна запись с ID. Пустой
-  реестр хуже отсутствующего: он создаёт впечатление, что истории нет.
+- **Priority:** P0
+- **Steps:** read `docs/CHANGELOG.md` and `docs/BACKLOG.md`.
+- **Expected:** both files exist and each holds at least one entry with an ID. An empty ledger is
+  worse than none: it suggests there is no history.
 
-### LG-API-02 — ID уникальны и соответствуют форме
+### LG-API-02 — IDs are unique and well formed
 
-- **Приоритет:** P0
-- **Шаги:** собрать все ID из строк таблиц обоих файлов, проверить форму и повторы.
-- **Ожидаемый результат:** каждый ID вида `FT-NNN`, `CH-NNN`, `FX-NNN` (реестр изменений) или
-  `BL-NNN` (бэклог); повторов нет. Дубль ID означает, что две разные записи ссылаются как одна —
-  ровно та ошибка, которую уже допускали с номерами тест-кейсов.
+- **Priority:** P0
+- **Steps:** collect every ID from the table rows of both files, check shape and repeats.
+- **Expected:** every ID is `FT-NNN`, `CH-NNN`, `FX-NNN` (changelog) or `BL-NNN` (backlog), with no
+  repeats. A duplicate ID means two different entries read as one.
 
-### LG-API-03 — у каждой записи в реестре изменений заполнен коммит
+### LG-API-03 — every changelog entry has its commit filled in
 
-- **Приоритет:** P1
-- **Шаги:** для каждой строки таблиц `Фичи`, `Изменения процесса`, `Дефекты` взять графу коммита.
-- **Ожидаемый результат:** графа непустая: либо хеш, либо литерал `pending` для записи,
-  добавляемой текущим изменением. Дополнительно: если у файла реестра **нет незакоммиченных
-  правок** — то есть изменение завершено, — записей `pending` в нём быть не должно.
-- **Три отвергнутые формулировки этого правила**, каждую поймал прогон. Записаны, чтобы к ним не
-  вернулись:
-  1. «не больше одного `pending`» — сломалось на первом коммите, вносившем изменение процесса и
-     дефект одновременно;
-  2. «на `HEAD~1` записей `pending` нет» — off-by-one: `HEAD~1` это и есть коммит, где `pending`
-     законен;
-  3. «файл без незакоммиченных правок не содержит `pending`» — сломалось на CI, где дерево
-     **всегда** чистое: правило делало первый push любой записи красным по построению (`FX-019`).
-- **Итоговая формулировка:** `pending` законен, пока идёт то самое изменение, которое запись
-  ввело, — либо файл ещё правится, либо запись введена текущим `HEAD` (определяется через
-  `git log -S<ID>`: он находит коммит, добавивший упоминание, а не заменивший `pending` на хеш).
+- **Priority:** P1
+- **Steps:** take the commit column of every row in the Features, Process and Defects tables.
+- **Expected:** the column is non-empty: either a hash, or the literal `pending` for an entry added
+  by the current change. Additionally, if the ledger file has **no uncommitted edits** — meaning
+  the change is finished — it must contain no `pending`.
+- **Three rejected formulations of this rule**, each caught by a run. Recorded so nobody returns to
+  them:
+  1. "at most one `pending`" — broke on the first commit that carried a process change and a defect
+     at once;
+  2. "no `pending` entries at `HEAD~1`" — off by one: `HEAD~1` is exactly the commit where
+     `pending` is legitimate;
+  3. "a file without uncommitted edits contains no `pending`" — broke on CI, where the tree is
+     **always** clean: the rule made the first push of any entry red by construction (`FX-019`).
+- **Final formulation:** `pending` is legitimate while the change that introduced the entry is
+  still happening — either the file is still being edited, or the entry was introduced by the
+  current `HEAD` (found via `git log -S<ID>`, which locates the commit that added the mention
+  rather than the one that replaced `pending` with a hash).
 
-### LG-API-04 — ссылки на коммиты разрешаются в git
+### LG-API-04 — commit references resolve in git
 
-- **Приоритет:** P1
-- **Шаги:** для каждого хеша из реестра выполнить `git cat-file -e <hash>`.
-- **Ожидаемый результат:** каждый хеш существует в репозитории. Ссылка на несуществующий коммит
-  означает, что запись переписали после rebase и потеряли связь с изменением.
-- **В поверхностной копии проверка не имеет предмета** и пропускается: старых коммитов там
-  физически нет, и «коммиты не существуют» сказало бы неправду про реестр вместо правды про клон.
-  На CI поэтому стоит `fetch-depth: 0` (`FX-018`).
+- **Priority:** P1
+- **Steps:** run `git cat-file -e <hash>` for every hash in the ledger.
+- **Expected:** every hash exists in the repository. A reference to a missing commit means the
+  entry was rewritten after a rebase and lost its link to the change.
+- **In a shallow clone the check has no subject** and is skipped: the old commits are simply not
+  there, and "the commits do not exist" would tell a lie about the ledger instead of the truth
+  about the clone. CI therefore uses `fetch-depth: 0` (`FX-018`).
 
-### LG-API-05 — у каждого пункта бэклога заполнена графа «Конфликтует с»
+### LG-API-05 — every backlog item has the "Conflicts with" column filled
 
-- **Приоритет:** P0
-- **Шаги:** для каждой строки таблицы «Открыто» взять последнюю графу.
-- **Ожидаемый результат:** графа непустая — допускается явное «нет». Пустая графа означает, что о
-  пункте не подумали в разрезе остального проекта, а это и есть источник второй реализации того же
-  самого. Именно поэтому проверка P0, а не косметика.
+- **Priority:** P0
+- **Steps:** take the last column of every row in the Open table.
+- **Expected:** the column is non-empty — an explicit "no" is fine. An empty column means nobody
+  weighed the item against the rest of the project, and that is where a second implementation of
+  the same thing comes from. Hence P0 rather than cosmetics.
 
-### LG-API-06 — нет ссылок на несуществующие записи
+### LG-API-06 — no references to non-existent entries
 
-- **Приоритет:** P0
-- **Шаги:** обойти `docs/**/*.md`, `.claude/skills/**/*.md`, `CLAUDE.md`, `e2e/**/*.md` и собрать
-  все упоминания вида `BL-NNN`, `FX-NNN`, `FT-NNN`, `CH-NNN`.
-- **Ожидаемый результат:** каждый упомянутый ID объявлен в соответствующем файле реестра. Висячая
-  ссылка — признак того, что запись удалили вместо смены статуса, и обоснование решения потерялось.
+- **Priority:** P0
+- **Steps:** walk `docs/**/*.md`, `.claude/skills/**/*.md`, `CLAUDE.md` and `e2e/**/*.md`,
+  collecting every mention of `BL-NNN`, `FX-NNN`, `FT-NNN`, `CH-NNN`.
+- **Expected:** every mentioned ID is declared in the matching ledger file. A dangling reference
+  means an entry was deleted instead of having its status changed, and the reasoning was lost.

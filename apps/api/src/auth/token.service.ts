@@ -4,11 +4,11 @@ import { JwtService } from '@nestjs/jwt';
 import type { JwtPayload } from './auth.types.js';
 
 /**
- * Типизированная обёртка над `JwtService`: `verifyAsync<JwtPayload>` вместо `any`
- * (в `apps/api` включён `recommendedTypeChecked`, где `no-unsafe-*` — ошибки, риск 14).
+ * Typed wrapper over `JwtService`: `verifyAsync<JwtPayload>` instead of `any`, since `apps/api`
+ * runs `recommendedTypeChecked` where `no-unsafe-*` are errors.
  *
- * Методы не `async`: они возвращают промис `JwtService` как есть — лишний `await` только
- * добавил бы кадр стека и поспорил с `require-await`.
+ * The methods are not `async`: they return `JwtService`'s promise as is, and an extra `await`
+ * would only add a stack frame and argue with `require-await`.
  */
 @Injectable()
 export class TokenService {

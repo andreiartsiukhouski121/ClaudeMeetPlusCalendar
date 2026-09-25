@@ -8,22 +8,21 @@ import { getCurrentUser, getMeetings } from '@/lib/dal';
 import styles from './page.module.css';
 
 export const metadata: Metadata = {
-  title: 'Главная — PurpleSchool',
+  title: 'Home — PurpleSchool',
 };
 
 /**
- * Главная страница — дашборд. Async серверный компонент без пропсов (без `PageProps<'/'>`,
- * чтобы типы не зависели от свежести `next typegen`, риск 15).
+ * The dashboard. An async server component with no props (no `PageProps<'/'>`, so the types do not
+ * depend on how fresh `next typegen` is).
  *
- * Страница **сама** проверяет сессию через `getCurrentUser()`, который редиректит на логин
- * при невалидном токене. Это повторная проверка поверх `proxy.ts`, как требует документация
- * Next: proxy видит только наличие cookie и гарантией безопасности не является.
+ * Invariant 10: the page checks the session **itself** via `getCurrentUser()`, which redirects to
+ * the login page on an invalid token. That repeats the check `proxy.ts` makes, because proxy only
+ * sees that a cookie exists and is not a security guarantee.
  *
- * Требования разметки, продиктованные кейсами (тест-план §3.4, §5.1):
- *  - ровно ОДИН `h1` на странице, и в нём email пользователя (`HD-FN-02`, `HD-FN-14`);
- *  - счётчик — **одним текстовым узлом** и ровно в формате `Всего встреч: 5`, иначе
- *    `getByText('Всего встреч: 5')` из `HD-FN-03` не сработает. Склонения нет намеренно
- *    (§8 п.9): функции `pluralizeMeetings` в кодовой базе не существует.
+ * Markup dictated by the cases:
+ *  - exactly ONE `h1`, carrying the user's email (`HD-FN-02`, `HD-FN-14`);
+ *  - the counter as a **single text node** in exactly the `Meetings total: 5` format, or
+ *    `getByText` in `HD-FN-03` will not match.
  */
 export default async function HomePage() {
   const user = await getCurrentUser();
@@ -32,11 +31,11 @@ export default async function HomePage() {
   return (
     <main className={styles.page}>
       <header className={styles.header}>
-        <h1 className={styles.greeting}>Здравствуйте, {user.email}</h1>
+        <h1 className={styles.greeting}>Hello, {user.email}</h1>
         <LogoutButton />
       </header>
 
-      <p className={styles.counter}>{`Всего встреч: ${String(total)}`}</p>
+      <p className={styles.counter}>{`Meetings total: ${String(total)}`}</p>
 
       <div className={styles.content}>
         <MeetingList meetings={items} />

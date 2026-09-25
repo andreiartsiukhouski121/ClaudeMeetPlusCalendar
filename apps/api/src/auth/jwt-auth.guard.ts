@@ -9,11 +9,11 @@ import type { AuthenticatedRequest } from './auth.types.js';
 import { TokenService } from './token.service.js';
 
 /**
- * Одна ветка отказа на все случаи: заголовка нет, схема не `Bearer`, токен не разбирается,
- * подпись не сходится, срок истёк. Разные сообщения ничего не дают клиенту и подсказывают
- * атакующему (AL-API-14, AL-API-15, AL-UT-28).
+ * One rejection branch for every case: no header, non-`Bearer` scheme, unparseable token, bad
+ * signature, expired. Distinct messages help nobody but an attacker (AL-API-14, AL-API-15,
+ * AL-UT-28).
  */
-export const UNAUTHORIZED_MESSAGE = 'Требуется авторизация';
+export const UNAUTHORIZED_MESSAGE = 'Authentication required';
 
 const BEARER_PREFIX = 'Bearer ';
 
@@ -28,9 +28,8 @@ function extractBearerToken(header: string | undefined): string | undefined {
 }
 
 /**
- * Глобальным guard этот класс НЕ регистрируется — он сломал бы публичные `GET /`
- * и `POST /auth/login`. Только `@UseGuards(JwtAuthGuard)` на защищённых маршрутах
- * (план имплементации §2.2 п.7).
+ * Never registered as a global guard — that would break the public `GET /` and `POST /auth/login`.
+ * Only `@UseGuards(JwtAuthGuard)` on protected routes.
  */
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
@@ -49,7 +48,7 @@ export class JwtAuthGuard implements CanActivate {
     try {
       payload = await this.tokenService.verify(token);
     } catch {
-      // Любая ошибка проверки токена — 401, а не 500: битый токен это не сбой сервера.
+      // Any verification failure is a 401, not a 500: a broken token is not a server fault.
       throw new UnauthorizedException(UNAUTHORIZED_MESSAGE);
     }
 

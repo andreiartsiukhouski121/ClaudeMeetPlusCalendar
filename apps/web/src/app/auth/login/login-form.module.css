@@ -29,7 +29,7 @@
   outline-offset: 1px;
 }
 
-/* Ошибка входа: контейнер несёт role="alert", поэтому её видит и скринридер, и getByRole. */
+/* The error container carries role="alert", so both a screen reader and getByRole see it. */
 .error {
   padding: 10px 12px;
   border: 1px solid rgb(185 28 28 / 40%);

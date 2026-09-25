@@ -4,16 +4,16 @@ import { cookies } from 'next/headers';
 import { buildSessionCookieOptions, SESSION_COOKIE_NAME } from './session-cookie';
 
 /**
- * Работа с cookie сессии. В cookie лежит **сырой JWT** от Nest без дополнительной обёртки
- * (§3.5): он подписан HS256, не читается из JS (`httpOnly`) и не содержит ничего, кроме `sub`
- * и `email`. Функций `parseSession`/`serializeSession` в архитектуре нет — валидность токена
- * подтверждает сам Nest на `GET /auth/me`.
+ * Session cookie handling. The cookie holds the **raw JWT** from Nest with no extra wrapper: it is
+ * HS256-signed, unreadable from JS (`httpOnly`) and carries nothing but `sub` and `email`. There
+ * are no `parseSession`/`serializeSession` functions — Nest itself confirms the token on
+ * `GET /auth/me`.
  *
- * Файл помечен `server-only` и трогает `next/headers`, поэтому юнитами НЕ покрывается: Vitest
- * не резолвит этот импорт (риск 6). Всё тестируемое вынесено в `session-cookie.ts`.
+ * Invariant 14: marked `server-only` and touching `next/headers`, so it has no units; everything
+ * testable lives in `session-cookie.ts`.
  *
- * `cookies()` в Next 16 асинхронна, а `.set`/`.delete` работают только внутри Server Action
- * или Route Handler (риск 4): «разлогинить» пользователя прямо при рендере страницы нельзя.
+ * `cookies()` is async in Next 16, and `.set`/`.delete` only work inside a Server Action or a
+ * Route Handler — a user cannot be signed out while a page renders.
  */
 
 export async function createSession(token: string): Promise<void> {

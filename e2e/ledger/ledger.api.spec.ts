@@ -5,43 +5,44 @@ import path from 'node:path';
 import { expect, test } from '@playwright/test';
 
 /**
- * Целостность реестра изменений и бэклога. Кейсы — в парном `ledger.api.cases.md`.
+ * Integrity of the changelog and the backlog. Cases live in the paired `ledger.api.cases.md`.
  *
- * Проект `api`: браузер не нужен, работа через `node:fs`. Суффикс `.api.spec.ts` обязателен по
- * правилу 1 мета-теста — иначе файл не попал бы ни в один проект и молча не запускался.
+ * Project `api`: no browser, plain `node:fs`. The `.api.spec.ts` suffix is mandatory (meta-test
+ * rule 1) — without it the file joins no project and silently never runs.
  *
- * Зачем машинная проверка: в этом проекте уже сгнила ручная таблица чисел в плане (`FX-013`) —
- * реестр без проверки деградирует так же и в итоге заводят второй.
+ * Why a machine check: a hand-maintained table of numbers already rotted in this project
+ * (`FX-013`). An unchecked ledger degrades the same way, and then a second one gets started.
  */
 
 const CHANGELOG = 'docs/CHANGELOG.md';
 const BACKLOG = 'docs/BACKLOG.md';
 
-/** Префиксы записей: три в реестре изменений, один в бэклоге. */
+/** Entry prefixes: three in the changelog, one in the backlog. */
 const CHANGELOG_PREFIXES = ['FT', 'CH', 'FX'];
 const BACKLOG_PREFIXES = ['BL'];
 
-/** ID записи реестра: `FT-001`, `BL-014`. Три знака — до 999 записей, дальше не дожили. */
+/** Ledger entry ID: `FT-001`, `BL-014`. Three digits — up to 999 entries. */
 const ENTRY_ID = /\b((?:FT|CH|FX|BL)-\d{3})\b/g;
 
-/** Строка таблицы, начинающаяся с ID: `| FT-001 | …`. */
+/** A table row starting with an ID: `| FT-001 | …`. */
 const ENTRY_ROW = /^\|\s*((?:FT|CH|FX|BL)-\d{3})\s*\|(.*)$/;
 
-/** Литерал вместо хеша для записи, добавляемой текущим изменением. */
+/** Literal used instead of a hash for an entry added by the current change. */
 const PENDING = 'pending';
 
-/** Хеш коммита в графе реестра: 7–40 hex, обычно в обратных кавычках. */
+/** Commit hash in the ledger column: 7–40 hex characters, usually in backticks. */
 const COMMIT_HASH = /\b([0-9a-f]{7,40})\b/;
 
-/** Где искать висячие ссылки на записи реестра. */
+/** Where to look for dangling references to ledger entries. */
 const REFERENCE_ROOTS = ['docs', '.claude/skills', 'e2e'];
 
 const SKIP_DIRS = new Set(['node_modules', '.git', '.next', 'dist', 'build', 'coverage']);
 
 /**
- * Корень репозитория — поиском `pnpm-workspace.yaml` вверх от `config.rootDir`.
- * Просто `rootDir` брать нельзя: он равен разрешённому `testDir`, то есть `<repo>/e2e`, и обход
- * нашёл бы ноль файлов — кейсы прошли бы вакуумно. На этом уже спотыкался мета-тест (`FX-001`).
+ * The repository root, found by walking up from `config.rootDir` looking for
+ * `pnpm-workspace.yaml`. `rootDir` alone will not do: it equals the resolved `testDir`, that is
+ * `<repo>/e2e`, and the walk would find zero files — the cases would pass vacuously. The meta-test
+ * already tripped over this (`FX-001`).
  */
 function repoRoot(): string {
   let dir = test.info().config.rootDir;
@@ -52,7 +53,7 @@ function repoRoot(): string {
     }
     const parent = path.dirname(dir);
     if (parent === dir) {
-      throw new Error(`Не найден корень монорепозитория (pnpm-workspace.yaml) от ${dir} и выше`);
+      throw new Error(`Monorepo root (pnpm-workspace.yaml) not found from ${dir} upwards`);
     }
     dir = parent;
   }
@@ -64,11 +65,11 @@ function read(root: string, relFile: string): string {
 
 interface Entry {
   id: string;
-  /** Остаток строки таблицы после ID — из него берутся графы. */
+  /** The rest of the table row after the ID — the columns come from it. */
   rest: string;
 }
 
-/** Записи-строки таблиц: только те, что начинаются с ID, без строк-заголовков и разделителей. */
+/** Table rows that are entries: only those starting with an ID, skipping headers and rules. */
 function entries(content: string): Entry[] {
   const found: Entry[] = [];
 
@@ -82,7 +83,7 @@ function entries(content: string): Entry[] {
   return found;
 }
 
-/** Графы строки таблицы после ID, без пустых краёв. */
+/** Columns of a table row after the ID, without the empty edges. */
 function columns(rest: string): string[] {
   return rest
     .split('|')
@@ -104,7 +105,7 @@ function duplicates(values: string[]): string[] {
   return [...dupes];
 }
 
-/** Все markdown-файлы, где могут встречаться ссылки на записи реестра. */
+/** Every markdown file that may reference ledger entries. */
 function referenceFiles(root: string): string[] {
   const files: string[] = ['CLAUDE.md'];
 
@@ -133,8 +134,8 @@ function referenceFiles(root: string): string[] {
 }
 
 /**
- * Есть ли у файла незакоммиченные правки. Признак «изменение ещё в работе»: пока он истинен,
- * литерал `pending` в реестре законен.
+ * Whether a file has uncommitted edits. While it does, the change is still in progress and the
+ * `pending` literal is legitimate.
  */
 function hasUncommittedChanges(root: string, relFile: string): boolean {
   try {
@@ -145,12 +146,12 @@ function hasUncommittedChanges(root: string, relFile: string): boolean {
 
     return status.trim() !== '';
   } catch {
-    // Нет git (архив, распакованный tarball) — считаем изменение завершённым: строгий вариант.
+    // No git (an unpacked tarball): treat the change as finished — the strict option.
     return false;
   }
 }
 
-/** Хеши, которые git не может разрешить. Вынесено из теста: условия в `test` запрещены линтом. */
+/** Hashes git cannot resolve. Outside the test because conditions in `test` are lint errors. */
 function isShallowRepository(root: string): boolean {
   try {
     const answer = execFileSync('git', ['rev-parse', '--is-shallow-repository'], {
@@ -165,8 +166,8 @@ function isShallowRepository(root: string): boolean {
 }
 
 function unresolvedCommits(root: string, hashes: string[]): string[] {
-  // В поверхностной копии старых коммитов физически нет, и «не существует» сказало бы неправду
-  // про реестр вместо правды про клон. Проверка не имеет предмета — см. FX-018.
+  // In a shallow clone the old commits simply are not there, and "does not exist" would tell a
+  // lie about the ledger instead of the truth about the clone. The check has no subject (FX-018).
   if (isShallowRepository(root)) {
     return [];
   }
@@ -185,14 +186,14 @@ function unresolvedCommits(root: string, hashes: string[]): string[] {
 }
 
 /**
- * Графа коммита — **последняя** графа строки, во всех таблицах реестра. Это инвариант формата,
- * зафиксированный в правилах `docs/CHANGELOG.md`.
+ * The commit column is the **last** column of a row, in every ledger table. That is a format
+ * invariant recorded in the rules of `docs/CHANGELOG.md`.
  *
- * Прежняя редакция искала графу «в которой есть хеш или pending» — то есть угадывала по
- * содержимому. Угадывание сломалось на записи `FX-019`, в описании которой слово `pending` стоит
- * в тексте: парсер принял описание за графу коммита и объявил запись незаполненной (`FX-022`).
- * Поймано прогоном CI. Позиция вместо содержимого — поэтому графа `Коммит` и стала последней
- * везде, включая таблицу фич, где раньше за ней шли «Проверки».
+ * An earlier version looked for the column "that contains a hash or pending" — it guessed by
+ * content. The guess broke on entry `FX-019`, whose description contains the word `pending`: the
+ * parser took the description for the commit column and declared the entry unfilled (`FX-022`).
+ * Caught by a CI run. Position instead of content — which is why the commit column became last
+ * everywhere.
  */
 function commitCells(content: string): { id: string; cell: string }[] {
   return entries(content)
@@ -201,9 +202,9 @@ function commitCells(content: string): { id: string; cell: string }[] {
 }
 
 /**
- * Ссылки на ID, которых нет в реестре. Обход вне теста: ветвление внутри `test` запрещено
- * правилом `playwright/no-conditional-in-test` — оно поднято до `error` осознанно, потому что
- * условие в тесте прячет непройденную ветку.
+ * References to IDs that are not in the ledger. The walk is outside the test: branching inside
+ * `test` is forbidden by `playwright/no-conditional-in-test`, raised to `error` deliberately
+ * because a condition in a test hides an unexercised branch.
  */
 function danglingReferences(root: string, declared: Set<string>): string[] {
   const dangling: string[] = [];
@@ -211,7 +212,7 @@ function danglingReferences(root: string, declared: Set<string>): string[] {
   for (const file of referenceFiles(root)) {
     for (const match of read(root, file).matchAll(ENTRY_ID)) {
       if (!declared.has(match[1])) {
-        dangling.push(`${file}: ссылка на ${match[1]}, которого нет в реестре`);
+        dangling.push(`${file}: references ${match[1]}, which is not in the ledger`);
       }
     }
   }
@@ -220,9 +221,9 @@ function danglingReferences(root: string, declared: Set<string>): string[] {
 }
 
 /**
- * Коммит, который **добавил** упоминание ID в реестр. `-S` находит изменение числа вхождений
- * строки, поэтому это именно вводящий коммит: последующая замена `pending` на хеш количество
- * вхождений ID не меняет и под `-S` не попадает.
+ * The commit that **introduced** the ID into the ledger. `-S` finds a change in the number of
+ * occurrences, so this is the introducing commit: later replacing `pending` with a hash does not
+ * change the occurrence count and `-S` does not see it.
  */
 function introducingCommit(root: string, id: string): string {
   try {
@@ -244,15 +245,16 @@ function headCommit(root: string): string {
 }
 
 /**
- * Записи `pending`, которые пережили свой коммит.
+ * `pending` entries that outlived their commit.
  *
- * Третья редакция правила. Предыдущие две отвергнуты прогонами (см. `ledger.api.cases.md`), а
- * вторая — «файл без незакоммиченных правок не должен содержать pending» — сломалась уже на CI:
- * там дерево **всегда** чистое, поэтому коммит, который вводит запись, гарантированно краснел.
- * То есть правило делало первый push любой новой записи красным по построению (`FX-019`).
+ * The third version of this rule. The first two were refuted by runs (see `ledger.api.cases.md`),
+ * and the second — "a file with no uncommitted edits must contain no pending" — broke on CI,
+ * where the tree is **always** clean, so the very commit introducing an entry went red by
+ * construction (`FX-019`).
  *
- * Точная формулировка: `pending` законен, пока идёт то самое изменение, которое запись ввело —
- * либо файл ещё правится, либо запись введена текущим `HEAD`. Всё остальное — забытый хвост.
+ * The precise form: `pending` is legitimate while the change that introduced the entry is still
+ * happening — either the file is still being edited, or the entry was introduced by the current
+ * `HEAD`. Anything else is a forgotten leftover.
  */
 function stalePendingEntries(root: string): string[] {
   if (hasUncommittedChanges(root, CHANGELOG)) {
@@ -267,20 +269,20 @@ function stalePendingEntries(root: string): string[] {
     .map((entry) => entry.id);
 }
 
-test.describe('Реестр изменений и бэклог', { tag: '@ledger' }, () => {
-  test('LG-API-01 — оба файла реестра существуют и не пусты', () => {
+test.describe('Changelog and backlog', { tag: '@ledger' }, () => {
+  test('LG-API-01 — both ledger files exist and are not empty', () => {
     const root = repoRoot();
 
     for (const file of [CHANGELOG, BACKLOG]) {
-      expect(fs.existsSync(path.join(root, file)), `${file} отсутствует`).toBe(true);
+      expect(fs.existsSync(path.join(root, file)), `${file} is missing`).toBe(true);
       expect(
         entries(read(root, file)).length,
-        `${file} не содержит ни одной записи с ID — пустой реестр хуже отсутствующего`,
+        `${file} holds no entry with an ID — an empty ledger is worse than none`,
       ).toBeGreaterThan(0);
     }
   });
 
-  test('LG-API-02 — ID уникальны и соответствуют форме', () => {
+  test('LG-API-02 — IDs are unique and well formed', () => {
     const root = repoRoot();
 
     for (const [file, allowed] of [
@@ -289,61 +291,58 @@ test.describe('Реестр изменений и бэклог', { tag: '@ledger
     ] as const) {
       const ids = entries(read(root, file)).map((entry) => entry.id);
 
-      expect(duplicates(ids), `${file}: ID повторяются — две записи читаются как одна`).toEqual([]);
+      expect(duplicates(ids), `${file}: IDs repeat — two entries read as one`).toEqual([]);
       expect(
         ids.filter((id) => !allowed.includes(id.slice(0, 2))),
-        `${file}: ID с чужим префиксом (ожидались ${allowed.join(', ')})`,
+        `${file}: an ID with a foreign prefix (expected ${allowed.join(', ')})`,
       ).toEqual([]);
     }
   });
 
-  test('LG-API-03 — у каждой записи реестра изменений заполнен коммит', () => {
+  test('LG-API-03 — every changelog entry has its commit filled in', () => {
     const root = repoRoot();
     const empty = commitCells(read(root, CHANGELOG))
       .filter((entry) => entry.cell === '')
       .map((entry) => entry.id);
 
-    expect(empty, `${CHANGELOG}: у записей нет ссылки на коммит`).toEqual([]);
+    expect(empty, `${CHANGELOG}: entries carry no commit reference`).toEqual([]);
 
     /*
-     * `pending` законен, пока изменение в работе: хеш неизвестен до коммита, а одно изменение
-     * вполне вносит несколько записей — фичу и найденный по ходу дефект.
+     * `pending` is legitimate while the change is in flight: the hash is unknown before the
+     * commit, and one change may well add several entries — a feature and a defect found on the
+     * way.
      *
-     * Две предыдущие редакции этого правила были неверны, и обе поймал прогон:
-     *   1. «не больше одной записи pending» — сломалось на первом же коммите, вносившем
-     *      изменение процесса и дефект одновременно;
-     *   2. «на HEAD~1 записей pending нет» — off-by-one: HEAD~1 это и есть коммит, где pending
-     *      законен, а заполняется он следующим.
-     *
-     * Точная формулировка: если файл реестра **не имеет незакоммиченных правок**, значит
-     * изменение завершено — и `pending` в нём остаться не должен. Пока файл правится, `pending`
-     * разрешён.
+     * Two earlier versions of this rule were wrong and both were caught by runs:
+     *   1. "at most one pending entry" — broke on the first commit that carried a process change
+     *      and a defect at once;
+     *   2. "no pending entries at HEAD~1" — off by one: HEAD~1 is exactly the commit where
+     *      pending is legitimate, and it gets filled by the next one.
      */
     const stale = stalePendingEntries(root);
 
     expect(
       stale,
-      `${CHANGELOG}: записи ${stale.join(', ')} остались «${PENDING}» в закоммиченном файле. ` +
-        'Хеш подставляется следующим коммитом — иначе реестр наполняется обещаниями',
+      `${CHANGELOG}: entries ${stale.join(', ')} stayed "${PENDING}" in a committed file. ` +
+        'The hash is filled in by the next commit — otherwise the ledger fills with promises',
     ).toEqual([]);
   });
 
-  test('LG-API-04 — ссылки на коммиты разрешаются в git', () => {
+  test('LG-API-04 — commit references resolve in git', () => {
     const root = repoRoot();
     const hashes = commitCells(read(root, CHANGELOG))
       .map((entry) => COMMIT_HASH.exec(entry.cell.replace(/`/g, ''))?.[1])
       .filter((hash): hash is string => hash !== undefined);
 
-    expect(hashes.length, `${CHANGELOG}: не найдено ни одного хеша коммита`).toBeGreaterThan(0);
+    expect(hashes.length, `${CHANGELOG}: not a single commit hash found`).toBeGreaterThan(0);
     expect(
       unresolvedCommits(root, hashes),
-      `${CHANGELOG}: коммиты не существуют в репозитории — запись потеряла связь с изменением`,
+      `${CHANGELOG}: commits do not exist in the repository — the entry lost its change`,
     ).toEqual([]);
   });
 
-  test('LG-API-05 — у каждого пункта бэклога заполнена графа «Конфликтует с»', () => {
+  test('LG-API-05 — every backlog item has the "Conflicts with" column filled', () => {
     const root = repoRoot();
-    const openSection = read(root, BACKLOG).split('## Отклонено')[0];
+    const openSection = read(root, BACKLOG).split('## Rejected')[0];
     const incomplete = entries(openSection)
       .filter((entry) => entry.id.startsWith('BL-'))
       .filter((entry) => (columns(entry.rest).at(-1) ?? '') === '')
@@ -351,13 +350,13 @@ test.describe('Реестр изменений и бэклог', { tag: '@ledger
 
     expect(
       incomplete,
-      `${BACKLOG}: не заполнена последняя графа («Конфликтует с»). Допускается явное «нет», ` +
-        'но не пустота: пункт, о котором не подумали в разрезе проекта, — источник второй ' +
-        'реализации того же самого',
+      `${BACKLOG}: the last column ("Conflicts with") is empty. An explicit "no" is fine, ` +
+        'emptiness is not: an item nobody weighed against the rest of the project is where a ' +
+        'second implementation of the same thing comes from',
     ).toEqual([]);
   });
 
-  test('LG-API-06 — нет ссылок на несуществующие записи', () => {
+  test('LG-API-06 — there are no references to non-existent entries', () => {
     const root = repoRoot();
     const declared = new Set([
       ...entries(read(root, CHANGELOG)).map((entry) => entry.id),
@@ -366,8 +365,8 @@ test.describe('Реестр изменений и бэклог', { tag: '@ledger
 
     expect(
       danglingReferences(root, declared),
-      'Висячая ссылка означает, что запись удалили вместо смены статуса, ' +
-        'и обоснование решения потерялось',
+      'A dangling reference means an entry was deleted instead of having its status changed, ' +
+        'and the reasoning behind the decision was lost',
     ).toEqual([]);
   });
 });

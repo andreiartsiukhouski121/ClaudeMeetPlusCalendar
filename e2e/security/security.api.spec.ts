@@ -8,24 +8,24 @@ import { loginApi, authHeaders } from '../fixtures/auth.api.js';
 import { FUTURE_STARTS_AT_ISO, SEED_USERS } from '../fixtures/seed.js';
 
 /**
- * Межфичевые инварианты безопасности. Кейсы — в парном `security.api.cases.md`.
+ * Cross-feature security invariants. Cases live in the paired `security.api.cases.md`.
  *
- * Отличие от проверок внутри фич: `AL-API-14` фиксирует, что `GET /auth/me` без токена даёт 401 —
- * это контракт логина. Здесь проверяется, что **ни один** защищённый маршрут не отвечает без
- * токена, включая те, которых на момент написания ещё нет: добавил маршрут — допиши в
- * `PROTECTED_ROUTES`, и кейс подхватит его сам.
+ * How this differs from checks inside a feature: `AL-API-14` pins that `GET /auth/me` without a
+ * token gives 401 — that is the login contract. Here we check that **no** protected route answers
+ * without a token, including routes that did not exist when this was written: add a route, add a
+ * line to `PROTECTED_ROUTES`, and the case picks it up (invariant 16).
  *
- * Проект `api`: браузер не поднимается, `baseURL` = `http://127.0.0.1:3101`.
+ * Project `api`: no browser, `baseURL` = `http://127.0.0.1:3101`.
  */
 
-/** Защищённые маршруты. Добавляя эндпоинт с guard'ом, добавь строку сюда. */
+/** Protected routes. Adding a guarded endpoint means adding a line here. */
 const PROTECTED_ROUTES = [
   { method: 'GET' as const, path: '/auth/me' },
   { method: 'GET' as const, path: '/meetings?limit=3' },
   { method: 'POST' as const, path: '/meetings' },
 ];
 
-/** POST-маршруты с DTO — для проверки, что `forbidNonWhitelisted` включён глобально. */
+/** POST routes with a DTO — to check `forbidNonWhitelisted` is on globally. */
 const POST_ROUTES = [
   {
     path: '/auth/login',
@@ -34,12 +34,12 @@ const POST_ROUTES = [
   },
   {
     path: '/meetings',
-    valid: { title: 'Проверка whitelist', startsAt: FUTURE_STARTS_AT_ISO },
+    valid: { title: 'Whitelist check', startsAt: FUTURE_STARTS_AT_ISO },
     needsToken: true,
   },
 ];
 
-/** Значения, которых не должно быть ни в одном ответе. */
+/** Values that must appear in no response. */
 const SECRET_MARKERS = ['scrypt', 'passwordHash', 'password', SEED_USERS.teacher.password];
 
 async function callRoute(
@@ -52,13 +52,13 @@ async function callRoute(
     : request.post(route.path, { headers, data: {} });
 }
 
-test.describe('Безопасность: API', { tag: '@security' }, () => {
+test.describe('Security: API', { tag: '@security' }, () => {
   test(
-    'SEC-API-01 — все защищённые эндпоинты требуют токен',
+    'SEC-API-01 — every protected endpoint requires a token',
     { tag: '@p0' },
     async ({ request }) => {
-      // Тип задан явно: без него вывод даёт union `{Authorization?: undefined} | {Authorization: string}`,
-      // который не подходит под `Record<string, string>` в опциях запроса.
+      // The type is explicit: inference would give a union that does not fit
+      // `Record<string, string>` in the request options.
       const headerVariants: Record<string, string>[] = [{}, { Authorization: 'Bearer' }];
 
       for (const route of PROTECTED_ROUTES) {
@@ -67,11 +67,11 @@ test.describe('Безопасность: API', { tag: '@security' }, () => {
 
           expect(
             response.status(),
-            `${route.method} ${route.path} без валидного токена обязан отдавать 401`,
+            `${route.method} ${route.path} must answer 401 without a valid token`,
           ).toBe(401);
 
           const body = await response.text();
-          // Не только код, но и отсутствие полезной нагрузки: 401 с данными в теле — тоже утечка.
+          // Not only the status but the absence of a payload: a 401 with data is a leak too.
           expect(body).not.toContain('accessToken');
           expect(body).not.toContain('items');
           expect(body).not.toContain(SEED_USERS.teacher.email);
@@ -80,19 +80,19 @@ test.describe('Безопасность: API', { tag: '@security' }, () => {
     },
   );
 
-  test('SEC-API-02 — подделанный токен даёт 401, а не 500', { tag: '@p0' }, async ({ request }) => {
+  test('SEC-API-02 — a forged token gives 401, not 500', { tag: '@p0' }, async ({ request }) => {
     const valid = await loginApi(request, 'teacher');
 
     for (const header of brokenAuthorizationHeaders(valid)) {
       const response = await request.get('/auth/me', { headers: { Authorization: header } });
 
-      // 500 означала бы, что исключение из разбора токена доходит до обработчика ошибок.
-      expect(response.status(), `заголовок «${header.slice(0, 24)}…» обязан давать 401`).toBe(401);
+      // A 500 would mean the token parsing exception reached the error handler.
+      expect(response.status(), `header "${header.slice(0, 24)}…" must give 401`).toBe(401);
     }
   });
 
   test(
-    'SEC-API-03 — токен, подписанный другим секретом, отвергается',
+    'SEC-API-03 — a token signed with a different secret is rejected',
     { tag: '@p0' },
     async ({ request }) => {
       const base64url = (value: object) =>
@@ -105,7 +105,7 @@ test.describe('Безопасность: API', { tag: '@security' }, () => {
         iat: Math.floor(Date.now() / 1000),
         exp: Math.floor(Date.now() / 1000) + 3600,
       });
-      const signature = createHmac('sha256', 'совершенно-другой-секрет')
+      const signature = createHmac('sha256', 'an-entirely-different-secret')
         .update(`${header}.${payload}`)
         .digest('base64url')
         .replace(/=+$/, '');
@@ -114,13 +114,13 @@ test.describe('Безопасность: API', { tag: '@security' }, () => {
         headers: authHeaders(`${header}.${payload}.${signature}`),
       });
 
-      // Подпись здесь арифметически корректна — проверяется, что секрет вообще сверяется.
+      // The signature is arithmetically valid here — this checks the secret is verified at all.
       expect(response.status()).toBe(401);
     },
   );
 
   test(
-    'SEC-API-04 — ни один ответ не содержит хеша или пароля',
+    'SEC-API-04 — no response carries a hash or a password',
     { tag: '@p0' },
     async ({ request }) => {
       const token = await loginApi(request, 'teacher');
@@ -133,19 +133,19 @@ test.describe('Безопасность: API', { tag: '@security' }, () => {
       ];
 
       for (const response of responses) {
-        // Именно текст, а не разобранный объект: разбор пропустит секрет во вложенном поле
-        // или в сообщении об ошибке.
+        // The text rather than the parsed object: parsing would miss a secret in a nested field
+        // or inside an error message.
         const body = await response.text();
 
         for (const marker of SECRET_MARKERS) {
-          expect(body, `в ответе ${response.url()} найдено «${marker}»`).not.toContain(marker);
+          expect(body, `response ${response.url()} contains "${marker}"`).not.toContain(marker);
         }
       }
     },
   );
 
   test(
-    'SEC-API-05 — время ответа не выдаёт существование аккаунта',
+    'SEC-API-05 — response time does not reveal that an account exists',
     { tag: '@p0' },
     async ({ request }) => {
       const attempt = async (email: string): Promise<number> => {
@@ -161,19 +161,19 @@ test.describe('Безопасность: API', { tag: '@security' }, () => {
       };
 
       /*
-       * Выборки ЧЕРЕДУЮТСЯ, а не идут блоками по пять.
+       * The samples are INTERLEAVED rather than taken in blocks of five.
        *
-       * Первая редакция замеряла сначала пять запросов на неизвестный email, потом пять на
-       * неверный пароль — и первый блок нёс на себе разогрев всего пути запроса, а второй ловил
-       * любой дрейф нагрузки машины. Из-за этого тест падал примерно в половине прогонов
-       * (зафиксировано отношение 2,518 при пороге 2,5) и рождал ложный отчёт «тайминговая
-       * уязвимость вернулась» — худший вид флака: он заставляет искать несуществующую дыру.
-       * Чередование гасит и разогрев, и дрейф: оба набора живут в одинаковых условиях.
+       * The first version measured five unknown-email requests and then five wrong-password ones,
+       * so the first block carried the warm-up of the whole request path and the second caught any
+       * machine load drift. The test failed in roughly half the runs (a ratio of 2.518 against a
+       * threshold of 2.5 was recorded) and produced a false report of "the timing vulnerability is
+       * back" — the worst kind of flake, one that sends you hunting a hole that does not exist.
+       * Interleaving cancels both warm-up and drift.
        */
       const unknownSamples: number[] = [];
       const wrongPasswordSamples: number[] = [];
 
-      // Первая пара — прогревочная, её результат отбрасывается.
+      // The first pair is a warm-up and its result is discarded.
       await attempt('nobody@purpleschool.test');
       await attempt(SEED_USERS.teacher.email);
 
@@ -189,10 +189,10 @@ test.describe('Безопасность: API', { tag: '@security' }, () => {
       const wrongPassword = median(wrongPasswordSamples);
 
       /*
-       * Порог 3 — сознательно мягкий: цель кейса поймать возврат раннего выхода без сверки
-       * пароля, а не измерить микросекунды. Замер до правки кода давал 52 мс против 86–114 мс,
-       * то есть отношение около 2 при выровненных условиях — дефект такого размера порог 3
-       * ловит, а шум машины уже нет.
+       * A threshold of 3 is deliberately loose: the case exists to catch a return of the early
+       * exit without password verification, not to measure microseconds. Before the fix the
+       * measurement was 52 ms against 86–114 ms, a ratio of about 2 under level conditions — a
+       * defect of that size is caught by 3, while machine noise is not.
        */
       const ratio =
         Math.max(unknownAccount, wrongPassword) /
@@ -200,14 +200,14 @@ test.describe('Безопасность: API', { tag: '@security' }, () => {
 
       expect(
         ratio,
-        `медианы: неизвестный email ${unknownAccount} мс, неверный пароль ${wrongPassword} мс ` +
-          `(выборки ${JSON.stringify(unknownSamples)} и ${JSON.stringify(wrongPasswordSamples)}) — ` +
-          'разница выдаёт существование аккаунта',
+        `medians: unknown email ${unknownAccount} ms, wrong password ${wrongPassword} ms ` +
+          `(samples ${JSON.stringify(unknownSamples)} and ${JSON.stringify(wrongPasswordSamples)}) — ` +
+          'the difference reveals that the account exists',
       ).toBeLessThan(3);
     },
   );
 
-  test('SEC-API-06 — тела ошибок не содержат стектрейса и путей файлов', async ({ request }) => {
+  test('SEC-API-06 — error bodies carry no stack trace and no file paths', async ({ request }) => {
     const errors = [
       await request.post('/auth/login', { data: { email: 'not-an-email' } }),
       await request.get('/meetings'),
@@ -220,15 +220,15 @@ test.describe('Безопасность: API', { tag: '@security' }, () => {
       expect(body).not.toContain('stack');
       expect(body).not.toContain('node_modules');
       expect(body).not.toContain('.ts:');
-      expect(body).not.toMatch(/\bat\s+\w+\s+\(/); // строка трассировки вида "at fn ("
-      expect(body).not.toMatch(/[A-Za-z]:\\/); // абсолютный путь Windows
+      expect(body).not.toMatch(/\bat\s+\w+\s+\(/); // a trace line like "at fn ("
+      expect(body).not.toMatch(/[A-Za-z]:\\/); // an absolute Windows path
 
       const parsed: unknown = JSON.parse(body);
       expect(Object.keys(parsed as object).sort()).toEqual(['error', 'message', 'statusCode']);
     }
   });
 
-  test('SEC-API-07 — лишние поля отвергаются на всех POST-эндпоинтах', async ({ request }) => {
+  test('SEC-API-07 — extra fields are rejected on every POST endpoint', async ({ request }) => {
     const token = await loginApi(request, 'planner');
 
     for (const route of POST_ROUTES) {
@@ -237,25 +237,27 @@ test.describe('Безопасность: API', { tag: '@security' }, () => {
         data: { ...route.valid, isAdmin: true, ownerId: 'usr-teacher' },
       });
 
-      expect(response.status(), `${route.path} обязан отвергать лишние поля`).toBe(400);
+      expect(response.status(), `${route.path} must reject extra fields`).toBe(400);
       expect(await response.text()).toContain('should not exist');
     }
   });
 
-  test('SEC-API-08 — ответ не раскрывает стек сервера', async ({ request }) => {
+  test('SEC-API-08 — responses do not disclose the server stack', async ({ request }) => {
     for (const response of [
       await request.get('/'),
       await request.post('/auth/login', { data: {} }),
     ]) {
       const headers = response.headers();
 
-      // Express отдаёт X-Powered-By по умолчанию — подсказка, какой стек и какие CVE пробовать.
-      expect(headers, `ответ ${response.url()} раскрывает стек`).not.toHaveProperty('x-powered-by');
+      // Express sends X-Powered-By by default — a hint about which stack and CVEs to try.
+      expect(headers, `response ${response.url()} discloses the stack`).not.toHaveProperty(
+        'x-powered-by',
+      );
     }
   });
 
   test(
-    'SEC-API-09 — данные пользователя недоступны под чужим токеном',
+    'SEC-API-09 — a user data is unreachable with someone else token',
     { tag: '@p0' },
     async ({ request }) => {
       const teacherToken = await loginApi(request, 'teacher');
@@ -278,7 +280,7 @@ test.describe('Безопасность: API', { tag: '@security' }, () => {
     },
   );
 
-  test('SEC-API-10 — в репозитории нет секретов и .env', async () => {
+  test('SEC-API-10 — the repository holds no secrets and no .env', async () => {
     const offenders = collectSecretOffenders(findRepoRoot());
 
     expect(offenders, offenders.join('\n')).toEqual([]);
@@ -286,11 +288,11 @@ test.describe('Безопасность: API', { tag: '@security' }, () => {
 });
 
 /**
- * Заголовки `Authorization`, которые сервер обязан отвергнуть.
+ * `Authorization` headers the server must reject.
  *
- * Собраны хелпером, а не в теле теста: ветвление внутри `test` запрещено правилом
- * `playwright/no-conditional-in-test`, поднятым до `error` осознанно — условие в тесте прячет
- * непройденную ветку, и тест остаётся зелёным, проверив половину.
+ * Built by a helper rather than in the test body: branching inside `test` is forbidden by
+ * `playwright/no-conditional-in-test`, raised to `error` deliberately — a condition in a test
+ * hides an unexercised branch and leaves the test green after checking half of it.
  */
 function brokenAuthorizationHeaders(validToken: string): string[] {
   const tamperedSignature = `${validToken.slice(0, -1)}${validToken.at(-1) === 'a' ? 'b' : 'a'}`;
@@ -300,11 +302,11 @@ function brokenAuthorizationHeaders(validToken: string): string[] {
     'Bearer not.a.jwt',
     'Bearer ',
     'Basic dXNlcjpwYXNz',
-    validToken, // валидный токен, но без схемы `Bearer`
+    validToken, // a valid token but without the `Bearer` scheme
   ];
 }
 
-/** Каталоги, которые обход секретов не смотрит: не наш код либо артефакты сборки. */
+/** Directories the secret scan skips: not our code, or build artifacts. */
 const SECRET_SCAN_SKIP_DIRS = new Set([
   'node_modules',
   '.git',
@@ -319,7 +321,7 @@ const SECRET_SCAN_SKIP_DIRS = new Set([
 
 const SCANNED_EXTENSIONS = /\.(ts|tsx|js|mjs|cjs|json|md|yaml|yml|css|env|example|mts)$/;
 
-/** Файлы репозитория с признаками секретов. Обход вне теста — по той же причине. */
+/** Repository files showing signs of secrets. Outside the test for the same reason. */
 function collectSecretOffenders(repoRoot: string): string[] {
   const offenders: string[] = [];
 
@@ -336,13 +338,13 @@ function collectSecretOffenders(repoRoot: string): string[] {
 
       const rel = relative(repoRoot, full).split(sep).join('/');
 
-      // Сам этот спек содержит слова-маркеры по делу — иначе кейс ловил бы себя.
+      // This spec legitimately contains the marker words — otherwise the case would catch itself.
       if (rel === 'e2e/security/security.api.spec.ts') {
         continue;
       }
 
       if (/(^|\/)\.env($|\.)/.test(rel) && !rel.endsWith('.env.example')) {
-        offenders.push(`${rel}: файл .env не должен попадать в репозиторий`);
+        offenders.push(`${rel}: a .env file must not reach the repository`);
         continue;
       }
 
@@ -353,11 +355,11 @@ function collectSecretOffenders(repoRoot: string): string[] {
       const content = readFileSync(full, 'utf8');
 
       if (/-----BEGIN [A-Z ]*PRIVATE KEY-----/.test(content)) {
-        offenders.push(`${rel}: приватный ключ`);
+        offenders.push(`${rel}: a private key`);
       }
-      // Похоже на настоящий JWT: три base64-сегмента, суммарно длиннее 80 символов.
+      // Looks like a real JWT: three base64 segments, over 80 characters in total.
       if (/\beyJ[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}/.test(content)) {
-        offenders.push(`${rel}: строка, похожая на выпущенный JWT`);
+        offenders.push(`${rel}: a string that looks like an issued JWT`);
       }
     }
   };
@@ -368,12 +370,13 @@ function collectSecretOffenders(repoRoot: string): string[] {
 }
 
 /**
- * Корень репозитория — поиском `pnpm-workspace.yaml` вверх от `config.rootDir`.
+ * The repository root, found by walking up from `config.rootDir` looking for
+ * `pnpm-workspace.yaml`.
  *
- * Просто `config.rootDir` брать нельзя: он равен разрешённому `testDir`, то есть `<repo>/e2e`,
- * и обход по нему нашёл бы ноль файлов — кейс проходил бы вакуумно при любом закоммиченном
- * секрете. Ровно на этом уже спотыкался мета-тест конвенции, поэтому здесь та же формула, что
- * и в нём. `import.meta.dirname` не подходит: Playwright грузит спеки как CJS.
+ * `config.rootDir` alone will not do: it equals the resolved `testDir`, that is `<repo>/e2e`, and
+ * walking from there would find zero files — the case would pass vacuously with any secret
+ * committed. The convention meta-test already tripped over exactly this, hence the same formula.
+ * `import.meta.dirname` does not work: Playwright loads specs as CJS.
  */
 function findRepoRoot(): string {
   let dir = test.info().config.rootDir;
@@ -384,7 +387,7 @@ function findRepoRoot(): string {
     }
     const parent = dirname(dir);
     if (parent === dir) {
-      throw new Error(`не найден pnpm-workspace.yaml ни в ${dir}, ни выше`);
+      throw new Error(`pnpm-workspace.yaml not found in ${dir} or above`);
     }
     dir = parent;
   }

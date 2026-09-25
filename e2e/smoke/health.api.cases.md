@@ -1,40 +1,28 @@
-# Смоук: доступность API
+# Smoke: API availability
 
-- **Парный спек:** `e2e/smoke/health.api.spec.ts`
-- **Проект Playwright:** `api` (фикстура `request`, `baseURL = http://127.0.0.1:3101`, браузер не поднимается)
-- **Теги:** `@smoke`
-- **Запуск:** `pnpm e2e e2e/smoke/health.api.spec.ts`
-- **Общие предусловия:**
-  - Nest поднят Playwright-ом на порту 3101 (`webServer` в `playwright.config.ts`).
-  - Ни сид, ни авторизация не требуются: `GET /` — публичный эндпоинт скаффолда.
+- **Paired spec:** `e2e/smoke/health.api.spec.ts`
+- **Playwright project:** `api` (the `request` fixture, `baseURL = http://127.0.0.1:3101`, no browser)
+- **Tags:** `@smoke`
+- **Run:** `pnpm e2e e2e/smoke/health.api.spec.ts`
+- **Preconditions:** Playwright starts Nest on port 3101. Neither the seed nor authentication is
+  needed — `GET /` is the public scaffold endpoint.
 
-Назначение файла — самая дешёвая проверка «сервер жив и роутинг работает». Она не относится ни к
-одной из двух фич и намеренно не расширяется: любая доменная проверка идёт в
-`e2e/regression/<feature>/`, а проверка сида — в `seed.api.cases.md`.
+The cheapest possible "the server is alive and routing works" check. It belongs to no feature and
+is deliberately not extended: any domain check goes to `e2e/regression/<feature>/`, and seed checks
+go to `seed.api.cases.md`.
 
-## Сводка
+## Summary
 
-| ID        | Заголовок                     | Приоритет | Тег      | Имя теста в спеке                         |
-| --------- | ----------------------------- | --------- | -------- | ----------------------------------------- |
-| SM-API-01 | `GET /` отвечает приветствием | P1        | `@smoke` | `SM-API-01 — GET / отвечает приветствием` |
+| ID        | Title                           | Priority | Tag      |
+| --------- | ------------------------------- | -------- | -------- |
+| SM-API-01 | `GET /` answers with a greeting | P1       | `@smoke` |
 
-## Кейсы
+## Cases
 
-### SM-API-01 — `GET /` отвечает приветствием
+### SM-API-01 — `GET /` answers with a greeting
 
-- **Приоритет:** P1
-- **Тип:** API-контрактный
-- **Теги:** `@smoke`
-- **Предусловия:**
-  - Nest отвечает на `http://127.0.0.1:3101`.
-  - Глобальный префикс маршрутов не задан — иначе `/` вернёт 404 (план имплементации §1.4).
-- **Шаги:**
-  1. Выполнить `GET /`.
-- **Ожидаемый результат:**
-  - Статус ответа успешный (`toBeOK`).
-  - Тело ответа — строка `Hello World!` без изменений.
-- **Имя теста в спеке:** `SM-API-01 — GET / отвечает приветствием`
-
-Кейс перенесён из `e2e/api/health.spec.ts` в `T0.6` без изменения логики; переименован только
-заголовок теста — правило «заголовок начинается с ID кейса» (тест-план §2) проверяется мета-тестом
-`e2e/suite-integrity.api.spec.ts`.
+- **Priority:** P1
+- **Preconditions:** Nest answers on `http://127.0.0.1:3101`; no global route prefix is set, or `/`
+  would return 404.
+- **Steps:** perform `GET /`.
+- **Expected:** a successful status (`toBeOK`), and the body is exactly `Hello World!`.

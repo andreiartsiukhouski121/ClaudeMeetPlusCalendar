@@ -1,84 +1,90 @@
 ---
 name: requesting-code-review
-description: Когда в этом репозитории звать отдельного ревьюера, а когда нет, как его ограничить чтением и что ему передать. Use before accepting a feature, when asked "нужно ли ревью", "позови ревьюера", "review this", or when tempted to dispatch a review subagent after every task.
+description: When to call a separate reviewer in this repository and when not to, how to restrict it to reading, and what to hand it. Use before accepting a feature, when asked "do we need a review", "call a reviewer", "review this", or when tempted to dispatch a review subagent after every task.
 ---
 
-Адаптер к внешнему скилу `requesting-code-review` (`obra/superpowers`). Оригинал — в
-`.agents/skills/requesting-code-review/`, восстанавливается `pnpm skills:sync`. **Этот файл
-самодостаточен:** политика вызовов заменена целиком, а промпт ревьюера приведён ниже локально —
-иначе без гитигнорного каталога скил терял бы предмет.
+Adapter for the external `requesting-code-review` skill (`obra/superpowers`). The original is in
+`.agents/skills/requesting-code-review/`, restored with `pnpm skills:sync`. **This file is
+self-contained:** the call policy is replaced entirely, and the reviewer prompt is reproduced
+locally below — otherwise the skill would lose its subject whenever the gitignored directory is
+absent.
 
-## Почему политика другая
+## Why the policy differs
 
-Оригинал требует ревью после каждой задачи. Для этого репозитория это уже измеренная ошибка: в
-первой итерации пайплайна ревью планов съело **1 005 347 токенов — 46% всего расхода**, не породив
-ни строки продуктового кода, а `pipeline-audit` отдельно зафиксировал, что ревьюеру выдавались
-запись в любой файл и запуск любой команды.
+The original demands a review after every task. For this repository that is a measured mistake: in
+the first pipeline iteration plan review consumed **1,005,347 tokens — 46% of the entire spend** —
+without producing a line of product code, and the pipeline audit separately recorded that the
+reviewer had been granted write access to any file and the ability to run any command.
 
-## Когда звать
+## When to call one
 
-- **Одно ревью на фичу**, перед приёмкой — а не после каждой задачи.
-- Архитектурное решение, которое дальше трудно отменить: схема сессии, границы модулей, формат
-  контракта.
-- Изменение, затрагивающее безопасность: новые эндпоинты, работа с cookie и токенами. Диффовое
-  security-ревью — встроенным скилом `security-review`, он смотрит именно изменения ветки.
+- **One review per feature**, before acceptance — not after every task.
+- An architectural decision that is hard to undo later: the session scheme, module boundaries, the
+  contract format.
+- A change touching security: new endpoints, work with cookies and tokens. Diff-level security
+  review goes through the built-in `security-review` skill, which looks at the branch's changes.
 
-## Когда не звать
+## When not to
 
-- Правка размера «страница плюс два эндпоинта», документация, конфиг, переименования.
-- После каждой задачи внутри одной фичи — вместо этого контрольный опыт: сломать поведение,
-  убедиться, что краснеют ожидаемые ID, откатить.
-- Вместо прогона. Ревью не заменяет `regression-verify` и `pnpm verify`: в реестре видно, что
-  контрольные опыты и security-сьют нашли по три дефекта каждый, а ревью диффа — ни одного.
+- A change the size of "a page plus two endpoints", documentation, config, renames.
+- After every task inside one feature — use a control experiment instead: break the behaviour,
+  confirm the expected IDs go red, revert.
+- Instead of a run. A review does not replace `regression-verify` and `pnpm verify`: the ledger
+  shows the control experiments and the security suite found three defects each, and diff review
+  found none.
 
-## Как звать
+## How to call one
 
-- **Ревьюер работает только на чтение** — `Read`, `Grep`, `Glob`, и ничего больше. Это не
-  пожелание: `regression-verify` §5 запрещает «заодно починил» словами, и только ограничение
-  инструментов делает запрет механизмом. Отчёт ревьюер возвращает текстом, а не правкой в дереве.
-- **Модель задавай явно** параметром `model`, не наследуй родительскую (`feature-pipeline` §5).
-- Передавай **предмет, а не историю сессии**: пути и дифф, раздел плана, ссылку на инварианты
-  `CLAUDE.md`. Промпт не должен пересказывать документы — «прочитай `CLAUDE.md` и раздел `T1` плана».
-- База для диффа — **рабочее дерево**, если работа не закоммичена. `BASE_SHA..HEAD` из оригинала
-  годится, только когда всё уже в git, и **не** когда в дереве параллельно работает второй агент.
+- **The reviewer is read-only** — `Read`, `Grep`, `Glob`, and nothing else. This is not a
+  preference: `regression-verify` §5 forbids "fixed it while I was there" in words, and only a tool
+  restriction makes it a mechanism. The reviewer returns its report as text, never as an edit in
+  the tree.
+- **Set the model explicitly** with the `model` parameter rather than inheriting the parent's
+  (`feature-pipeline` §5).
+- Hand over **the subject, not the session history**: paths and the diff, the plan section, a
+  reference to the invariants in `CLAUDE.md`. The prompt must not retell documents — "read
+  `CLAUDE.md` and section `T1` of the plan".
+- The diff base is the **working tree** when the work is not committed. The `BASE_SHA..HEAD` from
+  the original applies only once everything is in git, and **not** when a second agent is working
+  in the tree in parallel.
 
-## Промпт ревьюера
+## The reviewer prompt
 
 ```
-Ты — ревьюер этого монорепозитория. Читаешь и оцениваешь, ничего не правишь: у тебя есть только
-Read, Grep, Glob. Правки описываешь словами, в дерево не вносишь. Субагентов не запускаешь — если
-дифф велик, читай его в несколько проходов сам и скажи об этом в отчёте.
+You are a reviewer for this monorepo. You read and judge; you change nothing: you have only Read,
+Grep and Glob. Describe fixes in words, never apply them to the tree. Do not spawn subagents — if
+the diff is large, read it in several passes yourself and say so in the report.
 
-Что сделано: <одна-две фразы>
-Требование: <раздел плана или текст задачи>
-Дифф: <пути или BASE_SHA..HEAD>
-Контекст: прочитай CLAUDE.md (инварианты 1–19) и e2e/README.md (конвенция сьюта).
+What was built: <one or two sentences>
+Requirement: <plan section or task text>
+Diff: <paths or BASE_SHA..HEAD>
+Context: read CLAUDE.md (invariants 1–19) and e2e/README.md (the suite convention).
 
-Проверь:
-1. Соответствие требованию: всё ли из него сделано; отклонения — обоснованные улучшения или
-   проблемы.
-2. Инварианты CLAUDE.md: какие затронуты и не нарушены ли. Их девятнадцать, они пронумерованы,
-   ссылайся по номеру.
-3. Безопасность новых точек входа: guard и DTO без полей владельца и роли у эндпоинта; проверка
-   сессии и в proxy.ts, и в серверном слое у страницы; своя проверка внутри Server Action; токен
-   не уходит пропсом в клиентский компонент.
-4. Тесты: проверяют ли они поведение, а не самих себя; есть ли парный .cases.md; совпадают ли
-   шаги в нём с тем, что делает спек; нет ли CSS-локаторов, waitForTimeout, expect без await.
-5. Реестр: есть ли запись FT-/CH-/FX- и заполнена ли графа «Чем найдено» у дефектов.
+Check:
+1. Conformance to the requirement: is all of it done; are deviations justified improvements or
+   problems.
+2. The CLAUDE.md invariants: which are touched and whether any is broken. There are nineteen and
+   they are numbered — cite them by number.
+3. Security of new entry points: a guard and a DTO without owner or role fields on an endpoint;
+   a session check both in proxy.ts and in the server layer for a page; a check inside a Server
+   Action; no token passed as a prop into a client component.
+4. Tests: do they check behaviour rather than themselves; is there a paired .cases.md; do its
+   steps match what the spec does; any CSS locators, waitForTimeout, expect without await.
+5. The ledger: is there an FT-/CH-/FX- entry and is "Found by" filled for defects.
 
-Отчёт:
-- Сильные стороны — конкретно, с путями.
-- Блокеры — то, без чего фичу принимать нельзя. Каждый: файл:строка, что не так, чем это грозит.
-- Замечания — то, что стоит починить, но приёмку не держит.
-- Мелочи — стиль и полировка, одним списком.
-- Вердикт: принимать / принимать после блокеров / переделывать, и одна фраза почему.
+Report:
+- Strengths — specific, with paths.
+- Blockers — what makes the feature unacceptable. Each: file:line, what is wrong, what it risks.
+- Findings — worth fixing but not blocking acceptance.
+- Minor — style and polish, as one list.
+- Verdict: accept / accept after blockers / rework, and one sentence why.
 
-Не пиши «выглядит хорошо» про то, чего не читал. Не помечай придирку блокером. Не уклоняйся от
-вердикта.
+Do not write "looks good" about anything you did not read. Do not mark a nitpick a blocker. Do not
+dodge the verdict.
 ```
 
-## После ревью
+## After the review
 
-Блокеры — чинить до приёмки. Спорное — не молча игнорировать: пункт в `docs/BACKLOG.md` со
-статусом или строка в разделе «Отклонено» с причиной. Раздел существует затем, чтобы одно и то же
-не предлагали заново.
+Blockers get fixed before acceptance. Anything contentious is not silently ignored: it becomes an
+item in `docs/BACKLOG.md` with a status, or a row in the Rejected section with a reason. That
+section exists so the same idea is not proposed again.

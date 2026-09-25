@@ -1,69 +1,47 @@
-# Смоук: сид на месте
+# Smoke: seed is in place
 
-- **Парный спек:** `e2e/smoke/seed.api.spec.ts`
-- **Проект Playwright:** `api` (фикстура `request`, `baseURL = http://127.0.0.1:3101`, браузер не поднимается)
-- **Теги:** `@smoke`, плюс `@p0`
-- **Запуск:** `pnpm e2e e2e/smoke`
-- **Общие предусловия:**
-  - Nest поднят Playwright-ом на порту 3101 и применил сид при инициализации `UsersService`
-    и `MeetingsService`.
-  - Ожидаемые значения берутся из `e2e/fixtures/seed.ts` — это единственный источник истины
-    для тестов; расхождение с `apps/api/src/users/users.seed.ts` и
-    `apps/api/src/meetings/meetings.seed.ts` и должен поймать этот файл.
+- **Paired spec:** `e2e/smoke/seed.api.spec.ts`
+- **Playwright project:** `api` (the `request` fixture, `baseURL = http://127.0.0.1:3101`, no browser)
+- **Tags:** `@smoke`, plus `@p0`
+- **Run:** `pnpm e2e e2e/smoke`
+- **Preconditions:** Playwright starts Nest on 3101 and the seed is applied when `UsersService` and
+  `MeetingsService` initialize. Expected values come from `e2e/fixtures/seed.ts` — the single
+  source of truth for tests; this file exists to catch drift against `users.seed.ts` and
+  `meetings.seed.ts`.
 
-Назначение — падать **до** регрессионных кейсов и понятно: половина сьюта опирается на конкретных
-сид-пользователей и их встречи, и без такого смоука их отсутствие даёт десяток красных кейсов фичи
-вместо одного внятного сообщения про сид. Поэтому сообщение падения здесь обязано указывать на
-сид, а не на фичу.
+The point is to fail **before** the regression cases, and clearly: half the suite relies on
+specific seeded users and their meetings, so without this smoke their absence gives a dozen red
+feature cases instead of one sensible message about the seed. The failure message must therefore
+point at the seed, not at the feature.
 
-Кейсы вводились по этапам: проверка логинов — вместе с `POST /auth/login` (задача `T1.5`),
-проверка встреч — вместе с контроллером `/meetings` (задача `T2.4`). Раньше своего этапа каждый
-из них был бы заведомо красным, а красный тест в коммите — блокер (тест-план §6.3).
+## Summary
 
-## Сводка
+| ID        | Title                        | Priority | Tags         |
+| --------- | ---------------------------- | -------- | ------------ |
+| SM-API-02 | seeded users are in place    | P0       | `@smoke @p0` |
+| SM-API-03 | seeded meetings are in place | P0       | `@smoke @p0` |
 
-| ID        | Заголовок                 | Приоритет | Теги         | Имя теста в спеке                       |
-| --------- | ------------------------- | --------- | ------------ | --------------------------------------- |
-| SM-API-02 | Сид-пользователи на месте | P0        | `@smoke @p0` | `SM-API-02 — сид-пользователи на месте` |
-| SM-API-03 | Сид-встречи на месте      | P0        | `@smoke @p0` | `SM-API-03 — сид-встречи на месте`      |
+## Cases
 
-## Кейсы
+### SM-API-02 — seeded users are in place
 
-### SM-API-02 — сид-пользователи на месте
+- **Priority:** P0
+- **Preconditions:** `POST /auth/login` works; all four `SEED_USER_KEYS` are described in
+  `e2e/fixtures/seed.ts`.
+- **Steps:** for each of the four seeded users (`teacher`, `student`, `planner`, `organizer`)
+  perform `POST /auth/login` with the email and password from `e2e/fixtures/seed.ts`.
+- **Expected:** all four logins return 200 and an `accessToken` of three dot-separated segments. On
+  failure the message names the user and says the seed is what to compare
+  (`apps/api/src/users/users.seed.ts` against `e2e/fixtures/seed.ts`), not the feature under test.
 
-- **Приоритет:** P0
-- **Тип:** смоук инфраструктуры
-- **Теги:** `@smoke`, `@p0`
-- **Предусловия:**
-  - `POST /auth/login` работает (контракт проверяет `e2e/regression/auth-login/`).
-  - Все четыре ключа `SEED_USER_KEYS` описаны в `e2e/fixtures/seed.ts`.
-- **Шаги:**
-  1. Для каждого из четырёх сид-пользователей (`teacher`, `student`, `planner`, `organizer`)
-     выполнить `POST /auth/login` с email и паролем из `e2e/fixtures/seed.ts`.
-- **Ожидаемый результат:**
-  - Все четыре логина возвращают 200 и `accessToken` из трёх сегментов через точку.
-  - При падении сообщение называет конкретного пользователя и указывает, что сверять надо сид
-    (`apps/api/src/users/users.seed.ts` против `e2e/fixtures/seed.ts`), а не проверяемую фичу.
-- **Имя теста в спеке:** `SM-API-02 — сид-пользователи на месте`
+### SM-API-03 — seeded meetings are in place
 
-### SM-API-03 — сид-встречи на месте
-
-- **Приоритет:** P0
-- **Тип:** смоук инфраструктуры
-- **Теги:** `@smoke`, `@p0`
-- **Предусловия:**
-  - `GET /meetings` работает и требует `Bearer` (контракт проверяет
-    `e2e/regression/home-dashboard/`).
-  - `TEACHER_MEETINGS` в `e2e/fixtures/seed.ts` описывает пять доменных названий встреч
-    `teacher`, `student` объявлен пользователем без встреч.
-- **Шаги:**
-  1. Получить токены `teacher` и `student`.
-  2. `GET /meetings?limit=100` под каждым.
-- **Ожидаемый результат:**
-  - У `teacher` `total` = 5, и в `items` присутствуют все пять доменных названий из
-    `meetings.seed.ts` (три последних плюс две отсекаемые срезом).
-  - У `student` `total` = 0 и `items` пуст.
-  - `limit=100` — «отдай всё»: верхняя граница контракта (`@Max(100)`), а не магическое число,
-    которое пришлось бы менять при росте сида.
-  - При падении сообщение указывает на сид встреч и на файлы, которые надо сверить.
-- **Имя теста в спеке:** `SM-API-03 — сид-встречи на месте`
+- **Priority:** P0
+- **Preconditions:** `GET /meetings` works and requires `Bearer`; `TEACHER_MEETINGS` describes the
+  five meeting titles of `teacher`, and `student` is declared as the user with no meetings.
+- **Steps:** get tokens for `teacher` and `student`, then `GET /meetings?limit=100` as each.
+- **Expected:** `teacher` has `total` = 5 and `items` contains all five seeded titles (the three
+  most recent plus the two the slice cuts); `student` has `total` = 0 and an empty `items`.
+  `limit=100` means "give me everything" — the contract's ceiling (`@Max(100)`), not a magic number
+  that would need changing as the seed grows. On failure the message points at the meeting seed and
+  names the files to compare.

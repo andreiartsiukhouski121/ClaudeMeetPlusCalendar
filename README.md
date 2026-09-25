@@ -1,137 +1,139 @@
 # PurpleSchool
 
-Монорепозиторий на pnpm workspaces.
+A pnpm workspaces monorepo.
 
-## Структура
+## Structure
 
 ```
 .
 ├── apps
-│   ├── web          # Next.js 16 (App Router, TypeScript) — http://localhost:3000
-│   └── api          # Nest.js 12 (TypeScript, Vitest)     — http://localhost:3001
+│   ├── web          # Next.js 16 (App Router, TypeScript) — http://127.0.0.1:3000
+│   └── api          # Nest.js 12 (TypeScript, Vitest)     — http://127.0.0.1:3001
 ├── packages
-│   ├── eslint-config  # общие конфиги ESLint (base / next / nest)
-│   └── tsconfig       # общие tsconfig (base / nextjs / nestjs)
-├── pnpm-workspace.yaml  # список пакетов + catalog версий инструментов
-├── .prettierrc          # единый Prettier на весь репозиторий
-└── eslint.config.mjs    # ESLint для файлов корня и packages/*
+│   ├── eslint-config  # shared ESLint configs (base / next / nest)
+│   └── tsconfig       # shared tsconfig (base / nextjs / nestjs)
+├── pnpm-workspace.yaml  # the package list plus a catalog of tool versions
+├── .prettierrc          # one Prettier config for the whole repository
+└── eslint.config.mjs    # ESLint for the root files and packages/*
 ```
 
-## Требования
+## Requirements
 
-- Node.js >= 22 (см. `.nvmrc`)
+- Node.js >= 22 (see `.nvmrc`)
 - pnpm 10 (`corepack enable`)
 
-## Установка
+## Installation
 
 ```bash
 pnpm install
 cp apps/api/.env.example apps/api/.env
 ```
 
-## Скрипты (из корня)
+## Scripts (from the root)
 
-| Команда                             | Описание                             |
-| ----------------------------------- | ------------------------------------ |
-| `pnpm dev`                          | запускает web и api параллельно      |
-| `pnpm dev:web` / `pnpm dev:api`     | запуск одного приложения             |
-| `pnpm build`                        | сборка всех пакетов                  |
-| `pnpm start`                        | запуск собранных приложений          |
-| `pnpm lint` / `pnpm lint:fix`       | ESLint по всем пакетам               |
-| `pnpm typecheck`                    | проверка типов (`tsc --noEmit`)      |
-| `pnpm verify`                       | вся проверка одним подъёмом серверов |
-| `pnpm e2e:security`                 | межфичевые security-инварианты       |
-| `pnpm audit`                        | CVE в зависимостях                   |
-| `pnpm test`                         | юнит-тесты (Vitest в api и web)      |
-| `pnpm test:auth-login`              | юниты одной фичи                     |
-| `pnpm e2e`                          | весь регрессионный сьют              |
-| `pnpm e2e:auth-login`               | e2e одной фичи                       |
-| `pnpm e2e:report`                   | HTML-отчёт последнего прогона        |
-| `pnpm format` / `pnpm format:check` | Prettier                             |
+| Command                             | What it does                             |
+| ----------------------------------- | ---------------------------------------- |
+| `pnpm dev`                          | runs web and api in parallel             |
+| `pnpm dev:web` / `pnpm dev:api`     | runs one application                     |
+| `pnpm build`                        | builds every package                     |
+| `pnpm start`                        | runs the built applications              |
+| `pnpm lint` / `pnpm lint:fix`       | ESLint over every package                |
+| `pnpm typecheck`                    | type checking (`tsc --noEmit`)           |
+| `pnpm verify`                       | the whole check on a single server start |
+| `pnpm e2e:security`                 | cross-feature security invariants        |
+| `pnpm audit`                        | CVEs in the dependencies                 |
+| `pnpm test`                         | unit tests (Vitest in api and web)       |
+| `pnpm test:auth-login`              | one feature's units                      |
+| `pnpm e2e`                          | the whole regression suite               |
+| `pnpm e2e:auth-login`               | one feature's e2e                        |
+| `pnpm e2e:report`                   | the HTML report of the last run          |
+| `pnpm format` / `pnpm format:check` | Prettier                                 |
 
-Команды внутри одного приложения: `pnpm --filter @purpleschool/web <script>`.
+Commands inside one application: `pnpm --filter @purpleschool/web <script>`.
 
-## Что реализовано
+## What is built
 
-Две фичи, каждая описана планом в [`docs/plans/`](docs/plans/) и покрыта регрессионным сьютом.
+Two features, each described by a plan in [`docs/plans/`](docs/plans/) and covered by the
+regression suite.
 
-**Логин `/auth/login`** — форма email и пароля, ошибка при неверных данных, редирект на `/` после
-входа, ссылка на регистрацию. Браузер к Nest не обращается: логин идёт через Server Action, а JWT
-кладётся в httpOnly cookie, недоступную из JavaScript.
+**Login `/auth/login`** — an email and password form, an error on bad credentials, a redirect to `/`
+after signing in, and a link to sign-up. The browser never talks to Nest: the login goes through a
+Server Action and the JWT lands in an httpOnly cookie that JavaScript cannot read.
 
-**Главная `/`** — только для авторизованных, приветствие с email, счётчик встреч, три последние
-встречи, создание встречи и выход. Неавторизованного уводит на логин `src/proxy.ts`, но это
-«оптимистичная» проверка: валидность токена подтверждает Nest, поэтому проверка дублируется в
-`lib/dal.ts` и внутри каждого Server Action.
+**Home `/`** — authenticated users only: a greeting with the email, a meeting counter, the three
+most recent meetings, meeting creation and sign-out. `src/proxy.ts` sends unauthenticated visitors
+to the login page, but that is an optimistic check: Nest confirms the token's validity, so the check
+is duplicated in `lib/dal.ts` and inside every Server Action.
 
-Базы нет — данные in-memory с сидом из четырёх пользователей, см. [`apps/api/README.md`](apps/api/README.md).
+There is no database — the data is in-memory with a seed of four users, see
+[`apps/api/README.md`](apps/api/README.md).
 
-## Тесты
+## Tests
 
 ```
 e2e/
-├── suite-integrity.api.spec.ts   мета-тест: следит, что конвенция сьюта не разъедется
-├── fixtures/                     сид и хелперы, единственный источник логинов и паролей
-├── smoke/                        «инфраструктура жива»: сервер поднялся, сид на месте
-└── regression/<фича>/            на каждую фичу — API- и функциональные тесты
-    ├── <фича>.api.cases.md       кейсы: шаги и ожидаемый результат
-    ├── <фича>.api.spec.ts        парный исполняемый спек
-    ├── <фича>.functional.cases.md
-    ├── <фича>.functional.spec.ts
-    └── <фича>.unit.cases.md      кейсы юнитов; сами спеки лежат рядом с кодом
+├── suite-integrity.api.spec.ts   the meta-test: keeps the suite convention from drifting
+├── fixtures/                     the seed and helpers, the only source of logins and passwords
+├── smoke/                        "the infrastructure is alive": servers up, seed in place
+└── regression/<feature>/         per feature, API and functional tests
+    ├── <feature>.api.cases.md       cases: steps and expected results
+    ├── <feature>.api.spec.ts        the paired executable spec
+    ├── <feature>.functional.cases.md
+    ├── <feature>.functional.spec.ts
+    └── <feature>.unit.cases.md      unit cases; the specs themselves sit next to the code
 ```
 
-Каждому файлу кейсов соответствует одноимённый спек — за этим следит `suite-integrity`, а не ревью.
-**Проект Playwright выбирается суффиксом имени файла:** `*.api.spec.ts` идёт в проект `api`,
-`*.functional.spec.ts` — в `web`. Файл со `.spec.ts`, но без суффикса, не попадёт ни в один проект
-и молча не запустится.
+Every case doc has a spec of the same name — that is enforced by `suite-integrity`, not by review.
+**The Playwright project is chosen by the filename suffix:** `*.api.spec.ts` goes to project `api`,
+`*.functional.spec.ts` to `web`. A `.spec.ts` without either suffix joins no project and silently
+never runs.
 
-Порты e2e — **3100 и 3101**, а не обычные 3000/3001: на 3000 может висеть `next start` с прежней
-сборкой, и прогон дал бы ложное «зелено» на сломанном коде.
+The e2e ports are **3100 and 3101**, not the usual 3000/3001: a `next start` with a stale build may
+be sitting on 3000, and the run would go falsely green on broken code.
 
-### Безопасность
+### Security
 
-`e2e/security/` — межфичевые инварианты, обязанные держаться при любом новом эндпоинте и любой новой
-странице: авторизация на всех защищённых маршрутах, отвержение подделанных токенов, отсутствие
-секретов в ответах и в HTML, изоляция данных между пользователями, неразличимость веток отказа
-аутентификации **по времени ответа**. Модель угроз и список осознанных пробелов —
+`e2e/security/` holds the cross-feature invariants that must hold for every new endpoint and every
+new page: authorization on all protected routes, rejection of forged tokens, no secrets in
+responses or in the HTML, data isolation between users, and authentication rejection branches that
+are indistinguishable **by response time**. The threat model and the list of deliberate gaps are in
 [`docs/security.md`](docs/security.md).
 
-Этот сьют нашёл три дефекта, невидимых в диффе: бесконечный редирект при негодной cookie,
-тайминговый оракул на логине и `X-Powered-By` в ответах.
+This suite found three defects invisible in a diff: an endless redirect on an invalid cookie, a
+timing oracle on login, and `X-Powered-By` in the responses.
 
-Приёмка — **один `pnpm verify`**: lint, typecheck, юниты, весь e2e одним подъёмом серверов и
-`pnpm audit`. Разбивка по `--grep` нужна для локализации падения, а не для приёмки. Замеры и состав
-сьюта — в [`e2e/README.md`](e2e/README.md), «Экономика прогонов»; в других документах эти числа не
-дублируются.
+Acceptance is **one `pnpm verify`**: lint, typecheck, units, the whole e2e on a single server start,
+and `pnpm audit`. Splitting by `--grep` is for localizing a failure, not for acceptance. The
+measurements and the suite composition are in [`e2e/README.md`](e2e/README.md), "Run economics";
+those numbers are not duplicated in other documents.
 
-**Перед `pnpm e2e` остановите `pnpm dev`.** Next 16 не даёт запустить второй dev-сервер для того же
-каталога ни на каком порту, и `webServer` Playwright просто не стартует. Двум агентам одновременно
-нужен свой git worktree, а не свои порты.
+**Stop `pnpm dev` before `pnpm e2e`.** Next 16 will not start a second dev server for the same
+directory on any port, and Playwright's `webServer` simply never comes up. Two agents at once need
+their own git worktree, not their own ports.
 
-Потоков работ два, и развилка проходит по вопросу «заявлено ли уже это поведение»:
+There are two workflows, and the fork turns on whether the behaviour has already been promised:
 
-- **новая функциональность** — скил `feature-pipeline`: ориентация, спайк допущений, требования и
-  архитектура в плане по `docs/plans/TEMPLATE.md`, нарезка задач, одно ревью, реализация (каждый
-  агент в своём git worktree), приёмка;
-- **дефект** — скил `bugfix-pipeline`: воспроизведение, причина, влияние, красный тест **до** фикса,
-  минимальная правка в причине, приёмка и запись `FX-`. План (`pnpm plan:new <slug> --bug`) нужен не
-  всякому багу — порог описан в самом скиле.
+- **new functionality** — the `feature-pipeline` skill: orientation, an assumption spike,
+  requirements and architecture in a plan from `docs/plans/TEMPLATE.md`, a task breakdown, one
+  review, implementation (each agent in its own git worktree), acceptance;
+- **a defect** — the `bugfix-pipeline` skill: reproduction, cause, impact, a red test **before** the
+  fix, a minimal edit at the cause, acceptance and an `FX-` entry. A plan
+  (`pnpm plan:new <slug> --bug`) is not needed for every bug — the threshold is in the skill.
 
-Приёмка в обоих случаях — по скилу `regression-verify` (`.claude/skills/`): один `pnpm verify` и
-отчёт с цифрами. Быстрая проверка одного изменения — `playwright-verify`.
+Acceptance in both cases goes through the `regression-verify` skill (`.claude/skills/`): one
+`pnpm verify` and a report with numbers. The quick check of a single change is `playwright-verify`.
 
-## Качество кода
+## Code quality
 
-- **ESLint 10** (flat config) — общие правила в `packages/eslint-config`,
-  для api включены type-aware правила, для web — `eslint-config-next`.
-- **Prettier** — один конфиг в корне, стилевые правила ESLint отключены через
+- **ESLint 10** (flat config) — shared rules in `packages/eslint-config`, type-aware rules for api
+  and `eslint-config-next` for web.
+- **Prettier** — one config at the root; conflicting ESLint style rules are switched off through
   `eslint-config-prettier`.
-- **husky** — `.husky/pre-commit` на каждом коммите прогоняет три шага: проверку ориентации
-  планов, lint-staged (`eslint --fix` и `prettier --write` по staged-файлам) и **юнит-тесты**
-  (`pnpm test`, 42 теста, 5,5 с; коммит, где в индексе одни `.md`, юниты пропускает —
-  ни один спек не читает markdown). Красный юнит коммит не пропускает. Полный `pnpm lint` (49 с) и
-  e2e в хук не вынесены намеренно — это работа `pnpm verify` и CI.
-- **`.gitattributes` с `eol=lf`** — без него на Windows `core.autocrlf` подставляет CRLF при
-  каждом checkout, а Prettier требует LF, и `format:check` краснеет на десятках файлов сразу
-  после клонирования.
+- **husky** — `.husky/pre-commit` runs three steps on every commit: the plan orientation check,
+  lint-staged (`eslint --fix` and `prettier --write` over staged files) and the **unit tests**
+  (`pnpm test`, 42 tests, 5.5 s; a commit holding only `.md` files skips them, since no spec reads
+  markdown). A red unit fails the commit. The full `pnpm lint` (49 s) and the e2e are deliberately
+  out of the hook — that is the job of `pnpm verify` and CI.
+- **`.gitattributes` with `eol=lf`** — without it, Windows `core.autocrlf` substitutes CRLF on every
+  checkout while Prettier demands LF, and `format:check` goes red on dozens of files right after
+  cloning.

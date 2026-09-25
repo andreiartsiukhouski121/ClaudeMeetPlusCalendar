@@ -5,5 +5,5 @@ export interface User {
   passwordHash: string;
 }
 
-/** То, что уходит клиенту: `passwordHash` срезается `toPublicUser` (AL-API-11). */
+/** What goes out to the client: `toPublicUser` strips `passwordHash` (AL-API-11). */
 export type PublicUser = Omit<User, 'passwordHash'>;

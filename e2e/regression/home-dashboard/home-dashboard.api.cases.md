@@ -1,296 +1,157 @@
-# Главная: контракт API (`GET /meetings`, `POST /meetings`)
+# Dashboard: API contract (`GET /meetings`, `POST /meetings`)
 
-- **Парный спек:** `e2e/regression/home-dashboard/home-dashboard.api.spec.ts`
-- **Проект Playwright:** `api` (фикстура `request`, `baseURL = http://127.0.0.1:3101`, браузер не поднимается)
-- **Теги:** `@regression`, `@home-dashboard`, плюс `@p0` у критичных и `@mutating` у изменяющих данные
-- **Запуск:** `pnpm e2e --project=api --grep @home-dashboard`
-- **Общие предусловия:**
-  - Nest поднят Playwright-ом на порту 3101 (`webServer` в `playwright.config.ts`), `JWT_SECRET=e2e-secret`.
-  - Сид пользователей и встреч применён при старте — проверяет смоук `e2e/smoke/seed.api.cases.md`.
-  - Логины, пароли и названия встреч берутся из `e2e/fixtures/seed.ts`, токен — через
-    `e2e/fixtures/auth.api.ts`. Хардкод данных в спеке — блокер (тест-план §5.6).
-  - Точные числа проверяются **только** на `teacher` (5 встреч) и `student` (0 встреч): их
-    мутировать запрещено. Изменяющие кейсы работают под `planner` — он выделен именно для
-    `*.api.spec.ts`, тогда как `*.functional.spec.ts` мутирует `organizer`.
-  - Формы тел ошибок — из плана имплементации §2.1. `message` — массив строк только у ошибок
-    `ValidationPipe`; у брошенного нами `UnauthorizedException` это строка.
+- **Paired spec:** `e2e/regression/home-dashboard/home-dashboard.api.spec.ts`
+- **Playwright project:** `api` (the `request` fixture, `baseURL = http://127.0.0.1:3101`, no browser)
+- **Tags:** `@regression`, `@home-dashboard`, plus `@p0` and `@mutating` where applicable
+- **Run:** `pnpm e2e --project=api --grep @home-dashboard`
+- **Preconditions:**
+  - Playwright starts Nest on 3101 with `JWT_SECRET=e2e-secret`; the seed is applied.
+  - Data comes from `e2e/fixtures/seed.ts`. Exact numbers are checked against `teacher`/`student`
+    only — mutating them is forbidden.
+  - Mutating cases run as `planner`, reserved for `*.api.spec.ts` (`*.functional.spec.ts` mutates
+    `organizer`). That removes the cross-project race under `fullyParallel: true`, because
+    `GET /meetings` is isolated by owner. Counter assertions are relative (`N` → `N + 1`), the
+    title is unique and the date is the 2030 constant.
 
-Итого 16 кейсов: P0 — 9, P1 — 7. Номера `11` и `12` объединены в кейс о контракте `limit`, номера
-`18` и `19` удалены (форму элемента списка проверяет кейс `HD-API-01`, а битый токен —
-`JwtAuthGuard`, общий на оба контроллера). Освободившиеся номера **не переиспользуются**: кейс
-о создании встречи без длительности получил следующий свободный номер `HD-API-20`.
+16 cases. Numbers `11`, `12`, `18`, `19` are **never reused**.
 
-## Сводка
+## Summary
 
-| ID        | Заголовок                                                | Приоритет | Теги                                        | Имя теста в спеке                                                      |
-| --------- | -------------------------------------------------------- | --------- | ------------------------------------------- | ---------------------------------------------------------------------- |
-| HD-API-01 | `GET /meetings` возвращает список и `total`              | P0        | `@regression @home-dashboard @p0`           | `HD-API-01 — GET /meetings с токеном возвращает список и total`        |
-| HD-API-02 | `GET /meetings` без токена → 401                         | P0        | `@regression @home-dashboard @p0`           | `HD-API-02 — GET /meetings без токена даёт 401`                        |
-| HD-API-03 | `limit=3` отдаёт ровно 3 элемента                        | P0        | `@regression @home-dashboard @p0`           | `HD-API-03 — limit=3 отдаёт ровно 3 элемента`                          |
-| HD-API-04 | Сортировка по дате DESC и отсечение старых               | P0        | `@regression @home-dashboard @p0`           | `HD-API-04 — сортировка по дате DESC`                                  |
-| HD-API-05 | `total` — полное число встреч, а не длина `items`        | P0        | `@regression @home-dashboard @p0`           | `HD-API-05 — total это полное число встреч, а не длина items`          |
-| HD-API-06 | Изоляция данных между пользователями                     | P0        | `@regression @home-dashboard @p0`           | `HD-API-06 — изоляция данных между пользователями`                     |
-| HD-API-07 | Пользователь без встреч                                  | P1        | `@regression @home-dashboard`               | `HD-API-07 — пользователь без встреч`                                  |
-| HD-API-08 | Нечисловой `limit` → 400                                 | P1        | `@regression @home-dashboard`               | `HD-API-08 — нечисловой limit даёт 400`                                |
-| HD-API-09 | `limit` вне диапазона `1..100` → 400                     | P1        | `@regression @home-dashboard`               | `HD-API-09 — limit вне диапазона 1..100 даёт 400`                      |
-| HD-API-10 | Контракт `limit`: дефолт, `100`, неизвестный параметр    | P1        | `@regression @home-dashboard`               | `HD-API-10 — контракт limit: дефолт, превышение, неизвестный параметр` |
-| HD-API-13 | `POST /meetings` создаёт встречу                         | P0        | `@regression @home-dashboard @p0 @mutating` | `HD-API-13 — POST /meetings создаёт встречу`                           |
-| HD-API-14 | `POST /meetings` без токена → 401, данные не изменились  | P0        | `@regression @home-dashboard @p0`           | `HD-API-14 — POST /meetings без токена даёт 401 и данные не меняются`  |
-| HD-API-15 | `POST /meetings` без обязательных полей → 400            | P1        | `@regression @home-dashboard`               | `HD-API-15 — POST /meetings без обязательных полей даёт 400`           |
-| HD-API-16 | `POST /meetings` с лишним полем → 400                    | P1        | `@regression @home-dashboard`               | `HD-API-16 — POST /meetings с лишним полем даёт 400`                   |
-| HD-API-17 | Созданная встреча принадлежит владельцу токена           | P1        | `@regression @home-dashboard @mutating`     | `HD-API-17 — созданная встреча принадлежит владельцу токена`           |
-| HD-API-20 | `POST /meetings` без `durationMinutes` → 201 и дефолт 60 | P0        | `@regression @home-dashboard @p0 @mutating` | `HD-API-20 — POST /meetings без durationMinutes даёт 201 и дефолт 60`  |
+| ID        | Title                                                    | Priority | Tags                                        |
+| --------- | -------------------------------------------------------- | -------- | ------------------------------------------- |
+| HD-API-01 | GET /meetings with a token returns the list and total    | P0       | `@regression @home-dashboard @p0`           |
+| HD-API-02 | GET /meetings without a token gives 401                  | P0       | `@regression @home-dashboard @p0`           |
+| HD-API-03 | limit=3 returns exactly 3 items                          | P0       | `@regression @home-dashboard @p0`           |
+| HD-API-04 | sorted by date DESC, older meetings cut                  | P0       | `@regression @home-dashboard @p0`           |
+| HD-API-05 | total is the full count, not the length of items         | P0       | `@regression @home-dashboard @p0`           |
+| HD-API-06 | data isolation between users                             | P0       | `@regression @home-dashboard @p0`           |
+| HD-API-07 | a user with no meetings                                  | P1       | `@regression @home-dashboard`               |
+| HD-API-08 | a non-numeric limit gives 400                            | P1       | `@regression @home-dashboard`               |
+| HD-API-09 | a limit outside 1..100 gives 400                         | P1       | `@regression @home-dashboard`               |
+| HD-API-10 | limit contract: default, ceiling, unknown parameter      | P1       | `@regression @home-dashboard`               |
+| HD-API-13 | POST /meetings creates a meeting                         | P0       | `@regression @home-dashboard @p0 @mutating` |
+| HD-API-14 | POST /meetings without a token gives 401, data unchanged | P0       | `@regression @home-dashboard @p0`           |
+| HD-API-15 | POST /meetings without required fields gives 400         | P1       | `@regression @home-dashboard`               |
+| HD-API-16 | POST /meetings with an extra field gives 400             | P1       | `@regression @home-dashboard`               |
+| HD-API-17 | the created meeting belongs to the token owner           | P1       | `@regression @home-dashboard @mutating`     |
+| HD-API-20 | POST /meetings without durationMinutes gives 201 and 60  | P0       | `@regression @home-dashboard @p0 @mutating` |
 
-## Кейсы
+## Cases
 
-### HD-API-01 — GET /meetings с токеном возвращает список и total
+### HD-API-01 — GET /meetings with a token returns the list and total
 
-- **Приоритет:** P0
-- **Тип:** API-контрактный
-- **Теги:** `@p0`
-- **Предусловия:** пользователь `SEED_USERS.teacher` есть в сиде и у него есть встречи.
-- **Шаги:**
-  1. Залогиниться как `teacher`, взять токен.
-  2. `GET /meetings` с заголовком `Bearer`.
-  3. Проверить набор ключей каждого элемента.
-- **Ожидаемый результат:**
-  - Статус 200, `Content-Type` содержит `application/json`.
-  - Тело — объект с массивом `items` и числовым `total`.
-  - Каждый элемент имеет ровно `id`, `title`, `startsAt` (разбирается как дата) и
-    `durationMinutes`; поля `ownerId` в элементах **нет** — его срезает `toMeetingDto`.
-  - Текст ответа не содержит ни `passwordHash`, ни пароля сида, ни строки `ownerId`.
-- **Имя теста в спеке:** `HD-API-01 — GET /meetings с токеном возвращает список и total`
+- **Priority:** P0
+- **Steps:** `GET /meetings` as `teacher`.
+- **Expected:** 200, JSON content type, `items` an array and `total` a number. Every item has
+  **exactly** the keys `durationMinutes`, `id`, `startsAt`, `title` — the full key set rather than
+  "has an id", so an `ownerId` leak is caught too. The response text contains no `passwordHash`, no
+  seeded password and no `ownerId`.
 
-### HD-API-02 — GET /meetings без токена даёт 401
+### HD-API-02 — GET /meetings without a token gives 401
 
-- **Приоритет:** P0
-- **Тип:** API-контрактный (безопасность)
-- **Теги:** `@p0`
-- **Предусловия:** нет.
-- **Шаги:**
-  1. `GET /meetings` без заголовка `Authorization`.
-- **Ожидаемый результат:**
-  - Статус 401; тело точно равно
-    `{ message: 'Требуется авторизация', error: 'Unauthorized', statusCode: 401 }`.
-  - Поля `items` в ответе нет. Кейс заодно доказывает, что guard навешен на контроллер целиком.
-- **Имя теста в спеке:** `HD-API-02 — GET /meetings без токена даёт 401`
+- **Priority:** P0
+- **Steps:** `GET /meetings` with no `Authorization`.
+- **Expected:** 401 with exactly
+  `{ message: 'Authentication required', error: 'Unauthorized', statusCode: 401 }` and no `items`.
 
-### HD-API-03 — limit=3 отдаёт ровно 3 элемента
+### HD-API-03 — limit=3 returns exactly 3 items
 
-- **Приоритет:** P0
-- **Тип:** API-контрактный
-- **Теги:** `@p0`
-- **Предусловия:** у `teacher` пять встреч в сиде.
-- **Шаги:**
-  1. Токен `teacher`.
-  2. `GET /meetings?limit=3`.
-- **Ожидаемый результат:** статус 200; длина `items` равна 3.
-- **Имя теста в спеке:** `HD-API-03 — limit=3 отдаёт ровно 3 элемента`
+- **Priority:** P0
+- **Steps:** `GET /meetings?limit=3` as `teacher`.
+- **Expected:** `items` has three elements.
 
-### HD-API-04 — сортировка по дате DESC
+### HD-API-04 — sorted by date DESC
 
-- **Приоритет:** P0
-- **Тип:** API-контрактный
-- **Теги:** `@p0`
-- **Предусловия:** даты сид-встреч `teacher` фиксированные и абсолютные.
-- **Шаги:**
-  1. Токен `teacher`.
-  2. `GET /meetings?limit=3`.
-  3. Собрать даты и названия элементов.
-- **Ожидаемый результат:**
-  - Даты невозрастающие.
-  - Названия совпадают с `TEACHER_MEETINGS.latestTitles`: первым идёт `Итоговое занятие модуля`.
-  - Названий `Разбор домашнего задания` и `Вводный урок по алгебре` (две самые старые) в ответе
-    нет — половина смысла кейса именно в отсечении.
-- **Имя теста в спеке:** `HD-API-04 — сортировка по дате DESC`
+- **Priority:** P0
+- **Steps:** `GET /meetings?limit=3` as `teacher`.
+- **Expected:** the timestamps are non-increasing and the titles match the three most recent seeded
+  meetings in order. The two oldest titles are **absent** — half the point of the case.
 
-### HD-API-05 — total это полное число встреч, а не длина items
+### HD-API-05 — total is the full meeting count, not the length of items
 
-- **Приоритет:** P0
-- **Тип:** API-контрактный
-- **Теги:** `@p0`
-- **Предусловия:** у `teacher` ровно 5 встреч.
-- **Шаги:**
-  1. Токен `teacher`.
-  2. `GET /meetings?limit=3`.
-- **Ожидаемый результат:**
-  - `total` = 5, длина `items` = 3, значения различны.
-  - Кейс — контрольная точка типовой ошибки «`total = items.length`»: подмена `countByOwner`
-    на длину среза обязана уронить именно его (контрольный опыт задачи `T2.10`).
-- **Имя теста в спеке:** `HD-API-05 — total это полное число встреч, а не длина items`
+- **Priority:** P0
+- **Steps:** `GET /meetings?limit=3` as `teacher`.
+- **Expected:** `total` is 5 while `items` holds 3, and the two differ explicitly. Invariant 4; the
+  control experiment (`total = items.length`) must break this assertion.
 
-### HD-API-06 — изоляция данных между пользователями
+### HD-API-06 — data isolation between users
 
-- **Приоритет:** P0
-- **Тип:** API-контрактный (безопасность)
-- **Теги:** `@p0`
-- **Предусловия:** `teacher` — 5 встреч, `student` — 0.
-- **Шаги:**
-  1. Получить токены `teacher` и `student`.
-  2. `GET /meetings?limit=100` каждым.
-- **Ожидаемый результат:**
-  - Наборы `id` не пересекаются; у `student` `items` пуст, у `teacher` — нет.
-  - `total` у `student` равен 0, у `teacher` — 5.
-- **Имя теста в спеке:** `HD-API-06 — изоляция данных между пользователями`
+- **Priority:** P0
+- **Steps:** `GET /meetings?limit=100` as `teacher` and as `student`, then compare the id sets.
+- **Expected:** the sets do not intersect; `student` is empty with `total` = 0, `teacher` has
+  `total` = 5.
 
-### HD-API-07 — пользователь без встреч
+### HD-API-07 — a user with no meetings
 
-- **Приоритет:** P1
-- **Тип:** API-контрактный (граничный случай)
-- **Теги:** нет
-- **Предусловия:** у `student` нет встреч.
-- **Шаги:**
-  1. Токен `student`.
-  2. `GET /meetings?limit=3`.
-- **Ожидаемый результат:** статус **200**, а не 404 — отсутствие встреч это нормальное
-  состояние; `items` пуст, `total` = 0.
-- **Имя теста в спеке:** `HD-API-07 — пользователь без встреч`
+- **Priority:** P1
+- **Steps:** `GET /meetings?limit=3` as `student`.
+- **Expected:** **200**, not 404 — having no meetings is a normal state, not "not found" — with an
+  empty `items` and `total` = 0.
 
-### HD-API-08 — нечисловой limit даёт 400
+### HD-API-08 — a non-numeric limit gives 400
 
-- **Приоритет:** P1
-- **Тип:** API-контрактный (валидация)
-- **Теги:** нет
-- **Предусловия:** нет.
-- **Шаги:**
-  1. Токен `teacher`.
-  2. `GET /meetings?limit=abc`.
-- **Ожидаемый результат:**
-  - Статус 400 — не 500 и не «молча проигнорировали».
-  - `message` — массив строк, упоминающий `limit`. Сверка **по вхождению**: на нечисловом
-    значении `class-validator` присылает три сообщения сразу (§2.1).
-- **Имя теста в спеке:** `HD-API-08 — нечисловой limit даёт 400`
+- **Priority:** P1
+- **Steps:** `GET /meetings?limit=abc`.
+- **Expected:** 400 (neither a 500 nor a silent ignore) with an array `message` mentioning `limit`.
 
-### HD-API-09 — limit вне диапазона 1..100 даёт 400
+### HD-API-09 — a limit outside 1..100 gives 400
 
-- **Приоритет:** P1
-- **Тип:** API-контрактный (границы)
-- **Теги:** нет
-- **Предусловия:** нет.
-- **Шаги:**
-  1. Токен `teacher`.
-  2. `GET /meetings?limit=0`.
-  3. `GET /meetings?limit=-1`.
-  4. `GET /meetings?limit=101`.
-- **Ожидаемый результат:**
-  - Во всех трёх случаях 400 с ошибкой по `limit`.
-  - На шаге 4 `message` содержит `limit must not be greater than 100`: верхняя граница
-    контракта — ровно `@Max(100)`, потому что `limit=100` используется как «отдай всё».
-- **Имя теста в спеке:** `HD-API-09 — limit вне диапазона 1..100 даёт 400`
+- **Priority:** P1
+- **Steps:** request `limit=0`, `limit=-1`, `limit=101`.
+- **Expected:** 400 each; for 101 the message contains `limit must not be greater than 100` — the
+  contract's ceiling is exactly 100, not 50.
 
-### HD-API-10 — контракт limit: дефолт, превышение, неизвестный параметр
+### HD-API-10 — limit contract: default, ceiling, unknown parameter
 
-- **Приоритет:** P1 (поднят с P2: именно этот кейс ловит падение всей страницы дашборда)
-- **Тип:** API-контрактный
-- **Теги:** нет
-- **Предусловия:** у `teacher` 5 встреч.
-- **Шаги:**
-  1. Токен `teacher`.
-  2. `GET /meetings` **без** параметра `limit`.
-  3. `GET /meetings?limit=100`.
-  4. `GET /meetings?limit=3&foo=bar`.
-- **Ожидаемый результат:**
-  - Шаг 2 → **200** (не 400: в DTO обязателен `@IsOptional()`), длина `items` = 3
-    (документированный дефолт), `total` = 5. Без `@IsOptional()` здесь приходит 400, то есть
-    дашборд не грузится вовсе.
-  - Шаг 3 → 200, длина `items` = `total` = 5.
-  - Шаг 4 → **400**, `message` содержит `property foo should not exist`:
-    `forbidNonWhitelisted` работает и на query, а не только на теле запроса.
-  - Покрывает бывшие кейсы `11` и `12`.
-- **Имя теста в спеке:** `HD-API-10 — контракт limit: дефолт, превышение, неизвестный параметр`
+- **Priority:** P1
+- **Steps:** `GET /meetings` with no parameter, then with `limit=100`, then with
+  `?limit=3&foo=bar`.
+- **Expected:** without the parameter, 200 and the documented default of 3 — **this step catches a
+  missing `@IsOptional()`** (invariant 2), without which the answer is 400 and the dashboard never
+  loads. `limit=100` returns everything. The unknown parameter gives 400 with
+  `property foo should not exist`, proving `forbidNonWhitelisted` applies to the query too.
 
-### HD-API-13 — POST /meetings создаёт встречу
+### HD-API-13 — POST /meetings creates a meeting
 
-- **Приоритет:** P0
-- **Тип:** API-контрактный (мутация)
-- **Теги:** `@p0`, `@mutating`
-- **Предусловия:**
-  - Пользователь `planner` — песочница мутаций проекта `api`; `teacher`/`student` не трогаются.
-  - Кейс живёт в serial-блоке в конце файла (тест-план §5.4).
-- **Шаги:**
-  1. Токен `planner`.
-  2. Прочитать текущий `total` через `GET /meetings`.
-  3. `POST /meetings` с телом `{ title: 'E2E API встреча <уникальный суффикс>', startsAt: FUTURE_STARTS_AT_ISO, durationMinutes: 30 }`.
-  4. `GET /meetings?limit=3`.
-- **Ожидаемый результат:**
-  - Шаг 3 → **201** (дефолтный код POST в Nest здесь и есть правильный ответ), тело содержит
-    `id`, переданный `title` и `durationMinutes` = 30.
-  - Шаг 4 → `total` увеличился ровно на 1 относительно шага 2 (ассерт относительный, абсолютные
-    числа под мутирующим пользователем запрещены); созданная встреча присутствует в `items`.
-  - `startsAt` — константа 2030 года из `fixtures/seed.ts`: при дате раньше сид-встречи владельца
-    новая встреча не попала бы в топ-3 и кейс стал бы ложно-красным.
-- **Имя теста в спеке:** `HD-API-13 — POST /meetings создаёт встречу`
+- **Priority:** P0
+- **Steps:** as `planner`, read `total`, then `POST /meetings` with a unique title, the 2030 date
+  and `durationMinutes: 30`.
+- **Expected:** **201** (the correct answer to a POST; no status decorator needed), the body echoes
+  the title and duration with a string `id`, and afterwards `total` is `before + 1` with the new
+  title among the top three. The 2030 date guarantees it lands in the slice.
 
-### HD-API-14 — POST /meetings без токена даёт 401 и данные не меняются
+### HD-API-14 — POST /meetings without a token gives 401 and changes no data
 
-- **Приоритет:** P0
-- **Тип:** API-контрактный (безопасность)
-- **Теги:** `@p0`
-- **Предусловия:** кейс живёт в том же serial-блоке: он читает `total` `planner` дважды.
-- **Шаги:**
-  1. Прочитать `total` пользователя `planner`.
-  2. `POST /meetings` без заголовка `Authorization`.
-  3. Прочитать `total` снова.
-- **Ожидаемый результат:** шаг 2 → 401 в стандартной форме; `total` на шаге 3 равен `total`
-  на шаге 1 — неавторизованный запрос ничего не создал.
-- **Имя теста в спеке:** `HD-API-14 — POST /meetings без токена даёт 401 и данные не меняются`
+- **Priority:** P0
+- **Steps:** read `total` as `planner`, `POST /meetings` with no token, read `total` again.
+- **Expected:** 401 with the standard error body, and `total` is unchanged.
 
-### HD-API-15 — POST /meetings без обязательных полей даёт 400
+### HD-API-15 — POST /meetings without required fields gives 400
 
-- **Приоритет:** P1
-- **Тип:** API-контрактный (валидация)
-- **Теги:** нет
-- **Предусловия:** те же, что у предыдущего кейса.
-- **Шаги:**
-  1. Токен `planner`.
-  2. `POST /meetings` с пустым объектом в теле.
-  3. Прочитать `total`.
-- **Ожидаемый результат:** 400; `message` — массив с упоминанием `title` и `startsAt`;
-  встреча не создана (`total` не изменился).
-- **Имя теста в спеке:** `HD-API-15 — POST /meetings без обязательных полей даёт 400`
+- **Priority:** P1
+- **Steps:** `POST /meetings` with an empty body.
+- **Expected:** 400 with an array `message` mentioning both `title` and `startsAt`; `total` is
+  unchanged.
 
-### HD-API-16 — POST /meetings с лишним полем даёт 400
+### HD-API-16 — POST /meetings with an extra field gives 400
 
-- **Приоритет:** P1
-- **Тип:** API-контрактный (безопасность)
-- **Теги:** нет
-- **Предусловия:** те же.
-- **Шаги:**
-  1. Токен `planner`.
-  2. `POST /meetings` с валидным телом плюс поле `ownerId: 'usr-teacher'`.
-  3. Прочитать `total`.
-- **Ожидаемый результат:** 400; `message` содержит `property ownerId should not exist`
-  (`forbidNonWhitelisted`); встреча не создана. Подмена владельца через тело невозможна уже
-  на уровне валидации, потому что в `CreateMeetingDto` такого поля нет вовсе.
-- **Имя теста в спеке:** `HD-API-16 — POST /meetings с лишним полем даёт 400`
+- **Priority:** P1
+- **Steps:** `POST /meetings` with a valid body plus `ownerId: 'usr-teacher'`.
+- **Expected:** 400 with `property ownerId should not exist`, and `total` is unchanged. This is
+  invariant 5 enforced at the HTTP level.
 
-### HD-API-17 — созданная встреча принадлежит владельцу токена
+### HD-API-17 — the created meeting belongs to the token owner
 
-- **Приоритет:** P1
-- **Тип:** API-контрактный (безопасность)
-- **Теги:** `@mutating`
-- **Предусловия:** мутируется только `planner`.
-- **Шаги:**
-  1. Токен `planner`.
-  2. `POST /meetings` с уникальным `title` и `startsAt` = `FUTURE_STARTS_AT_ISO`.
-  3. Токен `teacher`.
-  4. `GET /meetings?limit=100` под `teacher`.
-- **Ожидаемый результат:** встречи с этим `id`/`title` в выдаче `teacher` нет, `total` `teacher`
-  не изменился. `limit=100` допустим ровно потому, что верхняя граница контракта — `@Max(100)`.
-- **Имя теста в спеке:** `HD-API-17 — созданная встреча принадлежит владельцу токена`
+- **Priority:** P1
+- **Steps:** create a meeting as `planner`, then list everything as `teacher`.
+- **Expected:** neither the new id nor the new title appears in `teacher`'s list, and `teacher`'s
+  `total` is still 5.
 
-### HD-API-20 — POST /meetings без durationMinutes даёт 201 и дефолт 60
+### HD-API-20 — POST /meetings without durationMinutes gives 201 and a default of 60
 
-- **Приоритет:** P0
-- **Тип:** API-контрактный
-- **Теги:** `@p0`, `@mutating`
-- **Предусловия:** мутируется только `planner`.
-- **Шаги:**
-  1. Токен `planner`.
-  2. `POST /meetings` с уникальным `title` и `startsAt` = `FUTURE_STARTS_AT_ISO`, **без** поля
-     `durationMinutes` — ровно такое тело отправляет форма создания встречи на дашборде.
-- **Ожидаемый результат:**
-  - 201; в ответе `durationMinutes` = 60 (дефолт сервиса), набор ключей — как в `HD-API-01`.
-  - Кейс ловит пропущенный `@IsOptional()` на `durationMinutes`: без него приходит 400 и кнопка
-    «Создать встречу» не работает вовсе.
-- **Имя теста в спеке:** `HD-API-20 — POST /meetings без durationMinutes даёт 201 и дефолт 60`
+- **Priority:** P0
+- **Steps:** `POST /meetings` with exactly the body the dashboard form sends — no
+  `durationMinutes`.
+- **Expected:** 201 with `durationMinutes` = 60 and the standard key set. Without `@IsOptional()`
+  on the DTO field this answers 400 and the "Create meeting" button does not work at all — that is
+  the point of the case.

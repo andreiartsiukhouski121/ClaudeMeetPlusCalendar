@@ -25,8 +25,8 @@ export class AuthController {
   ) {}
 
   /**
-   * `@HttpCode(HttpStatus.OK)` обязателен: Nest отвечает на POST кодом 201 по умолчанию,
-   * а контракт (§2) требует 200. Ловится только тестом на статус — AL-API-01.
+   * Invariant 1: `@HttpCode(HttpStatus.OK)` is mandatory — Nest answers POST with 201 by default,
+   * and the contract requires 200. Only a status assertion catches it (AL-API-01).
    */
   @Post('login')
   @HttpCode(HttpStatus.OK)
@@ -39,7 +39,7 @@ export class AuthController {
   me(@CurrentUser() current: AuthenticatedUser): PublicUser {
     const user = this.usersService.findById(current.id);
 
-    // Токен подписан нами, но пользователя в хранилище больше нет: это тоже 401, не 500.
+    // We signed the token, but the user is gone from the store: still a 401, not a 500.
     if (user === undefined) {
       throw new UnauthorizedException(UNAUTHORIZED_MESSAGE);
     }

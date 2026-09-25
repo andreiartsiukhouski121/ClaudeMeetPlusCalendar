@@ -1,129 +1,122 @@
-# Безопасность — API-тесты
+# Security — API tests
 
-- **Спек:** `e2e/security/security.api.spec.ts`
-- **Проект Playwright:** `api`
-- **Теги:** `@security`
-- **Запуск:** `pnpm e2e:security` (или `pnpm e2e --grep @security`)
-- **Общие предусловия:** сид применён (`e2e/fixtures/seed.ts`), серверы 3100/3101 поднимает Playwright.
+- **Spec:** `e2e/security/security.api.spec.ts`
+- **Playwright project:** `api`
+- **Tags:** `@security`
+- **Run:** `pnpm e2e:security` (or `pnpm e2e --grep @security`)
+- **Preconditions:** the seed is applied (`e2e/fixtures/seed.ts`); Playwright starts 3100/3101.
 
-Это **межфичевые инварианты**, а не проверки конкретной фичи. Они обязаны держаться при любом новом
-эндпоинте, поэтому живут отдельно от `e2e/regression/<фича>/` и обходят эндпоинты списком: добавил
-защищённый маршрут — допиши его в список, и `SEC-API-01` начнёт его проверять сам.
+These are **cross-feature invariants**, not checks of one feature. They must hold for every new
+endpoint, so they live outside `e2e/regression/<feature>/` and walk the endpoints from a list: add
+a protected route, add it to the list, and `SEC-API-01` starts checking it on its own
+(invariant 16).
 
-Чем эти кейсы отличаются от похожих в фичах: `AL-API-14` проверяет, что `GET /auth/me` без токена
-даёт 401 — это часть контракта логина. `SEC-API-01` проверяет, что **ни один** защищённый эндпоинт
-не отвечает без токена, включая те, которых ещё нет.
+How they differ from similar cases in features: `AL-API-14` checks that `GET /auth/me` without a
+token gives 401 — part of the login contract. `SEC-API-01` checks that **no** protected endpoint
+answers without a token, including those that do not exist yet.
 
-## Сводка
+## Summary
 
-| ID         | Заголовок                                                         | Приоритет | Тег   |
-| ---------- | ----------------------------------------------------------------- | --------- | ----- |
-| SEC-API-01 | все защищённые эндпоинты требуют токен                            | P0        | `@p0` |
-| SEC-API-02 | подделанная подпись и мусорный токен отвергаются с 401, а не 500  | P0        | `@p0` |
-| SEC-API-03 | токен, подписанный другим секретом, отвергается                   | P0        | `@p0` |
-| SEC-API-04 | ни один ответ не содержит хеша, соли или plaintext-пароля         | P0        | `@p0` |
-| SEC-API-05 | время ответа не выдаёт существование аккаунта                     | P0        | `@p0` |
-| SEC-API-06 | тела ошибок не содержат стектрейса, путей файлов и имён библиотек | P1        |       |
-| SEC-API-07 | лишние поля в теле отвергаются на всех POST-эндпоинтах            | P1        |       |
-| SEC-API-08 | ответ не раскрывает стек сервера (`X-Powered-By` и подобное)      | P1        |       |
-| SEC-API-09 | данные одного пользователя недоступны под токеном другого         | P0        | `@p0` |
-| SEC-API-10 | в репозитории нет закоммиченных секретов и `.env`                 | P1        |       |
+| ID         | Title                                                          | Priority | Tag   |
+| ---------- | -------------------------------------------------------------- | -------- | ----- |
+| SEC-API-01 | every protected endpoint requires a token                      | P0       | `@p0` |
+| SEC-API-02 | a forged signature and a junk token give 401, not 500          | P0       | `@p0` |
+| SEC-API-03 | a token signed with a different secret is rejected             | P0       | `@p0` |
+| SEC-API-04 | no response carries a hash, a salt or a plaintext password     | P0       | `@p0` |
+| SEC-API-05 | response time does not reveal that an account exists           | P0       | `@p0` |
+| SEC-API-06 | error bodies carry no stack trace, file paths or library names | P1       |       |
+| SEC-API-07 | extra body fields are rejected on every POST endpoint          | P1       |       |
+| SEC-API-08 | responses do not disclose the server stack (`X-Powered-By`)    | P1       |       |
+| SEC-API-09 | one user's data is unreachable with another user's token       | P0       | `@p0` |
+| SEC-API-10 | the repository holds no committed secrets and no `.env`        | P1       |       |
 
-## Кейсы
+## Cases
 
-### SEC-API-01 — все защищённые эндпоинты требуют токен
+### SEC-API-01 — every protected endpoint requires a token
 
-- **Приоритет:** P0
-- **Предусловия:** список защищённых маршрутов задан в спеке константой `PROTECTED_ROUTES`.
-- **Шаги:**
-  1. Для каждого маршрута из списка выполнить запрос **без** заголовка `Authorization`.
-  2. Повторить с заголовком `Authorization: Bearer` без значения.
-- **Ожидаемый результат:** каждый запрос — `401`; в теле нет полезной нагрузки (ни `items`, ни
-  `email`, ни `accessToken`).
+- **Priority:** P0
+- **Preconditions:** the protected routes are listed in the spec as `PROTECTED_ROUTES`.
+- **Steps:** for each route, send a request **without** an `Authorization` header, then repeat with
+  `Authorization: Bearer` carrying no value.
+- **Expected:** every request gives `401`, and the body holds no payload (no `items`, no `email`,
+  no `accessToken`).
 
-### SEC-API-02 — подделанная подпись и мусорный токен отвергаются с 401, а не 500
+### SEC-API-02 — a forged signature and a junk token give 401, not 500
 
-- **Приоритет:** P0
-- **Шаги:**
-  1. Получить валидный токен.
-  2. Испортить последний символ подписи и обратиться к защищённому маршруту.
-  3. Повторить со строкой `not.a.jwt`, с пустой строкой и со схемой `Basic`.
-- **Ожидаемый результат:** во всех случаях `401`. **`500` недопустима**: она означает, что
-  необработанное исключение из разбора токена доходит до обработчика ошибок.
+- **Priority:** P0
+- **Steps:** get a valid token; corrupt the last character of its signature and call a protected
+  route; repeat with `not.a.jwt`, with an empty string and with the `Basic` scheme.
+- **Expected:** `401` in every case. **A `500` is unacceptable**: it would mean an unhandled
+  exception from token parsing reaches the error handler.
 
-### SEC-API-03 — токен, подписанный другим секретом, отвергается
+### SEC-API-03 — a token signed with a different secret is rejected
 
-- **Приоритет:** P0
-- **Предусловия:** Playwright передаёт серверу `JWT_SECRET=e2e-secret`.
-- **Шаги:**
-  1. Собрать HS256-токен с валидным payload, подписав его **другим** секретом.
-  2. Обратиться с ним к защищённому маршруту.
-- **Ожидаемый результат:** `401`. Кейс отличается от `SEC-API-02`: там подпись битая, здесь она
-  корректна арифметически, но чужая — это проверка того, что секрет вообще проверяется.
+- **Priority:** P0
+- **Preconditions:** Playwright passes `JWT_SECRET=e2e-secret` to the server.
+- **Steps:** build an HS256 token with a valid payload signed with a **different** secret, and call
+  a protected route with it.
+- **Expected:** `401`. This differs from `SEC-API-02`: there the signature is broken, here it is
+  arithmetically correct but foreign — the check is that the secret is verified at all.
 
-### SEC-API-04 — ни один ответ не содержит хеша, соли или plaintext-пароля
+### SEC-API-04 — no response carries a hash, a salt or a plaintext password
 
-- **Приоритет:** P0
-- **Шаги:**
-  1. Обойти все эндпоинты в успешном сценарии (логин, профиль, список встреч, создание встречи).
-  2. Взять **текст** каждого ответа, а не разобранный объект.
-- **Ожидаемый результат:** ни один текст не содержит `scrypt`, `passwordHash`, `password`, значения
-  пароля из сида. Проверка по тексту, потому что разбор объекта пропустит секрет, попавший во
-  вложенное поле или в сообщение об ошибке.
+- **Priority:** P0
+- **Steps:** walk every endpoint in its success path (login, profile, meeting list, meeting
+  creation) and take the **text** of each response rather than the parsed object.
+- **Expected:** no text contains `scrypt`, `passwordHash`, `password` or the seeded password value.
+  The check works on text because parsing an object would miss a secret hidden in a nested field or
+  in an error message.
 
-### SEC-API-05 — время ответа не выдаёт существование аккаунта
+### SEC-API-05 — response time does not reveal that an account exists
 
-- **Приоритет:** P0
-- **Шаги:**
-  1. Замерить время `POST /auth/login` с неизвестным email (несколько повторов, взять медиану).
-  2. Замерить время с существующим email и неверным паролем.
-- **Ожидаемый результат:** медианы отличаются не более чем вдвое. До правки замер давал 52 мс
-  против 86–114 мс — стабильный оракул: неизвестный email не доходил до `scrypt`. Порог мягкий
-  намеренно: сравниваются медианы под нагрузкой CI, и цель — поймать возврат раннего выхода, а не
-  измерить микросекунды.
+- **Priority:** P0
+- **Steps:** measure `POST /auth/login` with an unknown email and with an existing email plus a
+  wrong password, interleaving the samples and taking medians.
+- **Expected:** the medians differ by less than a factor of three. Before the fix the measurement
+  was 52 ms against 86–114 ms — a stable oracle, because an unknown email never reached `scrypt`.
+  The threshold is deliberately loose: the goal is to catch a return of the early exit, not to
+  measure microseconds.
 
-### SEC-API-06 — тела ошибок не содержат стектрейса, путей файлов и имён библиотек
+### SEC-API-06 — error bodies carry no stack trace, file paths or library names
 
-- **Приоритет:** P1
-- **Шаги:**
-  1. Вызвать 400 (кривой payload), 401 (без токена), 404 (неизвестный путь).
-  2. Разобрать тела.
-- **Ожидаемый результат:** тело — только `statusCode`, `message`, `error`. Нет `stack`, нет
-  `C:\`/`/src/`, нет `node_modules`, нет `at ` из трассировки.
+- **Priority:** P1
+- **Steps:** trigger a 400 (malformed payload), a 401 (no token) and a 404 (unknown path), then
+  parse the bodies.
+- **Expected:** the body holds only `statusCode`, `message`, `error`. No `stack`, no `C:\` or
+  `/src/`, no `node_modules`, no `at ` trace lines.
 
-### SEC-API-07 — лишние поля в теле отвергаются на всех POST-эндпоинтах
+### SEC-API-07 — extra body fields are rejected on every POST endpoint
 
-- **Приоритет:** P1
-- **Шаги:** для каждого POST-маршрута отправить валидное тело плюс поле, которого нет в DTO
-  (`ownerId`, `role`, `isAdmin`).
-- **Ожидаемый результат:** `400` с `property … should not exist`. Это проверка того, что
-  `forbidNonWhitelisted` включён глобально, а не в одном DTO: без него лишнее поле молча
-  игнорируется, и первая же попытка присвоить чужого владельца станет вопросом реализации сервиса.
+- **Priority:** P1
+- **Steps:** for each POST route send a valid body plus a field absent from the DTO (`ownerId`,
+  `role`, `isAdmin`).
+- **Expected:** `400` with `property … should not exist`. This checks that
+  `forbidNonWhitelisted` is on globally rather than in one DTO: without it an extra field is
+  silently ignored, and the first attempt to assign a foreign owner becomes a question of service
+  implementation.
 
-### SEC-API-08 — ответ не раскрывает стек сервера
+### SEC-API-08 — responses do not disclose the server stack
 
-- **Приоритет:** P1
-- **Шаги:** прочитать заголовки ответа `GET /` и `POST /auth/login`.
-- **Ожидаемый результат:** заголовка `X-Powered-By` нет. Express отдаёт его по умолчанию — это
-  бесплатная подсказка, какой стек и какие CVE пробовать.
+- **Priority:** P1
+- **Steps:** read the response headers of `GET /` and `POST /auth/login`.
+- **Expected:** no `X-Powered-By` header. Express sends it by default — a free hint about which
+  stack and which CVEs to try.
 
-### SEC-API-09 — данные одного пользователя недоступны под токеном другого
+### SEC-API-09 — one user's data is unreachable with another user's token
 
-- **Приоритет:** P0
-- **Шаги:**
-  1. Взять токены `teacher` и `student`.
-  2. Запросить `GET /meetings?limit=100` каждым.
-  3. Сравнить наборы `id`.
-- **Ожидаемый результат:** наборы не пересекаются; у `student` список пуст, у `teacher` — нет.
-  Дублирует `HD-API-06` намеренно: там это часть контракта встреч, здесь — инвариант, который
-  обязан держаться и после появления новых ресурсов.
+- **Priority:** P0
+- **Steps:** take the `teacher` and `student` tokens, request `GET /meetings?limit=100` with each
+  and compare the `id` sets.
+- **Expected:** the sets do not intersect; `student`'s list is empty and `teacher`'s is not.
+  Duplicates `HD-API-06` on purpose: there it is part of the meetings contract, here it is an
+  invariant that must hold once new resources appear.
 
-### SEC-API-10 — в репозитории нет закоммиченных секретов и `.env`
+### SEC-API-10 — the repository holds no committed secrets and no `.env`
 
-- **Приоритет:** P1
-- **Шаги:** обойти файлы репозитория (без `node_modules`, `.next`, `dist`, отчётов) и проверить
-  содержимое на признаки секретов.
-- **Ожидаемый результат:** нет файлов `.env` (кроме `.env.example`), нет приватных ключей
-  (`BEGIN … PRIVATE KEY`), нет строк, похожих на реальный JWT (три base64-сегмента через точку
-  длиной больше 80 символов). Проверка файловая, а не сетевая — поэтому живёт в проекте `api`,
-  который не поднимает браузер.
+- **Priority:** P1
+- **Steps:** walk the repository files (skipping `node_modules`, `.next`, `dist`, reports) and
+  check their content for signs of secrets.
+- **Expected:** no `.env` files (other than `.env.example`), no private keys
+  (`BEGIN … PRIVATE KEY`), no strings resembling a real JWT (three dot-separated base64 segments
+  over 80 characters). The check is filesystem-based rather than network-based, which is why it
+  lives in the `api` project that starts no browser.

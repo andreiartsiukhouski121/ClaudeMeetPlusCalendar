@@ -1,89 +1,90 @@
-# Безопасность
+# Security
 
-Что защищаем, чем проверяем и чего сознательно не делаем. Документ короткий намеренно: всё, что
-можно проверить автоматически, живёт в `e2e/security/`, а не в прозе.
+What is protected, what checks it, and what is deliberately not done. The document is short on
+purpose: everything checkable automatically lives in `e2e/security/`, not in prose.
 
-## Как запускать проверки
+## Running the checks
 
 ```bash
-pnpm e2e:security                  # 15 кейсов: 10 API-инвариантов + 5 браузерных
-pnpm audit --audit-level high      # известные CVE в зависимостях
-pnpm verify                        # всё вместе: lint + типы + юниты + весь e2e, включая security
+pnpm e2e:security                  # 15 cases: 10 API invariants + 5 browser ones
+pnpm audit --audit-level high      # known CVEs in the dependencies
+pnpm verify                        # all of it: lint + types + units + the whole e2e, security included
 ```
 
-Диффовое ревью изменений ветки — встроенным скилом `security-review`. Он смотрит **изменения**, а
-автоматические кейсы — **инварианты**; одно не заменяет другое.
+Diff-level review of a branch's changes goes through the built-in `security-review` skill. It looks
+at **changes** while the automated cases hold **invariants**; neither replaces the other.
 
-## Что защищаем
+## What is protected
 
-Приложение учебное, без БД и без продакшен-развёртывания, поэтому модель угроз узкая:
+The application is a learning project with no database and no production deployment, so the threat
+model is narrow:
 
-| Актив                   | От чего защищаем                                               | Чем                                                                       |
-| ----------------------- | -------------------------------------------------------------- | ------------------------------------------------------------------------- |
-| Пароли пользователей    | утечка при чтении хранилища или ответа API                     | `scrypt` с солью на пользователя, `timingSafeEqual`; маппер срезает хеш   |
-| Сессия                  | кража токена скриптом на странице (XSS) и подделка             | httpOnly + sameSite=lax cookie, JWT HS256, токен не попадает в HTML и RSC |
-| Данные пользователя     | доступ под чужим токеном, подмена владельца через тело запроса | `ownerId` из подписанного токена; `forbidNonWhitelisted` на всех DTO      |
-| Существование аккаунтов | перечисление по ответу и **по времени ответа**                 | одинаковое сообщение + сверка пароля даже при неизвестном email           |
-| Внутреннее устройство   | подсказки атакующему в заголовках и телах ошибок               | `x-powered-by` отключён; тела ошибок без стектрейсов и путей              |
+| Asset              | Protected against                                                 | By what                                                                      |
+| ------------------ | ----------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| User passwords     | leaking when the store or an API response is read                 | `scrypt` with a per-user salt, `timingSafeEqual`; the mapper strips the hash |
+| The session        | token theft by a script on the page (XSS) and forgery             | httpOnly + sameSite=lax cookie, HS256 JWT, no token in the HTML or RSC       |
+| User data          | access with another user's token, owner spoofing through the body | `ownerId` from the signed token; `forbidNonWhitelisted` on every DTO         |
+| Account existence  | enumeration by response and **by response time**                  | one message plus a password verification even for an unknown email           |
+| Internal structure | hints to an attacker in headers and error bodies                  | `x-powered-by` off; error bodies without stack traces or paths               |
 
-## Инварианты, закреплённые тестами
+## Invariants held by tests
 
-`e2e/security/security.api.cases.md` и `security.functional.cases.md` — полные формулировки. Оба
-спека обходят маршруты и страницы **списком** (`PROTECTED_ROUTES`, `POST_ROUTES`,
-`PROTECTED_PAGES`): добавил защищённый маршрут или закрытую страницу — допиши строку, и проверка
-подхватит их сама. Забыл дописать — проверка молча перестанет покрывать новое, поэтому это
-отдельный пункт в чек-листе приёмки.
+`e2e/security/security.api.cases.md` and `security.functional.cases.md` carry the full wording.
+Both specs walk routes and pages **from a list** (`PROTECTED_ROUTES`, `POST_ROUTES`,
+`PROTECTED_PAGES`): add a protected route or page, add a line, and the check picks it up. Forget the
+line and the check silently stops covering what is new — which is why it is its own item on the
+acceptance checklist.
 
-## Что этот сьют нашёл на живом коде
+## What this suite found in live code
 
-Три дефекта, ни один из которых не был виден ни в диффе, ни в ревью плана:
+Three defects, none of which was visible in a diff or in a plan review:
 
-1. **Бесконечный редирект при негодной cookie** (`SEC-FN-05`). `proxy.ts` по устройству видит только
-   **наличие** cookie и пускал запрос на `/`; страница получала 401 от Nest и уводила на
-   `/auth/login`; proxy снова видел cookie и возвращал на `/` — `ERR_TOO_MANY_REDIRECTS`.
-   Пользователь с протухшим или подделанным токеном был заперт и не мог дойти до формы, чтобы войти
-   заново. Стереть cookie при рендере страницы нельзя (`cookies().delete()` вне Server Action и
-   Route Handler бросает ошибку), поэтому добавлен Route Handler `/auth/session-expired`: он стирает
-   сессию и уводит на логин, и **не входит** в матчер proxy.
-2. **Тайминговый оракул на логине** (`SEC-API-05`). Неизвестный email отвечал за 52 мс, неверный
-   пароль — за 86–114 мс: ранний выход не доходил до `scrypt`. Одинакового текста сообщения при
-   такой разнице недостаточно — аккаунты перечисляются по времени. Теперь пароль сверяется всегда,
-   при неизвестном пользователе — по хешу-пустышке, посчитанному один раз при загрузке модуля от
-   случайной строки.
-3. **`X-Powered-By: Express`** в каждом ответе (`SEC-API-08`) — бесплатная подсказка, какой стек и
-   какие CVE пробовать.
+1. **An endless redirect on an invalid cookie** (`SEC-FN-05`). `proxy.ts` by design only sees that a
+   cookie **exists** and let the request through to `/`; the page got a 401 from Nest and redirected
+   to `/auth/login`; the proxy saw the cookie again and sent the user back to `/` —
+   `ERR_TOO_MANY_REDIRECTS`. A user with an expired or forged token was locked out and could not
+   even reach the form to sign in again. The cookie cannot be erased while rendering a page
+   (`cookies().delete()` throws outside a Server Action or a Route Handler), so the
+   `/auth/session-expired` Route Handler was added: it erases the session, redirects to login, and
+   is **outside** the proxy matcher.
+2. **A timing oracle on login** (`SEC-API-05`). An unknown email answered in 52 ms, a wrong password
+   in 86–114 ms: the early exit never reached `scrypt`. With a difference that size, an identical
+   message is not enough — accounts get enumerated by time. The password is now always verified,
+   against a dummy hash computed once at module load from a random string when the user is unknown.
+3. **`X-Powered-By: Express`** on every response (`SEC-API-08`) — a free hint about which stack and
+   which CVEs to try.
 
-## Покрытие серверного слоя
+## Server layer coverage
 
-Замерено аудитом пайплайна: покрытие `apps/api` по **всем** файлам `src` — 68,5% (штатный
-`test:cov` показывает больше, потому что берёт знаменателем только импортированные файлы).
-В `apps/web` юнит-покрытие 26%, и на `lib/dal.ts`, `proxy.ts`, `lib/actions/*` — **0%**.
+Measured by the pipeline audit: coverage of `apps/api` across **all** files in `src` is 68.5% (the
+stock `test:cov` reports more because it counts only imported files in the denominator). In
+`apps/web` unit coverage is 26%, and for `lib/dal.ts`, `proxy.ts` and `lib/actions/*` it is **0%**.
 
-Это не дыра, а следствие архитектуры, и важно понимать, чем она закрыта. Перечисленные модули
-помечены `server-only` либо являются Server Actions: Vitest их не резолвит (инвариант 14 в
-`CLAUDE.md`), поэтому юнитами они не покрываются принципиально. Проверяются они e2e — `SEC-FN-04`,
-`SEC-FN-05`, `HD-FN-01`, `HD-FN-08` проходят ровно через `proxy.ts` и `dal.ts`, включая ветку
-негодной сессии. Гнаться за юнит-покрытием здесь означало бы вынести логику из этих файлов ради
-метрики, а не ради читаемости.
+That is not a hole but a consequence of the architecture, and it matters to know what covers it
+instead. Those modules are `server-only` or Server Actions: Vitest cannot resolve them in principle
+(invariant 14), so they have no units by construction. They are covered by e2e — `SEC-FN-04`,
+`SEC-FN-05`, `HD-FN-01` and `HD-FN-08` go straight through `proxy.ts` and `dal.ts`, the broken
+session branch included. Chasing unit coverage here would mean moving logic out of those files for a
+metric rather than for readability.
 
-## Осознанные пробелы
+## Deliberate gaps
 
-Названы явно, потому что пропуск, о котором не сказано, — это не пропуск, а искажение отчёта.
-Каждый пункт — отдельная задача, а не забытая строка.
+Named explicitly, because a gap that is not stated is not a gap but a misreported result. Each is a
+task of its own rather than a forgotten line.
 
-- **Нет rate limiting.** `POST /auth/login` можно перебирать без ограничений. Для демо без БД
-  приемлемо; в реальном проекте это первое, что нужно добавить, — и это единственный пробел из
-  списка, который я считаю блокирующим для продакшена.
-- **Нет refresh-токенов.** Сессия живёт час, дальше пользователь логинится заново.
-- **Нет собственного CSRF-токена.** Полагаемся на встроенную защиту Server Actions от
-  cross-origin POST и `sameSite=lax`.
-- **`JWT_SECRET` имеет дефолт в коде** (с `Logger.warn` при отсутствии). Для продакшена
-  неприемлемо; продакшен-развёртывания в проекте нет.
-- **Пароли сида лежат открытым текстом** в `users.seed.ts` и хешируются при старте. В самом
-  хранилище плейнтекста нет. В реальном проекте файл сида заменялся бы миграцией с готовыми хешами.
-- **Токен в cookie не шифруется дополнительно.** Он подписан HS256, не читается из JS и не содержит
-  ничего, кроме `sub` и `email`.
-- **Нет заголовков безопасности** (CSP, HSTS, `X-Frame-Options`). Осмысленны при реальном хостинге и
-  добавляются вместе с ним; на dev-сервере их проверка проверяла бы конфиг Next, а не наш код.
-- **Ротация `JWT_SECRET` разлогинит всех** — и теперь это делается корректно: негодная cookie
-  стирается через `/auth/session-expired`, а не запирает пользователя в редиректе.
+- **No rate limiting.** `POST /auth/login` can be brute-forced without limit. Acceptable for a demo
+  without a database; in a real project it is the first thing to add — and it is the only gap on
+  this list I consider a production blocker.
+- **No refresh tokens.** The session lives an hour, after which the user signs in again.
+- **No dedicated CSRF token.** We rely on the built-in Server Action protection against cross-origin
+  POSTs and on `sameSite=lax`.
+- **`JWT_SECRET` has a default in the code** (with a `Logger.warn` when absent). Unacceptable for
+  production; there is no production deployment here.
+- **Seed passwords are plaintext** in `users.seed.ts` and hashed at startup. The store itself holds
+  no plaintext. In a real project the seed file would be a migration with ready hashes.
+- **The cookie token is not additionally encrypted.** It is HS256-signed, unreadable from JS and
+  carries nothing but `sub` and `email`.
+- **No security headers** (CSP, HSTS, `X-Frame-Options`). They make sense with real hosting and get
+  added with it; on a dev server, checking them would test Next's config rather than our code.
+- **Rotating `JWT_SECRET` signs everyone out** — and that now happens correctly: an invalid cookie
+  is erased through `/auth/session-expired` rather than locking the user in a redirect.

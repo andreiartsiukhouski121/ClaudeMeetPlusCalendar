@@ -1,97 +1,93 @@
-# План: skills-cleanup
+# Plan: skills-cleanup
 
-Приведение семи скилов `.claude/skills/` в непротиворечивое состояние: снять взаимоисключающие
-предписания, свести дублирующиеся факты к одному источнику, сделать восстановление внешних наборов
-выполнимым. Задача процессная — продуктового кода не трогает.
+Bringing the seven skills in `.claude/skills/` into a consistent state: remove mutually exclusive
+prescriptions, consolidate duplicated facts into one source, make restoring the external sets
+possible. A process task — it touches no product code.
 
-## 0. Ориентация: что в проекте уже есть
+## 0. Orientation: what the project already has
 
-- **Дубль:** частично — `CH-005` и `FX-013`/`FX-014` закрыли находки аудита `docs/pipeline-audit.md`
-  от 2026-09-08, но три его правки остались неприменёнными (P3 «один абзац замеров в четырёх
-  файлах», P2 «каноничность исторических планов», P2 «`agent-team` живёт вне репозитория»), а
-  `CH-011` (адаптеры к внешним скилам) добавил новый слой, который аудит не видел. Совпадений,
-  закрывающих задачу целиком, нет.
-- **Конфликт с реализованным:** трогает `.claude/skills/**`, `CLAUDE.md`, `README.md`,
-  `e2e/README.md`, `docs/plans/README.md` и оба исторических плана, `skills-lock.json`. Ни один
-  инвариант 1–19 не меняется по существу — меняется место их хранения: копии заменяются ссылками
-  на единственный источник. Тест-кейсы не затрагиваются; `LG-API-*` затронуты как всегда — новыми
-  записями реестра. Правка `pnpm-workspace.yaml` (override `multer`) продиктована красным `pnpm audit`,
-  а не скилами.
-- **Конфликт с планируемым:** `BL-013` (инструмент для worktree на агента) пересекается частично —
-  план фиксирует worktree как единственный путь параллельности, но инструмента не создаёт, пункт
-  остаётся открытым; `BL-014` (определения `.claude/agents/*.md`) остаётся открытым и на него
-  теперь ссылается переписанный `feature-pipeline` §5. Прочих совпадений нет.
-- **Неясности:** термин «параллельная разработка» в скилах занят двумя разными механизмами —
-  worktree-агентами (`agent-team`, отдельные процессы без общего контекста) и in-process
-  субагентами инструмента `Agent`. Заказчик выбрал первый как единственный; второй остаётся только
-  для последовательных ролей. Термин «адаптер» уточняется: адаптер обязан работать без `.agents/`.
+- **Duplicate:** partly. `CH-005` and `FX-013`/`FX-014` closed findings of the pipeline audit of
+  2026-09-08, but three of its fixes were never applied (the measurements paragraph living in four
+  files, the canonical status of the archived plans, `agent-team` living outside the repository),
+  and `CH-011` added a new layer the audit never saw. Nothing closes the task in full.
+- **Conflicts with shipped:** touches `.claude/skills/**`, `CLAUDE.md`, `README.md`,
+  `e2e/README.md`, `docs/plans/README.md`, both archived plans and `skills-lock.json`. No invariant
+  changes in substance — what changes is where it is stored: copies become references. Test cases
+  are untouched apart from `LG-API-*`, which sees new ledger entries.
+- **Conflicts with planned:** `BL-013` (worktree tooling) overlaps partly — the plan fixes
+  worktrees as the only path to parallelism but builds no tooling, so the item stays open;
+  `BL-014` (`.claude/agents/*.md` definitions) stays open and is now referenced by the rewritten
+  `feature-pipeline` §5. No other matches.
+- **Open questions:** the term "parallel development" is used for two different mechanisms —
+  worktree agents (separate processes with no shared context) and in-process subagents of the
+  `Agent` tool. The customer chose the first as the only one; the second stays for sequential
+  roles. "Adapter" is clarified too: an adapter must work without `.agents/`.
 
-Раздел «Отклонено» бэклога задачу не содержит.
+The Rejected section of the backlog does not contain this task.
 
-## 1. Спайк: чем проверены рискованные допущения
+## 1. Spike: how the risky assumptions were proven
 
-| Допущение                               | Как проверено                                 | Факт                                                              |
-| --------------------------------------- | --------------------------------------------- | ----------------------------------------------------------------- |
-| Числа «41 юнит + 62 e2e» ещё верны      | `pnpm exec playwright test --list`            | **85 тестов в 10 файлах**; юнитов 42 — неверны все копии          |
-| `pnpm verify` идёт «1 м 31 с»           | замер полного прогона                         | **137 с**, и он **красный**: `pnpm audit` → 3 high                |
-| `skills.sh` есть в контуре              | `which`, поиск в репозитории и `~/.local/bin` | Не существует нигде                                               |
-| По `skills-lock.json` набор восстановим | чтение файла                                  | Нет ни `ref`, ни коммита — только хеш содержимого                 |
-| SHA апстримов достижимы без GitHub API  | `git ls-remote <url> HEAD`                    | Да; REST API при этом отдаёт `rate limit exceeded`                |
-| `heroui-react` в проекте используется   | `grep -r "@heroui" apps/ packages/`           | Ноль вхождений; адаптера нет                                      |
-| `multer` тянется прямой зависимостью    | `pnpm why multer -r`                          | Транзитивно из `@nestjs/platform-express@12.0.1` → нужен override |
+| Assumption                                         | How it was proven                          | Fact                                                                |
+| -------------------------------------------------- | ------------------------------------------ | ------------------------------------------------------------------- |
+| "41 units + 62 e2e" is still true                  | `pnpm exec playwright test --list`         | **85 tests in 10 files**; 42 units — every copy was wrong           |
+| `pnpm verify` takes "1 m 31 s"                     | timing the full run                        | **137 s**, and it was **red**: `pnpm audit` found 3 high            |
+| `skills.sh` exists in this environment             | `which`, search in repo and `~/.local/bin` | It exists nowhere                                                   |
+| The lock file can restore a set                    | reading the file                           | Neither a `ref` nor a commit — only a content hash                  |
+| Upstream SHAs are reachable without the GitHub API | `git ls-remote <url> HEAD`                 | Yes; the REST API meanwhile returns `rate limit exceeded`           |
+| `heroui-react` is used in the project              | `grep -r "@heroui" apps/ packages/`        | Zero occurrences; no adapter either                                 |
+| `multer` is a direct dependency                    | `pnpm why multer -r`                       | Transitive from `@nestjs/platform-express@12.0.1` → override needed |
 
-## 2. Контракт
+## 2. Contract
 
-Неприменимо: HTTP-эндпоинты не добавляются и не меняются.
+Not applicable: no HTTP endpoints are added or changed.
 
-## 3. Данные
+## 3. Data
 
-Неприменимо: сид и фикстуры не затрагиваются.
+Not applicable: the seed and the fixtures are untouched.
 
-## 4. Задачи
+## 4. Tasks
 
-| ID  | Что делать                                                                                                               | Файлы                                                                                      | Готово, когда                                                                     | Зависит от |
-| --- | ------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------- | ---------- |
-| S1  | Снять противоречие о параллельности: worktree — единственный путь; `model`/типы агентов переписать под роли без прогонов | `.claude/skills/feature-pipeline/SKILL.md` §4, §5, §9                                      | В §4/§5/§9 один механизм; §9 не требует отчёта о прогрессе чужих окон             | —          |
-| S2  | Привести права ревьюера к одному значению (только чтение)                                                                | `feature-pipeline` §5, `requesting-code-review`                                            | Оба текста говорят `Read`/`Grep`/`Glob` и объясняют, куда девается отчёт          | —          |
-| S3  | Снять каноничность исторических планов                                                                                   | `e2e/README.md:6`, `docs/plans/README.md:9`, шапки обоих `feature-plan-*.md`               | Ни один живой документ не отсылает к планам за конвенцией; в планах стоит «архив» | —          |
-| S4  | Свести замеры прогонов к одному источнику и перемерить                                                                   | `e2e/README.md` (канон), `CLAUDE.md`, `README.md`, `regression-verify`, `feature-pipeline` | Числа встречаются один раз, совпадают с фактом, помечены датой замера             | S9         |
-| S5  | Дедупликация фактов: порты, `Dir:`-регистрация Next, локаторы, `PROTECTED_*`, процесс реестра                            | три своих скила, `CLAUDE.md`, `e2e/README.md`                                              | Каждый факт живёт в одном месте, в остальных — ссылка                             | S4         |
-| S6  | Развести триггеры `playwright-verify` и `regression-verify`                                                              | `description` обоих скилов                                                                 | Ни одна фраза не ведёт одновременно в оба                                         | —          |
-| S7  | Сделать восстановление внешних скилов выполнимым                                                                         | `scripts/skills-sync.mjs`, `skills-lock.json`, `package.json`, адаптеры                    | `pnpm skills:check` зелёный на существующем дереве; в lock у каждого набора `ref` | —          |
-| S8  | Убрать `heroui-react`, привести опись «четыре набора» в соответствие                                                     | `skills-lock.json`, `.agents/`, `CLAUDE.md`                                                | Наборов четыре, адаптеров четыре, опись сходится                                  | S7         |
-| S9  | Починить красный `pnpm audit`: override `multer` ≥ 2.3.0                                                                 | `pnpm-workspace.yaml`, `pnpm-lock.yaml`                                                    | `pnpm audit --audit-level high` зелёный                                           | —          |
-| S10 | Мелочи: «три вопроса» → четыре, «семнадцать дефектов» → 23, состав `pnpm verify`, трейлер коммита                        | `feature-pipeline`, `TEMPLATE.md`, `regression-verify`, `git-commit`                       | Числа и перечни совпадают с фактом                                                | —          |
-| S11 | Записи в реестр: `FX-024`…`FX-029`, `CH-012`, `BL-018`                                                                   | `docs/CHANGELOG.md`                                                                        | `pnpm e2e e2e/ledger` зелёный                                                     | S1–S10     |
-| S12 | Приёмка: `pnpm format`, один `pnpm verify`, коммит, `pnpm ledger:fill`                                                   | —                                                                                          | `pnpm verify` зелёный целиком                                                     | S11        |
+| ID  | What to do                                                                                    | Files                                                                | Done when                                                            | Depends on |
+| --- | --------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- | -------------------------------------------------------------------- | ---------- |
+| S1  | Remove the parallelism contradiction: worktrees are the only path; rewrite the agent guidance | `feature-pipeline` §4, §5, §9                                        | One mechanism across §4/§5/§9; §9 no longer reports foreign progress | —          |
+| S2  | Make reviewer permissions agree (read-only)                                                   | `feature-pipeline` §5, `requesting-code-review`                      | Both texts say `Read`/`Grep`/`Glob` and say where the report goes    | —          |
+| S3  | Strip the archived plans of canonical status                                                  | `e2e/README.md`, `docs/plans/README.md`, both `feature-plan-*.md`    | No live document sends the reader to the plans for conventions       | —          |
+| S4  | Consolidate run measurements into one source and re-measure                                   | `e2e/README.md` (canonical) plus the four referring documents        | The numbers appear once, match reality and carry a measurement date  | S9         |
+| S5  | Deduplicate facts: ports, Next's directory registration, locators, `PROTECTED_*`, the ledger  | the three own skills, `CLAUDE.md`, `e2e/README.md`                   | Each fact lives in one place, the rest reference it                  | S4         |
+| S6  | Separate the triggers of `playwright-verify` and `regression-verify`                          | the `description` of both skills                                     | No phrase leads into both at once                                    | —          |
+| S7  | Make restoring the external skills possible                                                   | `scripts/skills-sync.mjs`, `skills-lock.json`, `package.json`        | `pnpm skills:check` green; each set has a `ref` and a commit         | —          |
+| S8  | Drop `heroui-react` and make the inventory match                                              | `skills-lock.json`, `.agents/`, `CLAUDE.md`                          | Four sets, four adapters, the count adds up                          | S7         |
+| S9  | Fix the red `pnpm audit`: override `multer` ≥ 2.3.0                                           | `pnpm-workspace.yaml`, `pnpm-lock.yaml`                              | `pnpm audit --audit-level high` green                                | —          |
+| S10 | Small fixes: "three questions" → four, "seventeen defects" → 23, the `verify` composition     | `feature-pipeline`, `TEMPLATE.md`, `regression-verify`, `git-commit` | Numbers and lists match reality                                      | —          |
+| S11 | Ledger entries: `FX-024`…`FX-029`, `CH-012`, `BL-018`                                         | `docs/CHANGELOG.md`                                                  | `pnpm e2e e2e/ledger` green                                          | S1–S10     |
+| S12 | Acceptance: `pnpm format`, one `pnpm verify`, commit, `pnpm ledger:fill`                      | —                                                                    | `pnpm verify` green end to end                                       | S11        |
 
-Параллельность здесь не нужна: все задачи правят пересекающееся множество markdown-файлов
-(`CLAUDE.md` трогают S4, S5, S8), поэтому идут последовательно в одном дереве. Прогонов между
-задачами нет — проверка одна, в S12.
+Parallelism is unnecessary here: every task edits an overlapping set of markdown files
+(`CLAUDE.md` is touched by S4, S5 and S8), so they run sequentially in one tree.
 
-## 5. Риски
+## 5. Risks
 
-- **Дедупликация может унести смысл.** Ссылка вместо копии работает, пока источник гарантированно в
-  контексте. `CLAUDE.md` подгружается всегда, `e2e/README.md` — нет, поэтому в скилах остаётся
-  одна строка сути плюс ссылка, а не голая ссылка.
-- **`skills-sync` ходит в сеть.** Скрипт не встраивается в `pnpm verify`: иначе проверка перестанет
-  работать офлайн — ровно та ошибка, которую аудит уже нашёл у `pnpm audit`.
-- **Override `multer` меняет дерево зависимостей** транзитивной библиотеки Nest. Проверяется тем же
-  `pnpm verify`: supertest-проверка сборки `AppModule` и весь API-сьют ходят через platform-express.
+- **Deduplication can carry the meaning away.** A reference instead of a copy works while the
+  source is guaranteed to be in context. `CLAUDE.md` always is, `e2e/README.md` is not, so the
+  skills keep one line of substance plus the reference rather than a bare pointer.
+- **`skills-sync` goes to the network.** The script is not wired into `pnpm verify`: otherwise the
+  check would stop working offline — exactly the mistake the audit already found with `pnpm audit`.
+- **The `multer` override changes the dependency tree** of a transitive Nest library. It is checked
+  by the same `pnpm verify`: the supertest module check and the whole API suite go through
+  platform-express.
 
-## 6. Допущения и осознанные пропуски
+## 6. Assumptions and deliberate omissions
 
-- **Сокращение вдвое не самоцель и не достигнуто.** Свои три скила ушли с 726 строк на 588 (−19%),
-  и дальше резать нечего: остаток — троблшутинг, список блокеров и чек-лист ревью, то есть
-  содержание, которого нет больше нигде. Критерий S5 — «нет фактов, продублированных из `CLAUDE.md`
-  и `e2e/README.md`», а не число строк; гнаться за процентом значило бы удалять смысл ради метрики.
-
-- **`agent-team` в репозиторий не переносится.** Он общемашинный (ставит `claude-team.ps1` в
-  `~/.local/bin`) и к этому проекту не привязан. Вместо переноса скилы перестают считать его частью
-  проектного пайплайна: worktree описан как требование, а `agent-team` — как один из способов.
-- **`BL-013` и `BL-014` не закрываются** — инструмент worktree и определения `.claude/agents/*.md`
-  вне объёма.
-- **Правило размера сьюта, дыры мета-теста и автоматизация контрольных опытов** (находки аудита
-  §3.6) не трогаются: это работа над сьютом, а не над скилами.
-- **Внешние наборы не вендорятся**, кроме одного файла: шаблон промпта ревьюера переезжает в
-  адаптер, потому что без него `requesting-code-review` теряет предмет.
+- **Halving the skills was never the goal and did not happen.** The three own skills went from 726
+  lines to 588 (−19%), and there is nothing left to cut: the remainder is troubleshooting, the
+  blocker list and the review checklist — content that exists nowhere else. The criterion for S5 is
+  "no facts duplicated from `CLAUDE.md` and `e2e/README.md`", not a line count.
+- **`agent-team` is not moved into the repository.** It is machine-wide and not tied to this
+  project. Instead the skills stop treating it as part of the project pipeline: worktrees are the
+  requirement, `agent-team` is one way to get one.
+- **`BL-013` and `BL-014` are not closed** — the worktree tooling and the `.claude/agents/*.md`
+  definitions are out of scope.
+- **The suite size rule, the meta-test gaps and automating the control experiments** (audit
+  findings) are untouched: that is work on the suite, not on the skills.
+- **The external sets are not vendored**, with one exception: the reviewer prompt template moved
+  into the adapter, because without it `requesting-code-review` loses its subject.
