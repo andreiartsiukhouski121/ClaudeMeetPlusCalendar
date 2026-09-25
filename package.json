@@ -24,6 +24,7 @@
     "audit": "pnpm audit --audit-level high",
     "check:orientation": "node scripts/check-orientation.mjs",
     "plan:new": "node scripts/new-plan.mjs",
+    "adr:new": "node scripts/new-adr.mjs",
     "ledger:fill": "node scripts/fill-ledger-hash.mjs",
     "skills:sync": "node scripts/skills-sync.mjs sync",
     "skills:check": "node scripts/skills-sync.mjs check",

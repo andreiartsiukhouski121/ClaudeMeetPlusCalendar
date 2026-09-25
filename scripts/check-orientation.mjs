@@ -24,6 +24,7 @@ const PLANS_DIR = 'docs/plans';
 const TEMPLATES = ['docs/plans/TEMPLATE.md', 'docs/plans/TEMPLATE-BUGFIX.md'];
 const PLAN_SUFFIX = '.plan.md';
 const LEDGER_FILES = ['docs/CHANGELOG.md', 'docs/BACKLOG.md'];
+const ADR_DIR = 'docs/adr';
 
 /** "no" is not an answer; "no: … because …" is. */
 const MIN_ANSWER_LENGTH = 20;
@@ -51,16 +52,28 @@ const PLACEHOLDERS = [
   '…',
 ];
 
-/** The four orientation questions. `needsLedgerProof` — the answer must lean on the ledger. */
+/**
+ * The five orientation questions.
+ *
+ * `proof` names the register an answer must lean on: `ledger` for the changelog and the backlog,
+ * `adr` for the decision log. A question with `proof: null` is judged in review only.
+ *
+ * "Architecture impact" exists because the corpus is meant to be read rather than re-derived from
+ * code: code shows current behaviour and never the decision behind it (ADR-0015).
+ */
 const QUESTIONS = [
-  { label: 'Duplicate', needsLedgerProof: true },
-  { label: 'Conflicts with shipped', needsLedgerProof: false },
-  { label: 'Conflicts with planned', needsLedgerProof: true },
-  { label: 'Open questions', needsLedgerProof: false },
+  { label: 'Duplicate', proof: 'ledger' },
+  { label: 'Conflicts with shipped', proof: null },
+  { label: 'Conflicts with planned', proof: 'ledger' },
+  { label: 'Architecture impact', proof: 'adr' },
+  { label: 'Open questions', proof: null },
 ];
 
 /** Ledger entry ID. */
 const LEDGER_ID = /\b(?:FT|CH|FX|BL)-\d{3}\b/g;
+
+/** ADR ID, four digits: `ADR-0007`. */
+const ADR_ID = /\bADR-\d{4}\b/g;
 
 /**
  * Explicit denial for ledger-backed questions. Fixed phrasings, not any stray "no" — otherwise the
@@ -97,6 +110,25 @@ function declaredLedgerIds(root) {
       if (row !== null) {
         ids.add(row[1]);
       }
+    }
+  }
+
+  return ids;
+}
+
+/** ADR IDs present on disk: an answer cannot cite a decision that was never written. */
+function declaredAdrIds(root) {
+  const dir = join(root, ADR_DIR);
+  const ids = new Set();
+
+  if (!existsSync(dir)) {
+    return ids;
+  }
+
+  for (const name of readdirSync(dir)) {
+    const match = /^(ADR-\d{4})-.*\.md$/.exec(name);
+    if (match !== null) {
+      ids.add(match[1]);
     }
   }
 
@@ -177,7 +209,7 @@ function normalize(text) {
 
 function violations(root) {
   const problems = [];
-  const declared = declaredLedgerIds(root);
+  const declaredIds = { ledger: declaredLedgerIds(root), adr: declaredAdrIds(root) };
   const fromTemplate = templateAnswers(root);
   const plans = activePlans(root);
 
@@ -192,7 +224,7 @@ function violations(root) {
       continue;
     }
 
-    for (const { label, needsLedgerProof } of QUESTIONS) {
+    for (const { label, proof } of QUESTIONS) {
       const answer = answerFor(content, label);
 
       if (answer === null) {
@@ -226,26 +258,32 @@ function violations(root) {
         continue;
       }
 
-      if (!needsLedgerProof) {
+      if (proof === null) {
         continue;
       }
 
-      const cited = [...answer.matchAll(LEDGER_ID)].map((match) => match[0]);
+      const isAdr = proof === 'adr';
+      const declared = declaredIds[proof];
+      const cited = [...answer.matchAll(isAdr ? ADR_ID : LEDGER_ID)].map((match) => match[0]);
       const unknown = cited.filter((id) => !declared.has(id));
       const saysNoMatch = EXPLICIT_NO_MATCH.some((phrase) => answer.toLowerCase().includes(phrase));
 
       if (unknown.length > 0) {
         problems.push(
-          `${plan}: the answer to "${label}" cites ${unknown.join(', ')} — no such entries in ` +
-            'the ledger',
+          `${plan}: the answer to "${label}" cites ${unknown.join(', ')} — no such ` +
+            `${isAdr ? 'decisions in docs/adr/' : 'entries in the ledger'}`,
         );
         continue;
       }
       if (cited.length === 0 && !saysNoMatch) {
         problems.push(
-          `${plan}: the answer to "${label}" does not lean on the ledger. Cite entry IDs ` +
-            '(FT-/CH-/FX-/BL-) or say "no matches" and why — otherwise there is no telling ' +
-            'whether you opened docs/CHANGELOG.md and docs/BACKLOG.md at all',
+          isAdr
+            ? `${plan}: the answer to "${label}" does not lean on the decision log. Cite ADR IDs ` +
+                '(ADR-0001…) or say "no matches" and why — otherwise there is no telling whether ' +
+                'docs/adr/ was opened at all. A change to a decision needs a new ADR first'
+            : `${plan}: the answer to "${label}" does not lean on the ledger. Cite entry IDs ` +
+                '(FT-/CH-/FX-/BL-) or say "no matches" and why — otherwise there is no telling ' +
+                'whether you opened docs/CHANGELOG.md and docs/BACKLOG.md at all',
         );
       }
     }
@@ -261,8 +299,9 @@ if (problems.length > 0) {
   console.error('\nOrientation failed — planning cannot continue:\n');
   problems.forEach((problem) => console.error(`  • ${problem}`));
   console.error(
-    '\nOrder: read docs/CHANGELOG.md (what was done, defects included) and docs/BACKLOG.md ' +
-      '(what is planned and what was rejected), then fill section 0 of the plan.\n' +
+    '\nOrder: read docs/CHANGELOG.md (what was done, defects included), docs/BACKLOG.md ' +
+      '(what is planned and what was rejected) and docs/adr/ (the decisions), then fill ' +
+      'section 0 of the plan.\n' +
       'If the task turns out to be a duplicate, saying so is a result, not a refusal.\n',
   );
   process.exit(1);

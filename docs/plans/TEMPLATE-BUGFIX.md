@@ -12,9 +12,11 @@
 ## 0. Orientation: what the project already has
 
 Filled in **first**. Sources: [`docs/CHANGELOG.md`](../CHANGELOG.md) (every defect found, with the
-"Found by" column), [`docs/BACKLOG.md`](../BACKLOG.md), then the code.
+"Found by" column), [`docs/BACKLOG.md`](../BACKLOG.md), the corpus that says what the behaviour was
+supposed to be ([`api-contract.md`](../api-contract.md), [`data-model.md`](../data-model.md),
+[`architecture.md`](../architecture.md), [`adr/`](../adr/README.md)), then the code.
 
-Four answers. **Do not change the form** — `pnpm check:orientation` reads it and sits in
+Five answers. **Do not change the form** — `pnpm check:orientation` reads it and sits in
 `.husky/pre-commit`.
 
 - **Duplicate:** has this defect been fixed before? Cite the `FX-` entries, or say "no matches". A
@@ -24,6 +26,10 @@ Four answers. **Do not change the form** — `pnpm check:orientation` reads it a
   correct behaviour contradicts an existing case, the case is right until proven otherwise.
 - **Conflicts with planned:** which `BL-` items this defect overlaps, cancels or makes urgent, or
   "no matches". A defect already known as a `BL-` item is closed by it, not filed again.
+- **Architecture impact:** which `ADR-` decisions the promised behaviour rests on, and whether the
+  corpus describes it correctly — if the document was wrong, that is part of the defect. Cite ADR
+  IDs, or say "no matches" and why. If the fix would **change** a decision rather than restore it,
+  this is not a bugfix: it needs an ADR and the feature flow.
 - **Open questions:** what in the report is an observation and what is someone's conclusion about
   the cause; what is missing to reproduce it.
 

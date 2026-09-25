@@ -16,6 +16,11 @@ from reality.
 **Nothing counts as done without an actual run.** "Verified" without a command and without numbers
 in the report is not an acceptable phrasing.
 
+**Who runs what.** This skill is the `tester-acceptance` role's procedure; the level suites belong to
+`tester-unit`, `tester-api`, `tester-functional` and `tester-security` (`team-roles`). Acceptance
+**fixes nothing** — §5 — and that is a tool boundary, not a promise: the roles that judge do not hold
+the files they judge.
+
 For a feature the size of "a page plus two endpoints" a **separate acceptance agent is
 unnecessary**: the implementer's DoD with control experiments _is_ the acceptance, and repeating
 the same run costs 20 minutes and adds no information. The order of work for a whole feature is in
@@ -156,6 +161,16 @@ locators; `expect(...)` without `await`; absolute counters in `@mutating` cases;
   issued JWT.
 - A response disclosing the server stack (`X-Powered-By` and similar).
 - An authentication rejection branch distinguishable by response time: identical text is not enough.
+
+**The architecture corpus**
+
+- A route added, renamed or removed without the matching row in `docs/api-contract.md`, or a guarded
+  route missing from `PROTECTED_ROUTES` — both fail `AR-API-05`/`AR-API-06` and both mean the
+  documents have started lying.
+- An architectural decision implemented with no ADR, or contradicting an accepted one without
+  superseding it. Section 0 of the plan must name the ADR IDs it touches.
+- A seed value changed on one side only: `apps/api/src/**/*.seed.ts` and `e2e/fixtures/seed.ts` move
+  together or `SM-API-02` goes red.
 
 **The ledger**
 

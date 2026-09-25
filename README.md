@@ -111,11 +111,22 @@ those numbers are not duplicated in other documents.
 directory on any port, and Playwright's `webServer` simply never comes up. Two agents at once need
 their own git worktree, not their own ports.
 
+Every task starts from the same four documents rather than from reading code: the shape of the
+system in [`docs/architecture.md`](docs/architecture.md), the reasoning in
+[`docs/adr/`](docs/adr/README.md), the data in [`docs/data-model.md`](docs/data-model.md) and the
+endpoints in [`docs/api-contract.md`](docs/api-contract.md). They are disjoint — a fact lives in one
+of them — and the parts that can be machine-checked are: `AR-API-05` compares the Routes table
+against the Nest controllers in both directions on every run.
+
+Work is split across roles defined in `.claude/agents/` — a lead that only orchestrates, a planner,
+two implementers, two reviewers and five testers — where each role's limits are its tool list rather
+than its prompt. The contract is the `team-roles` skill.
+
 There are two workflows, and the fork turns on whether the behaviour has already been promised:
 
 - **new functionality** — the `feature-pipeline` skill: orientation, an assumption spike,
-  requirements and architecture in a plan from `docs/plans/TEMPLATE.md`, a task breakdown, one
-  review, implementation (each agent in its own git worktree), acceptance;
+  requirements and architecture in a plan from `docs/plans/TEMPLATE.md`, a task breakdown, a plan
+  review, implementation (each agent in its own git worktree), a code review, acceptance;
 - **a defect** — the `bugfix-pipeline` skill: reproduction, cause, impact, a red test **before** the
   fix, a minimal edit at the cause, acceptance and an `FX-` entry. A plan
   (`pnpm plan:new <slug> --bug`) is not needed for every bug — the threshold is in the skill.

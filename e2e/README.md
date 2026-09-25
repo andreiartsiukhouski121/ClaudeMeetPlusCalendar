@@ -42,6 +42,7 @@ readable report, and an automatic pairing check. The same goes for units — `it
 | Infrastructure      | `smoke`          | `smoke/health.api.cases.md`, `smoke/seed.api.cases.md`         | `smoke/health.api.spec.ts`, `smoke/seed.api.spec.ts`                                                                                                                                                | api     | `pnpm e2e e2e/smoke`                            |
 | Ledger              | `ledger`         | `ledger/ledger.api.cases.md`                                   | `ledger/ledger.api.spec.ts`                                                                                                                                                                         | api     | `pnpm e2e e2e/ledger`                           |
 | Planning process    | `process`        | `process/process.api.cases.md`                                 | `process/process.api.spec.ts`                                                                                                                                                                       | api     | `pnpm e2e e2e/process`                          |
+| Architecture corpus | `architecture`   | `architecture/architecture.api.cases.md`                       | `architecture/architecture.api.spec.ts`                                                                                                                                                             | api     | `pnpm e2e e2e/architecture`                     |
 | Suite convention    | —                | none (in `SELF_EXEMPT`)                                        | `suite-integrity.api.spec.ts`                                                                                                                                                                       | api     | `pnpm e2e e2e/suite-integrity.api.spec.ts`      |
 | Security            | `security`       | `security/security.api.cases.md`                               | `security/security.api.spec.ts`                                                                                                                                                                     | api     | `pnpm e2e:security`                             |
 | Security            | `security`       | `security/security.functional.cases.md`                        | `security/security.functional.spec.ts`                                                                                                                                                              | web     | `pnpm e2e:security`                             |
@@ -92,7 +93,7 @@ without password verification, not to measure microseconds under the load of a t
 Tags are set with the `tag` option on `test.describe` rather than as text in the title:
 `@regression`, `@smoke`, `@auth-login`, `@home-dashboard`, `@mutating` (the case changes data),
 `@p0` (the critical minimum). The service suites carry their own: `@security`, `@ledger`,
-`@process`.
+`@process`, `@architecture`.
 
 ```bash
 pnpm e2e                                    # everything
@@ -106,6 +107,7 @@ pnpm e2e --project=web --grep @auth-login   # the UI only
 pnpm e2e --grep "HD-FN-07"                  # one case by ID
 pnpm e2e --grep-invert @mutating            # flake diagnosis
 pnpm e2e e2e/suite-integrity.api.spec.ts    # the convention meta-check
+pnpm e2e e2e/architecture                   # the ADR log and the API contract against the code
 pnpm e2e:report                             # the report after a failure
 
 pnpm test                                   # units of both features
@@ -211,12 +213,14 @@ rather than a check.
 reference it: four diverging copies of this paragraph already produced `FX-027`. When the numbers
 change, change them here and set a new measurement date.
 
-Measured **2026-09-16**, Windows 11, warm `.next`. Suite composition — **87 e2e in 11 files and 42
-units** (29 in `apps/api`, 13 in `apps/web`) plus one supertest module-boot check.
+Measured **2026-09-25**, Windows 11, warm `.next`. Suite composition — **96 e2e in 12 files and 42
+units** (29 in `apps/api`, 13 in `apps/web`) plus one supertest module-boot check. The nine added
+since the previous measurement are the `AR-API-*` corpus meta-test; they read files and cost
+milliseconds, so the totals below moved by the noise margin rather than by their count.
 
 | What                                             | Time        | How measured                              |
 | ------------------------------------------------ | ----------- | ----------------------------------------- |
-| `pnpm e2e` — all 87                              | **26–40 s** | timing the whole command                  |
+| `pnpm e2e` — all 96                              | **33–45 s** | timing the whole command                  |
 | `pnpm e2e --project=api --grep @auth-login` — 11 | **13.1 s**  | the same; ~12 s of it is starting servers |
 | `pnpm verify` end to end                         | **47–66 s** | four measurements across a day            |
 | `pnpm verify` on a cold `.next`                  | ~137 s      | the first run of the day                  |

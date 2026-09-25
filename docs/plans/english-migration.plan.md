@@ -21,6 +21,7 @@ bulky and excessive.
 - **Conflicts with planned:** no matches. `BL-009` (time zone from the profile) is adjacent —
   the display locale moves from `ru-RU` to `en-GB` here, but the pinned `timeZone: 'UTC'` and cases
   `HD-UT-10`…`HD-UT-12` are untouched, so the item stays exactly as open as it was.
+- **Architecture impact:** the decision itself is `ADR-0013` (English-only), written from this work. It touches `ADR-0010` in practice: several of the translated strings are machine-readable contracts the meta-tests match on, so prose and checks had to move in lockstep or the checks would pass vacuously. No other decision changes.
 - **Open questions:** whether the user-visible layer was in scope was genuinely ambiguous — the
   request listed "comments, skills, instructions" and then "everything you find in Russian". Asked
   the customer: the whole project, UI included. The degree of compression was asked at the same

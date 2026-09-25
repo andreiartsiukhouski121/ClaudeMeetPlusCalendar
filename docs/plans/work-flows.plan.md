@@ -20,6 +20,7 @@ Two named workflows instead of one: **feature** (exists, but its phases are unna
   (`.claude/agents/*.md`) are adjacent but independent: both concern executors rather than phases.
   `BL-001` (rate limiting) will be the first candidate to travel the new bugfix flow, but this task
   does not close it.
+- **Architecture impact:** confirms `ADR-0011` (a ledger plus an orientation gate) and `ADR-0010` — the bugfix flow reuses the same section 0 form so one checker covers both templates, and the template list in `check-orientation.mjs` became a checked fact rather than a promise. Recorded retrospectively in `CH-015`.
 - **Open questions:** "bug" and "defect" are used as synonyms here, and the `FX-` column records
   both what was found before release (a process defect such as the vacuous meta-test) and what
   broke at runtime. The flow must handle both, so no distinction is introduced; instead there is a

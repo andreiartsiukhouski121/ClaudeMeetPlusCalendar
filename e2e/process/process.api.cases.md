@@ -11,7 +11,7 @@ templates, one per workflow: [`TEMPLATE.md`](../../docs/plans/TEMPLATE.md) for a
 (skill `bugfix-pipeline`).
 
 Why a machine check. Section 0 "Orientation" has the same shape in both templates, and
-`check-orientation` parses it by four labels. That gives two ways to break the check silently, and
+`check-orientation` parses it by five labels. That gives two ways to break the check silently, and
 neither shows up in a diff or in review:
 
 1. **rename a label in one template** — plans of that workflow stop being checked, because the
@@ -39,9 +39,10 @@ What the cases do **not** check: the meaning of the answers in section 0. That i
 - **Priority:** P0
 - **Steps:** find every `docs/plans/TEMPLATE*.md`; in each, read the `## 0. Orientation` heading and
   the `- **<label>:**` lines up to the end of the section.
-- **Expected:** at least two files; each has section 0; the label set in each matches the four
+- **Expected:** at least two files; each has section 0; the label set in each matches the five
   `check-orientation` reads: "Duplicate", "Conflicts with shipped", "Conflicts with planned",
-  "Open questions". A mismatch means plans of one workflow stopped being checked.
+  "Architecture impact", "Open questions". A mismatch means plans of one workflow stopped being
+  checked.
 
 ### PR-API-02 — every plan template is registered in check-orientation.mjs
 

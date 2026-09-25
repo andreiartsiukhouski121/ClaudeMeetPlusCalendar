@@ -76,6 +76,6 @@ writeFileSync(target, content, { encoding: 'utf8' });
 
 console.log(`Created ${PLANS_DIR}/${slug}.plan.md (${isBug ? 'bugfix' : 'feature'})
 
-Start with section 0 "Orientation": read docs/CHANGELOG.md and docs/BACKLOG.md and answer the four
-questions. Without them the commit will not pass: pnpm check:orientation runs in .husky/pre-commit.
-The full order of work is the ${isBug ? 'bugfix-pipeline' : 'feature-pipeline'} skill.`);
+Start with section 0 "Orientation": read docs/CHANGELOG.md, docs/BACKLOG.md and docs/adr/, then
+answer the five questions. Without them the commit will not pass: pnpm check:orientation runs in
+.husky/pre-commit. The full order of work is the ${isBug ? 'bugfix-pipeline' : 'feature-pipeline'} skill.`);
