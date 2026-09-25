@@ -53,7 +53,7 @@ visitors is `src/proxy.ts` (not `middleware.ts`, deprecated in Next 16), plus a 
 
 | ID     | Date       | What                                                                                                                                                                       | Commit    |
 | ------ | ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| CH-014 | 2026-09-25 | The whole project switched to English: docs, skills, comments, test titles, UI strings, API messages and the seed; comments compressed                                     | `pending` |
+| CH-014 | 2026-09-25 | The whole project switched to English: docs, skills, comments, test titles, UI strings, API messages and the seed; comments compressed                                     | `39e9e0c` |
 | CH-013 | 2026-09-16 | Two named workflows: the `bugfix-pipeline` skill and `TEMPLATE-BUGFIX.md` (`pnpm plan:new <slug> --bug`), phases named in `feature-pipeline`, the fork documented in rules | `5c860e6` |
 | CH-012 | 2026-09-16 | Skill audit: the parallelism conflict removed, measurements consolidated in `e2e/README.md`, plans marked archive, `skills:sync`/`skills:check` added with commit pinning  | `7126d8a` |
 | CH-011 | 2026-09-15 | External skills wired in as adapters in `.claude/skills/` (4), `.agents/` in `.gitignore`, `skills-lock.json` in git                                                       | `7126d8a` |
