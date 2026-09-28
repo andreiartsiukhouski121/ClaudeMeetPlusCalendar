@@ -511,26 +511,57 @@ function violationsAgentDefinitions(root: string): string[] {
   return problems;
 }
 
-function violationsRolesExist(root: string): string[] {
-  const defined = new Set(agentFiles(root).map((name) => name.replace(/\.md$/, '')));
-  const skill = read(root, TEAM_ROLES_SKILL);
-  const missing: string[] = [];
+/**
+ * Roles named in the first column of the roles table in the `team-roles` skill.
+ *
+ * Reading the table rather than filtering names by prefix. The first version of this check kept only
+ * `tester-*` and `implementer-*`, so the research and design families added later would have been
+ * skipped — the case would have gone on passing while covering less of the skill than it claimed.
+ * That is the "vacuously green" failure the suite meta-test names, arriving through a filter instead
+ * of a moved directory.
+ */
+function rolesNamedInSkill(root: string): string[] {
+  const named: string[] = [];
 
-  // Role names appear in the skill's table as `role-name` in backticks.
-  for (const match of skill.matchAll(/`([a-z]+(?:-[a-z]+)+)`/g)) {
-    const candidate = match[1];
-    if (!candidate.startsWith('tester-') && !candidate.startsWith('implementer-')) {
-      continue;
-    }
-    if (!defined.has(candidate)) {
-      missing.push(
-        `${TEAM_ROLES_SKILL} names the role \`${candidate}\`, but ${AGENTS_DIR}/${candidate}.md ` +
-          'does not exist. A role that cannot be dispatched is a paragraph, not a boundary',
-      );
+  for (const line of read(root, TEAM_ROLES_SKILL).split(/\r?\n/)) {
+    const cell = /^\|\s*`([a-z][a-z-]*)`\s*\|/.exec(line);
+    if (cell !== null) {
+      named.push(cell[1]);
     }
   }
 
-  return [...new Set(missing)];
+  return [...new Set(named)];
+}
+
+function violationsRolesExist(root: string): string[] {
+  const defined = new Set(agentFiles(root).map((name) => name.replace(/\.md$/, '')));
+
+  return rolesNamedInSkill(root)
+    .filter((role) => !defined.has(role))
+    .map(
+      (role) =>
+        `${TEAM_ROLES_SKILL} names the role \`${role}\`, but ${AGENTS_DIR}/${role}.md does not ` +
+        'exist. A role that cannot be dispatched is a paragraph, not a boundary',
+    );
+}
+
+/**
+ * The other direction: a definition on disk that the roles table never mentions.
+ *
+ * One-way checks let each half rot in turn — a role nobody can find in the skill is a role nobody
+ * dispatches, and it will drift from the flow it was written for.
+ */
+function violationsRolesDocumented(root: string): string[] {
+  const named = new Set(rolesNamedInSkill(root));
+
+  return agentFiles(root)
+    .map((name) => name.replace(/\.md$/, ''))
+    .filter((role) => !named.has(role))
+    .map(
+      (role) =>
+        `${AGENTS_DIR}/${role}.md exists, but the roles table in ${TEAM_ROLES_SKILL} does not ` +
+        'name it. A role nobody can find in the contract is a role nobody dispatches',
+    );
 }
 
 // --- Tests ------------------------------------------------------------------------------------
@@ -602,10 +633,18 @@ test.describe('Architecture corpus', { tag: '@architecture' }, () => {
     ).toEqual([]);
   });
 
-  test('AR-API-08 — every role the team-roles skill names exists as an agent definition', () => {
+  test('AR-API-08 — the roles table and the agent definitions agree in both directions', () => {
+    const root = repoRoot();
+
+    // Guard against the filter going vacuous: the table must be found at all.
     expect(
-      violationsRolesExist(repoRoot()),
-      'A role that cannot be dispatched is a paragraph, not a boundary',
+      rolesNamedInSkill(root).length,
+      `No role rows parsed out of ${TEAM_ROLES_SKILL} — the check would pass having read nothing`,
+    ).toBeGreaterThan(0);
+
+    expect(
+      [...violationsRolesExist(root), ...violationsRolesDocumented(root)],
+      'A role named but undefined cannot be dispatched; one defined but unnamed is unreachable',
     ).toEqual([]);
   });
 });

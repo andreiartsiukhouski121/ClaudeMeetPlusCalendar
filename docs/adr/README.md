@@ -45,6 +45,7 @@ What does not: how a function is written, which name reads better, anything a co
 | [ADR-0013](ADR-0013-english-only.md)               | The project is English-only                                              | accepted |
 | [ADR-0014](ADR-0014-agent-roles.md)                | Roles are fixed agent definitions with their own tools and model         | accepted |
 | [ADR-0015](ADR-0015-architecture-corpus.md)        | The architecture corpus is the mandatory planning context                | accepted |
+| [ADR-0016](ADR-0016-discovery-stages.md)           | Discovery runs as three reviewed stages in a folder per change           | accepted |
 
 The table is checked against the directory in both directions (`AR-API-03`): a file missing from the
 table, or a row without a file, fails the run.

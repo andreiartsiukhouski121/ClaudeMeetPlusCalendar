@@ -213,14 +213,17 @@ rather than a check.
 reference it: four diverging copies of this paragraph already produced `FX-027`. When the numbers
 change, change them here and set a new measurement date.
 
-Measured **2026-09-25**, Windows 11, warm `.next`. Suite composition — **96 e2e in 12 files and 42
-units** (29 in `apps/api`, 13 in `apps/web`) plus one supertest module-boot check. The nine added
-since the previous measurement are the `AR-API-*` corpus meta-test; they read files and cost
-milliseconds, so the totals below moved by the noise margin rather than by their count.
+Measured **2026-09-28**, Windows 11, warm `.next`. Suite composition — **101 e2e in 12 files and 42
+units** (29 in `apps/api`, 13 in `apps/web`) plus one supertest module-boot check. The fourteen added
+since the 2026-09-16 measurement are the `AR-API-*` and `PR-API-03`…`06` meta-tests; they read files
+and cost milliseconds, so the totals below moved by the noise margin rather than by their count.
+
+**Not measured:** what the research and design stages cost in wall-clock (`BL-022`). The figures here
+are run economics only.
 
 | What                                             | Time        | How measured                              |
 | ------------------------------------------------ | ----------- | ----------------------------------------- |
-| `pnpm e2e` — all 96                              | **33–45 s** | timing the whole command                  |
+| `pnpm e2e` — all 101                             | **29–45 s** | timing the whole command                  |
 | `pnpm e2e --project=api --grep @auth-login` — 11 | **13.1 s**  | the same; ~12 s of it is starting servers |
 | `pnpm verify` end to end                         | **47–66 s** | four measurements across a day            |
 | `pnpm verify` on a cold `.next`                  | ~137 s      | the first run of the day                  |

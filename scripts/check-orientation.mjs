@@ -10,7 +10,7 @@
  * does more harm than no check at all.
  */
 
-import { readdirSync, readFileSync, existsSync } from 'node:fs';
+import { readdirSync, readFileSync, existsSync, statSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 
 const PLANS_DIR = 'docs/plans';
@@ -135,15 +135,41 @@ function declaredAdrIds(root) {
   return ids;
 }
 
+/**
+ * Active plans, in both shapes the repository has.
+ *
+ * A change created with `pnpm change:new` lives in its own folder — `docs/plans/<slug>/` — next to
+ * the research and the design it came from. Plans created before that flow sit flat in
+ * `docs/plans/`. Both are checked: missing the nested ones would mean every new plan silently
+ * stops being verified, which is the exact failure this script exists to prevent.
+ *
+ * One level deep, deliberately. A recursive walk would eventually pick up something that merely
+ * ends in `.plan.md` inside an unrelated directory.
+ */
 function activePlans(root) {
   const dir = join(root, PLANS_DIR);
   if (!existsSync(dir)) {
     return [];
   }
 
-  return readdirSync(dir)
-    .filter((name) => name.endsWith(PLAN_SUFFIX))
-    .map((name) => `${PLANS_DIR}/${name}`);
+  const plans = [];
+
+  for (const name of readdirSync(dir)) {
+    if (name.endsWith(PLAN_SUFFIX)) {
+      plans.push(`${PLANS_DIR}/${name}`);
+      continue;
+    }
+    if (!statSync(join(dir, name)).isDirectory()) {
+      continue;
+    }
+    for (const nested of readdirSync(join(dir, name))) {
+      if (nested.endsWith(PLAN_SUFFIX)) {
+        plans.push(`${PLANS_DIR}/${name}/${nested}`);
+      }
+    }
+  }
+
+  return plans.sort();
 }
 
 /** Text after `- **Label:**` up to the end of the paragraph. */

@@ -1,6 +1,7 @@
 # Plan: <feature>
 
-> Feature plan template. Created by `pnpm plan:new <slug>`. **Target: 100–150 lines.**
+> Feature plan template. Scaffolded by `pnpm change:new <slug>`, alongside the research and the
+> design it is written from. **Target: 100–150 lines.**
 >
 > Do not delete the sections below — they are the minimum whose absence had to be made up for
 > later. Nothing else belongs here: **test cases are written once, straight into
