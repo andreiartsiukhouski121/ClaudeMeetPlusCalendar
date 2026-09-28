@@ -316,10 +316,10 @@ the hook runs the units against different content — exactly what will go into 
 
 ## Skills: our own and external
 
-There are twelve in `.claude/skills/`. Eight are ours — `feature-pipeline`, `bugfix-pipeline`,
+There are thirteen in `.claude/skills/`. Eight are ours — `feature-pipeline`, `bugfix-pipeline`,
 `team-roles`, `project-context`, `research-protocol`, `design-protocol`, `playwright-verify`,
-`regression-verify`. The other four are **adapters** to external sets: `git-commit`,
-`nestjs-best-practices`, `requesting-code-review`, `vercel-react-best-practices`.
+`regression-verify`. The other five are **adapters** to external sets: `git-commit`,
+`heroui-react`, `nestjs-best-practices`, `requesting-code-review`, `vercel-react-best-practices`.
 
 **An external skill is wired in through an adapter, never a copy.** A copied rule drifts from the
 original silently (`FX-023`), and an external set is updated without us besides. An adapter holds
@@ -339,6 +339,11 @@ Restoration is reproducible: the lock file records a branch, a **commit** and a 
 hash of the whole directory, computed by `scripts/skills-sync.mjs` and therefore verifiable.
 Neither step is wired into `pnpm verify` on purpose: `sync` needs the network, and `check` needs a
 directory a fresh clone does not have.
+
+One set is not git-backed: `heroui-react` is published through the skills.sh registry and exists in
+no commit of `heroui-inc/heroui`, so its entry carries an `install` command instead of a commit and
+`skills:sync` prints it rather than trying to check it out. `skills:check` still pins its contents by
+`treeHash`, so drift is caught the same way.
 
 **The invariants of this file outrank any rule of an external skill.** Four rules of
 `nestjs-best-practices` directly contradict the code here and are listed by name in its adapter;

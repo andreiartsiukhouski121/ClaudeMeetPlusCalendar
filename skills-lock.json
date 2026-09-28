@@ -10,6 +10,15 @@
       "computedHash": "2607fc60629b82b257136dd2a7a373f0a4466c0b49df7746d845d59313c99b21",
       "treeHash": "9e2d39a73f180955439ad912512b43492a1261bddb473ac632ef356319fa32d2"
     },
+    "heroui-react": {
+      "source": "heroui-inc/heroui",
+      "sourceType": "skills.sh",
+      "skillPath": "SKILL.md",
+      "install": "npx skills add https://github.com/heroui-inc/heroui --skill heroui-react",
+      "version": "3.0.1",
+      "computedHash": "c3633cb324aef2a51a9828c96776897ec2273d8d092cfcfb4dfa754006c7b8df",
+      "treeHash": "9a645e474d43096ad963b23039806248dbec40d732c6536ac6a7e0c88895f2c1"
+    },
     "nestjs-best-practices": {
       "source": "kadajett/agent-nestjs-skills",
       "sourceType": "github",

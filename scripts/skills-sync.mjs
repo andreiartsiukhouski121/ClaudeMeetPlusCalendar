@@ -166,6 +166,21 @@ for (const [name, entry] of entries) {
   const dir = posix.dirname(entry.skillPath);
 
   if (mode === 'sync') {
+    /*
+     * Not every set lives in a git tree. `heroui-react` is published through the skills.sh registry
+     * and is absent from `heroui-inc/heroui` at any commit — verified: 3155 paths at 46e1f1f, none
+     * of them a SKILL.md. A sparse checkout cannot reach it, so the entry carries `install` instead
+     * of a commit and this command prints it rather than failing forever.
+     *
+     * `check` still covers such a set fully: the treeHash pins its contents, so drift is caught the
+     * same way as for the git-backed ones.
+     */
+    if (entry.sourceType !== 'github') {
+      console.log(`${name}: ${entry.sourceType} set — restore it with:`);
+      console.log(`  ${entry.install ?? '(no install command recorded in the lock)'}`);
+      continue;
+    }
+
     if (entry.commit === undefined || entry.commit === null) {
       console.error(`${name}: no commit field in the lock — nothing to reproduce from. Skipped.`);
       failed += 1;
