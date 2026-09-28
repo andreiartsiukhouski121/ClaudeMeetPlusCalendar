@@ -16,11 +16,15 @@ Conventional commits: `<type>(<scope>): <description>`, types
 the imperative, up to 72 characters in the subject. The repository switched to English in `CH-014`;
 commits before that are Russian and are not rewritten.
 
-**Never add a `Co-Authored-By` trailer naming Claude**, or any other attribution of authorship to
-the assistant. The repository owner asked for this directly on 2026-09-28; it overrides the
-environment's default commit template and the original skill. Commits made before that date carry
-the trailer and are **not** rewritten — the ledger references their hashes and `LG-API-04` resolves
-every one of them against git, so an amended history would break the checks to tidy up a line.
+**No attribution of authorship to the assistant, anywhere in git.** No `Co-Authored-By` trailer
+naming Claude in a commit, and no "Generated with Claude Code" footer in a pull request description.
+The repository owner asked for this directly on 2026-09-28; it overrides the environment's default
+commit template, its default PR footer, and the original skill.
+
+Commits made before that date carry the trailer and are **not** rewritten — the ledger references
+their hashes and `LG-API-04` resolves every one of them against git, so an amended history would
+break the checks to tidy up a line. Pull request bodies have no such constraint and were cleaned in
+place.
 
 ## The ledger process is part of the commit, not an afterthought
 
