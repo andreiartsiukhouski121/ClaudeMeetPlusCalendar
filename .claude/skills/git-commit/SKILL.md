@@ -16,9 +16,11 @@ Conventional commits: `<type>(<scope>): <description>`, types
 the imperative, up to 72 characters in the subject. The repository switched to English in `CH-014`;
 commits before that are Russian and are not rewritten.
 
-**Keep the `Co-Authored-By` trailer** — it appears in nearly the whole history, and a commit
-without it stands out. The line comes from the environment's requirements and goes last, after a
-blank line.
+**Never add a `Co-Authored-By` trailer naming Claude**, or any other attribution of authorship to
+the assistant. The repository owner asked for this directly on 2026-09-28; it overrides the
+environment's default commit template and the original skill. Commits made before that date carry
+the trailer and are **not** rewritten — the ledger references their hashes and `LG-API-04` resolves
+every one of them against git, so an amended history would break the checks to tidy up a line.
 
 ## The ledger process is part of the commit, not an afterthought
 
@@ -50,6 +52,6 @@ git diff --staged           # what will actually go in
 git add <paths>             # by name
 git commit -m "<type>: <description>
 
-Co-Authored-By: ..."
+<body: what changed and why, if the subject is not enough>"
 pnpm ledger:fill            # as the next commit, if an entry was added
 ```
