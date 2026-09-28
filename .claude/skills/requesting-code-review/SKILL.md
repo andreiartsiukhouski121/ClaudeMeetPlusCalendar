@@ -1,6 +1,6 @@
 ---
 name: requesting-code-review
-description: The two review gates in this repository — the plan review before implementation and the code review before acceptance — when to call each, when not to, and what to hand over. Use before accepting a feature, when asked "do we need a review", "call a reviewer", "review this", or when tempted to dispatch a review subagent after every task.
+description: The four review gates in this repository — research, design, plan and code — when to call each, when not to, and what to hand over. Use before accepting a feature, when asked "do we need a review", "call a reviewer", "review this", or when tempted to dispatch a review subagent after every task.
 ---
 
 Adapter for the external `requesting-code-review` skill (`obra/superpowers`). The original is in
@@ -16,23 +16,33 @@ the first pipeline iteration plan review consumed **1,005,347 tokens — 46% of 
 without producing a line of product code, and the pipeline audit separately recorded that the
 reviewer had been granted write access to any file and the ability to run any command.
 
-## Two gates, not one review
+## Four gates, not one review
 
-| Gate        | Agent           | Subject                   | Passed before         |
-| ----------- | --------------- | ------------------------- | --------------------- |
-| Plan review | `plan-reviewer` | the plan, before any code | implementation starts |
-| Code review | `code-reviewer` | the diff, after the tests | acceptance starts     |
+| Gate            | Agent               | Subject                   | Passed before         |
+| --------------- | ------------------- | ------------------------- | --------------------- |
+| Research review | `research-reviewer` | the cited findings        | design starts         |
+| Design review   | `design-reviewer`   | the shape of the change   | planning starts       |
+| Plan review     | `plan-reviewer`     | the task breakdown        | implementation starts |
+| Code review     | `code-reviewer`     | the diff, after the tests | acceptance starts     |
 
-They are different reviews with different failure modes. The plan review catches a task whose
-definition of done is unreachable, a dependency on a later feature, a contradiction with an accepted
-ADR — all of which cost an iteration if they reach code. The code review catches a silent redesign, a
-broken invariant, a document left behind. Neither finds what the other does.
+Four reviews with four different failure modes, which is why they are not one reviewer with four
+checklists. The research review catches a claim nothing supports and an area nobody swept — believed
+by three stages downstream if it survives. The design review catches a shape that contradicts an
+accepted ADR, or a contract too vague to build against. The plan review catches a definition of done
+that is unreachable and a task that needs a later feature's artifacts. The code review catches a
+silent redesign, a broken invariant, a document left behind.
+
+**A blocker costs more the later it is found**, which is the whole argument for the order: an
+unsourced fact caught in research costs a sentence, and the same fact caught during implementation
+costs an iteration.
 
 ## When to call one
 
-- **One plan review per feature**, before implementation. A second happens only if the first found an
-  architecture-changing blocker: the "fixed it → rechecked → fixed it again" loop on paper costs more
-  than the same edits on live code, where a run catches them.
+- **One review per artifact**: research, design, plan, code. A second pass on the same artifact
+  happens only if the first found a blocker that changes it structurally — and a blocker that changes
+  the **shape** goes back to the design stage rather than round again in the plan review. The "fixed
+  it → rechecked → fixed it again" loop on paper costs more than the same edits on live code, where
+  a run catches them.
 - **One code review per feature**, after the testers and before acceptance — not after every task.
 - An architectural decision that is hard to undo later: the session scheme, module boundaries, the
   contract format. Those get an ADR, and the plan review checks the code plan against it.

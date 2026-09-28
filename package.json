@@ -23,7 +23,7 @@
     "test:home-dashboard": "pnpm -r test -t \"HD-UT-\"",
     "audit": "pnpm audit --audit-level high",
     "check:orientation": "node scripts/check-orientation.mjs",
-    "plan:new": "node scripts/new-plan.mjs",
+    "change:new": "node scripts/new-change.mjs",
     "adr:new": "node scripts/new-adr.mjs",
     "ledger:fill": "node scripts/fill-ledger-hash.mjs",
     "skills:sync": "node scripts/skills-sync.mjs sync",

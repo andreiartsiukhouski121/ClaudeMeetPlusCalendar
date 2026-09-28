@@ -22,69 +22,55 @@ drifts from the original silently, which is how this repository earned `FX-023` 
 
 ## Phases
 
-| Phase                             | Where | Role                     | Input             | Output                                              |
-| --------------------------------- | ----- | ------------------------ | ----------------- | --------------------------------------------------- |
-| Orientation                       | §0    | `planner`                | a task            | five answers in section 0; or "this is a duplicate" |
-| Assumption spike                  | §1    | `planner`                | orientation done  | a table of assumption → how proven → fact           |
-| Requirements, architecture, tasks | §2    | `planner`                | the spike's facts | a 100–150 line plan: contract, data, tasks          |
-| Plan review — **gate**            | §3    | `plan-reviewer`          | the plan          | blockers, or verdict `accept`                       |
-| Implementation                    | §4    | `implementer-api`/`-web` | the plan accepted | code; parallel parts each in their own worktree     |
-| Tests per level                   | §4    | the `tester-*` roles     | code ready        | cases plus green runs at each level touched         |
-| Code review — **gate**            | §5    | `code-reviewer`          | the diff          | blockers, or verdict `accept`                       |
-| Acceptance                        | §6    | `tester-acceptance`      | review passed     | a green `pnpm verify` and a report with numbers     |
-| Ledger entry                      | §10   | `lead`                   | acceptance passed | an `FT-`/`CH-` row, closed `BL-` items              |
+Nine stages, six of them behind a gate. Each stage's artifact is the next stage's context, and the
+whole of it lives in one folder: `docs/plans/<slug>/`, created by `pnpm change:new <slug>`.
 
-The `lead` sequences all of it and holds the gates; it writes nothing. Sections §7–§9 are
+| Phase                      | Where | Role                     | Input             | Output                                          |
+| -------------------------- | ----- | ------------------------ | ----------------- | ----------------------------------------------- |
+| Research                   | §0    | `researcher` + 4 sweeps  | the requirement   | `research/**` — cited findings, gaps named      |
+| Research review — **gate** | §1    | `research-reviewer`      | `research/**`     | blockers, or verdict `accept`                   |
+| Design                     | §2    | `designer`               | accepted research | `design.md`, and any ADR the shape needs        |
+| Design review — **gate**   | §3    | `design-reviewer`        | `design.md`       | blockers, or verdict `accept`                   |
+| Plan                       | §4    | `planner`                | research + design | `<slug>.plan.md`: orientation, tasks, DoD       |
+| Plan review — **gate**     | §5    | `plan-reviewer`          | the plan          | blockers, or verdict `accept`                   |
+| Implementation             | §6    | `implementer-api`/`-web` | the plan accepted | code; parallel parts each in their own worktree |
+| Tests per level            | §6    | the `tester-*` roles     | code ready        | cases plus green runs at each level touched     |
+| Code review — **gate**     | §7    | `code-reviewer`          | the diff          | blockers, or verdict `accept`                   |
+| Acceptance                 | §8    | `tester-acceptance`      | review passed     | a green `pnpm verify` and a report with numbers |
+| Ledger entry               | §12   | `lead`                   | acceptance passed | an `FT-`/`CH-` row, closed `BL-` items          |
+
+The `lead` sequences all of it and holds the gates; it writes nothing. Sections §9–§11 are
 cross-cutting: what not to cut, the budget, and reporting as you go.
 
-**A gate is passed by an artifact, not by an assurance.** No implementation before the plan review's
-verdict; no acceptance before the code review's; no "done" before a green `pnpm verify`.
+**A gate is passed by an artifact, not by an assurance.** No design before the research review's
+verdict; no plan before the design review's; no implementation before the plan review's; no
+acceptance before the code review's; no "done" before a green `pnpm verify`.
 
-Phases are never reordered or skipped, but they **shrink with the task**: for a one-line change the
-spike is a single run and the plan is three rows in the task section. A skipped phase is named out
-loud rather than assumed.
+Phases are never reordered or skipped, but they **shrink with the task**: for a small change the
+research is one sweep and the plan is three rows in the task section. A skipped phase is named out
+loud rather than assumed — and for work below the `bugfix-pipeline` §4 threshold, the whole
+discovery half is skipped by design, not by omission.
 
-## 0. Orientation — before anything else
+## 0. Research — the first thing that happens
 
-**5 minutes.** Read [`docs/CHANGELOG.md`](../../../docs/CHANGELOG.md) and
-[`docs/BACKLOG.md`](../../../docs/BACKLOG.md), the Rejected section included, then the architecture
-corpus for the area you are touching — `docs/architecture.md`, `docs/adr/README.md`,
-`docs/data-model.md`, `docs/api-contract.md` (what each owns is in `project-context`) — and only then
-the code. Answer the five questions of section 0 in writing; the form is in
-[`docs/plans/TEMPLATE.md`](../../../docs/plans/TEMPLATE.md), and it is what gets checked.
+**Before anything else, including orientation.** The requirement arrives; the question is what this
+project already contains that bears on it. Run by the `researcher` agent, which dispatches four
+sweeps — code, contract, tests, history — and assembles `docs/plans/<slug>/research/README.md`. The
+procedure is in the `research-protocol` skill.
 
-The fifth answer, **Architecture impact**, cites the ADR IDs the change touches or says "no
-matches". It is there because re-deriving architecture from code gives you the current behaviour and
-never the decision: the code cannot tell you that CORS is off deliberately, or that the third session
-check is not redundant (`ADR-0015`).
+**The rule that makes it worth having: record only what is in the project, never what you concluded
+from it.** Every statement carries a citation; anything uncitable is an open question or a
+`Not found` line, and "nothing here covers X" is a finding. A sweep that quietly designs makes the
+design unreviewable, because its reasoning arrives already wrapped in a conclusion.
 
-The step is enforced: a plan is created with `pnpm plan:new <slug>`, and `pnpm check:orientation`
-runs in `.husky/pre-commit` and in `pnpm verify`. An empty answer, a brush-off (`—`, `TODO`, `no`),
-an answer under 20 characters, or a reference to a non-existent ledger entry fails the commit. What
-the check **cannot** do is tell that a task duplicates another in substance: it proves the
-orientation was done and written down, and review judges the answers. The line is drawn on purpose
-— a check pretending to be smarter than it is does more harm than no check at all.
-
-**If orientation shows a duplicate or a conflict, stop and say so** rather than planning on.
-"Already done in `FX-007`" is a result, not a refusal.
-
-Why it is mandatory: the ledger already holds two dozen defects, and half of them are invisible in
-a diff (a vacuously passing meta-test, lint rules left at `warn`, a timing oracle, an endless
-redirect on a broken cookie). A concrete example: `BL-009` (time zone from the profile) conflicts
-with the pinned UTC that three unit cases rest on — visible only from the backlog.
-
-## 1. Assumption spike — before the plan, not after
-
-**7 minutes, throwaway code, no reasoning.** Prove the five to seven riskiest technical assumptions
-by probe and hand back a table of assumption → how proven → fact.
-
-Why this comes first: in the first iteration the plan review found nine blockers, and the four most
-expensive were library behaviour — `@IsOptional()` on two DTO fields, the `@Max` boundary against a
-case value, Playwright refusing to load a spec with a worker-scoped option. Each is provable by
-twenty lines of code in minutes. Instead they were described in the plan, then two agents spent 25
-minutes each reading it and assembling the same probes, then another spent 29 minutes rewriting the
-plan around the findings. **A document review cannot replace running code** — it only catches what
-the reader can simulate in their head.
+**Probes belong here.** Five to seven of the riskiest technical assumptions are proven with
+throwaway code in a scratchpad, and the command with its output becomes the citation. In the first
+iteration the plan review found nine blockers, and the four most expensive were library behaviour —
+`@IsOptional()` on two DTO fields, the `@Max` boundary against a case value, Playwright refusing to
+load a spec with a worker-scoped option. Each was provable in minutes by twenty lines of code.
+Instead they were described in the plan, two agents spent 25 minutes each re-deriving them, and a
+third spent 29 minutes rewriting the plan around the findings. **A document review cannot replace
+running code** — it only catches what the reader can simulate in their head.
 
 Worth probing almost always:
 
@@ -100,62 +86,107 @@ Worth probing almost always:
   endless redirect on a broken cookie) were invisible in the diff and in the plan review — only a
   run found them.
 
-Keep the probes in a scratchpad, not in the repository.
+Probe code stays in a scratchpad and never lands in the repository; the **fact** lands in
+`research/code.md`.
 
-## 2. Requirements, architecture and task breakdown
+## 1. Research review — the first gate
 
-All of it is one document: a plan from `docs/plans/TEMPLATE.md`, **100–150 lines**, built on the
-spike's facts. Three things it must pin down, and why those three:
+By `research-reviewer`: read-only, `opus`. It opens citations and checks they say what they are
+quoted as saying, hunts for inference recorded as fact, checks the requirement's surface was
+covered, and confirms contradictions were **named rather than resolved**.
+
+Its **Gaps to carry forward** section is part of the deliverable: unknowns that reach the designer
+unannounced come back as rework.
+
+## 2. Design — the shape, not the order
+
+By `designer`, from the accepted research folder. The sections and the rules are in the
+`design-protocol` skill; the scaffold is `docs/plans/SCAFFOLD-DESIGN.md`. In short, it pins down:
 
 - **Contract** — method, path, authorization, request body, success response and **exact error
-  bodies**. Error shapes come from the framework's source rather than memory: this repository broke
-  on them twice already (invariants 1 and 8).
+  bodies**. Error shapes come from the framework's behaviour rather than memory: this repository
+  broke on them twice already (invariants 1 and 8).
 - **Data** — the seed as concrete values that tests can rely on. Absolute dates, no `Date.now()`;
   separate owners for mutating cases, since the store is shared.
-- **Tasks** — numbered, with dependencies, **files** and a verifiable definition of done. The
-  "files" column is not decoration: tasks overlapping on a file are not marked parallel, and a
-  shared file (`app.module.ts`, `e2e/README.md`, the unit cases doc) becomes its own merge task.
-  Without that column, "independent" tasks collide at merge time — which is what happened in the
-  first iteration.
+- **Alternatives rejected**, each with a reason that would still make sense to someone who preferred
+  it. This is what stops the same option being re-proposed at every later gate.
 
 **An architectural decision is written as an ADR before the code, not after.** `pnpm adr:new <slug>`
-takes the next number; the plan then cites the ID, and the code reviewer checks the implementation
+takes the next number; the design cites the ID, and the code reviewer checks the implementation
 against it. An ADR written afterwards is a justification, not a decision (`ADR-0015`). What counts as
 architectural: the session scheme, module boundaries, the contract format, storage, a refused
 dependency, a process rule everyone must follow.
 
-What must **not** be in the plan: a list of test cases (they are written once, straight into
-`e2e/regression/<feature>/*.cases.md`), a coverage matrix (that is
+Every load-bearing fact traces to `research/`. A fact appearing for the first time in the design is
+an assumption, and the gate treats it as one.
+
+## 3. Design review — the second gate
+
+By `design-reviewer`: read-only, `opus`. Five questions — does it follow from the research, does it
+fit the architecture and the ADRs, are the contract and the data exact, were the alternatives real,
+is anything new secure (invariants 16–19).
+
+This is the last gate before the shape becomes expensive to change: a blocker here costs a
+paragraph; the same blocker during implementation costs an iteration.
+
+## 4. The plan — orientation and the task breakdown
+
+By `planner`, from `research/` and `design.md`, into `<slug>.plan.md`. **100–150 lines.**
+
+**Section 0 "Orientation" is where the record gets judged.** The history sweep already _retrieved_
+the ledger, the backlog and the ADR log; orientation _decides_ what follows from them — is this a
+duplicate, does it conflict with something shipped or planned, which decisions does it touch. That
+split is deliberate: retrieval is cheap and mechanical, judgement is neither.
+
+The step is enforced. `pnpm check:orientation` runs in `.husky/pre-commit` and in `pnpm verify`: an
+empty answer, a brush-off (`—`, `TODO`, `no`), an answer under 20 characters, untouched template
+text, a citation of a non-existent ledger entry or a non-existent ADR all fail the commit. What the
+check **cannot** do is tell that a task duplicates another in substance: it proves the orientation
+was done and written down, and review judges the answers. The line is drawn on purpose — a check
+pretending to be smarter than it is does more harm than no check at all.
+
+**If orientation shows a duplicate or a conflict, stop and say so** rather than planning on.
+"Already done in `FX-007`" is a result, not a refusal. A concrete example of why it is worth the
+minutes: `BL-009` (time zone from the profile) conflicts with the pinned UTC that three unit cases
+rest on — visible only from the backlog.
+
+The rest of the plan is **tasks**: numbered, with dependencies, **files** and a verifiable definition
+of done. The "files" column is not decoration — tasks overlapping on a file are not marked parallel,
+and a shared file (`app.module.ts`, `e2e/README.md`, the unit cases doc) becomes its own merge task.
+Without that column, "independent" tasks collide at merge time, which is what happened in the first
+iteration.
+
+What must **not** be in the plan: a re-statement of the design, a list of test cases (they are
+written once, straight into `e2e/regression/<feature>/*.cases.md`), a coverage matrix (that is
 `e2e/suite-integrity.api.spec.ts`'s job), or invariants from `CLAUDE.md`.
 
 The longer the plan, the more of it is work unrelated to the feature: three of the nine blockers in
 the second review and **both** blockers in the third were bookkeeping introduced by edits to the
 document itself — totals drifting apart, a reused case number, a broken table row.
 
-## 3. Plan review — the first gate
+## 5. Plan review — the third gate
 
-**12 minutes, by the `plan-reviewer` agent — read-only, `opus`. The review has four questions:**
+**By the `plan-reviewer` agent — read-only, `opus`. Four questions:**
 
-1. Completeness against the specification: every point has a task and will have a test.
+1. Completeness against the design: every part of the shape has a task and will have a test.
 2. Task dependencies: does a task of feature 1 need artifacts of feature 2 (in the first iteration
    three functional login cases needed the dashboard — their DoD was unreachable).
-3. Conformance to the corpus and to the spike's facts: does the plan contradict an accepted ADR
-   without superseding it, re-introduce something from the "refused" table in
-   `docs/architecture.md`, or invent a second home for a fact that already has one.
+3. Conformance: does the plan quietly re-decide the design, contradict an accepted ADR without
+   superseding it, or invent a second home for a fact that already has one.
 4. Security of the new entry points: every endpoint has a guard and a DTO without owner or role
    fields; every protected page is checked in `proxy.ts` **and** in the server layer; every Server
    Action checks the session itself. Four questions, not a full audit — `e2e/security/**` catches
    the rest.
 
-Library behaviour is **not** reviewed; the spike settled it. A second review happens only if the
-first found an architecture-changing blocker: the "fixed it → rechecked → fixed it again" loop on
-paper is more expensive than the same edits on live code, where a run catches them.
+Library behaviour is **not** reviewed; the probes in §0 settled it. A second review happens only if
+the first found a blocker that changes the shape — and then it goes back to the design stage, not
+round again here: the "fixed it → rechecked → fixed it again" loop on paper is more expensive than
+the same edits on live code, where a run catches them.
 
-Who to call and how is in `requesting-code-review` and `team-roles`. In short: one plan review per
-feature, the reviewer holds `Read`, `Grep` and `Glob` only, and returns a report as text rather than
-an edit. Blockers go back to the `planner` unedited — the lead does not soften a verdict.
+Who to call and how is in `requesting-code-review` and `team-roles`. Blockers go back to the role
+that owns the artifact, unedited — the lead does not soften a verdict.
 
-## 4. Implementation: parallelism means worktrees, and nothing else
+## 6. Implementation: parallelism means worktrees, and nothing else
 
 The backend and the web side of one feature are almost always independent by file. But **two agents
 in one working tree are not parallel**, however many ports they get: Next 16 registers its dev
@@ -196,7 +227,7 @@ the `tester-*` roles (`ADR-0014`). The two run against each other rather than th
 its own homework, and the split is by file, so it is checkable. An implementer who notices a missing
 case reports it; they do not add it.
 
-## 5. Code review — the second gate
+## 7. Code review — the fourth gate
 
 By the `code-reviewer` agent: read-only, `opus`, one review per feature, **after** the implementers
 and the testers are done and **before** acceptance. It reads the diff against the accepted plan, the
@@ -219,23 +250,27 @@ product code. Separately, an audit found the reviewer holding write access to ev
 "do not fix things while you are there" lived only in prose. A tool list is the mechanism (`ADR-0014`,
 closing `BL-014`).
 
-Not every stage needs its own worktree. The spike, the reviews and reading run output are in-process
-subagents in the current tree; only stages that **run the application** need isolation, and then the
-unit of isolation is a git worktree (§4).
+Not every stage needs its own worktree. The research sweeps, the reviews and reading run output are
+in-process subagents in the current tree; only stages that **run the application** need isolation,
+and then the unit of isolation is a git worktree (§6).
 
-## 6. Acceptance
+## 8. Acceptance
 
 Through the `regression-verify` skill. What matters for speed: **one `pnpm verify`** rather than a
 series of `--grep` calls (measurements are in `e2e/README.md`, "Run economics"); do not run the
 units by hand; and a repeated full run adds almost nothing — a targeted control experiment does
 more.
 
-For a feature the size of "a page plus two endpoints" a separate acceptance agent is unnecessary:
-the implementer's DoD with control experiments _is_ the acceptance. Diff-level security review goes
-through the built-in `security-review` skill: it looks at the branch's changes and complements the
-automated cases rather than replacing them.
+Acceptance is `tester-acceptance`'s stage, and it is a role rather than an extra pass by whoever
+wrote the code: the earlier wording here — "for a small feature the implementer's DoD _is_ the
+acceptance" — is exactly the self-grading `ADR-0014` removed. What that wording was protecting
+against is still true and is handled differently: acceptance is **one** `pnpm verify`, not a second
+walk through every level.
 
-## 7. What not to cut
+Diff-level security review goes through the built-in `security-review` skill: it looks at the
+branch's changes and complements the automated cases rather than replacing them.
+
+## 9. What not to cut
 
 - **Control experiments.** One `sed` plus a filtered run. They are what exposed the meta-test that
   scanned the wrong directory, found zero files and therefore went green under **any** violation of
@@ -243,16 +278,24 @@ automated cases rather than replacing them.
 - **The `.cases.md` ↔ spec pairing and the convention meta-test.** Written once, works forever.
 - **An actual run before the word "done".** It separates a result from a report of a result.
 
-## 8. Time budget
+## 10. Time budget
 
-For a feature the size of "a page plus two endpoints": spike 7, plan 10, review 12, implementation
-25, acceptance 10, security 3 — **about 70 minutes**, and that is the floor. The pipeline audit
-recomputed it against observed agent durations (minimum 8.7 minutes, median 21.4) and got **70
-minutes with a narrow review and 85 with a full one**. There is no slack in those numbers: going
-back to a full plan review costs +15 minutes. If it comes out twice as long, the cause is almost
-always the size of the plan or the number of review iterations, not the difficulty of the code.
+**The implementation half** of a feature the size of "a page plus two endpoints": plan 10, plan
+review 12, implementation 25, acceptance 10, security 3 — **about 60 minutes**, and that is the
+floor. The pipeline audit recomputed it against observed agent durations (minimum 8.7 minutes,
+median 21.4) and got 70 minutes with a narrow review and 85 with a full one, including the probes
+that now live in §0. There is no slack in those numbers: going back to a full plan review costs
++15 minutes.
 
-## 9. Reporting as you go
+**The discovery half — research, design and their two gates — is not yet measured.** No estimate is
+given here rather than an invented one; the first features through this flow are the measurement,
+and it belongs in `e2e/README.md` beside the run economics when it exists (`ADR-0016`).
+
+If the whole comes out at twice the floor, the cause is almost always the size of a document or the
+number of review iterations, not the difficulty of the code — which is what `CH-004` was written
+about.
+
+## 11. Reporting as you go
 
 The user cannot see what happens inside a background agent and cannot tell long work from a loop.
 Say what is done and what is left in your interim messages: the stage, how many remain, where the
@@ -263,7 +306,7 @@ and with what tasks. **Their progress is unavailable to you** — do not retell 
 When the user asks for a result, the answer lives in that worktree's `git log`/`git diff`, not in a
 guess.
 
-## 10. The ledger entry is part of the work
+## 12. The ledger entry is part of the work
 
 A task is not closed until `docs/CHANGELOG.md` has a row: a feature → `FT-`, a process change →
 `CH-`, every defect found → `FX-` with the "Found by" column. A newly discovered gap → a `BL-` item

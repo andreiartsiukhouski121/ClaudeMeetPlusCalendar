@@ -1,11 +1,22 @@
 ---
 name: project-context
-description: The architecture corpus of this repository — which document owns which facts, which role reads which, how to record an architecture decision as an ADR, and what must be updated when behaviour changes. Use before planning or implementing anything, when asked "how does this project work", "where is X documented", "do we have an ADR for this", or when a change touches the contract, the data or the architecture.
+description: The two kinds of context in this repository — the durable architecture corpus and the per-change folder — which document owns which facts, which role reads which, how to record a decision as an ADR, and what must be updated when behaviour changes. Use before planning or implementing anything, when asked "how does this project work", "where is X documented", "do we have an ADR for this", or when a change touches the contract, the data or the architecture.
 ---
 
-Four documents hold the facts this project runs on. They are **read, not rebuilt**: re-deriving
-architecture from code gives you the current behaviour, never the decision — it cannot tell you that
-CORS is off on purpose, or that the third session check is not redundant (`ADR-0015`).
+Two kinds of context, and they do not mix.
+
+**Durable** — the corpus below: four documents that describe the project and outlive any one change.
+They are **read, not rebuilt**: re-deriving architecture from code gives you the current behaviour,
+never the decision — it cannot tell you that CORS is off on purpose, or that the third session check
+is not redundant (`ADR-0015`).
+
+**Per-change** — `docs/plans/<slug>/`: the research, design and plan of one change, created by
+`pnpm change:new` and kept afterwards as its record. It is written by the discovery stages
+(`research-protocol`, `design-protocol`) and is the context each stage hands the next.
+
+A fact that belongs to the project goes in the corpus; a fact about **this** change goes in its
+folder. Putting a durable fact in a change folder buries it, and putting a per-change note in the
+corpus is how a document starts describing something that no longer exists.
 
 ## Who owns what
 
@@ -28,7 +39,9 @@ exists elsewhere, link instead.
 
 | Role                | Opens first                                                                    |
 | ------------------- | ------------------------------------------------------------------------------ |
-| `planner`           | all four, plus `CHANGELOG.md` and `BACKLOG.md` for orientation                 |
+| `researcher`        | the four, to know what already has a home; plus the code                       |
+| `designer`          | the change's `research/` in full, then the four to check it fits               |
+| `planner`           | the change's `research/` and `design.md`, plus `CHANGELOG.md`/`BACKLOG.md`     |
 | `implementer-api`   | `api-contract.md`, `data-model.md`, `architecture.md` (layers), invariants 1–8 |
 | `implementer-web`   | `data-model.md` (flows), `architecture.md` (BFF), invariants 9–15, 19          |
 | `plan-reviewer`     | all four — its third question is conformance to them                           |

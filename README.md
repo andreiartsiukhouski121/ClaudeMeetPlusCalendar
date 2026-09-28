@@ -118,18 +118,24 @@ endpoints in [`docs/api-contract.md`](docs/api-contract.md). They are disjoint �
 of them — and the parts that can be machine-checked are: `AR-API-05` compares the Routes table
 against the Nest controllers in both directions on every run.
 
-Work is split across roles defined in `.claude/agents/` — a lead that only orchestrates, a planner,
-two implementers, two reviewers and five testers — where each role's limits are its tool list rather
-than its prompt. The contract is the `team-roles` skill.
+Work is split across nineteen roles defined in `.claude/agents/` — a lead that only orchestrates, a
+researcher with four sweep subagents, a designer, a planner, two implementers, four reviewers and
+five testers — where each role's limits are its tool list rather than its prompt. The contract is the
+`team-roles` skill.
+
+A change of any size starts with `pnpm change:new <slug>`, which creates the folder it is developed
+in: `research/` (what the project already contains, one citation per statement), `design.md` (the
+shape, written from the research) and `<slug>.plan.md` (the tasks, written from both). Each stage is
+the next one's context and each has its own review gate.
 
 There are two workflows, and the fork turns on whether the behaviour has already been promised:
 
-- **new functionality** — the `feature-pipeline` skill: orientation, an assumption spike,
-  requirements and architecture in a plan from `docs/plans/TEMPLATE.md`, a task breakdown, a plan
-  review, implementation (each agent in its own git worktree), a code review, acceptance;
+- **new functionality** — the `feature-pipeline` skill: research, design, a plan with orientation and
+  a task breakdown — each behind its own review gate — then implementation (each agent in its own git
+  worktree), a code review and acceptance;
 - **a defect** — the `bugfix-pipeline` skill: reproduction, cause, impact, a red test **before** the
   fix, a minimal edit at the cause, acceptance and an `FX-` entry. A plan
-  (`pnpm plan:new <slug> --bug`) is not needed for every bug — the threshold is in the skill.
+  (`pnpm change:new <slug> --bug`) is not needed for every bug — the threshold is in the skill.
 
 Acceptance in both cases goes through the `regression-verify` skill (`.claude/skills/`): one
 `pnpm verify` and a report with numbers. The quick check of a single change is `playwright-verify`.

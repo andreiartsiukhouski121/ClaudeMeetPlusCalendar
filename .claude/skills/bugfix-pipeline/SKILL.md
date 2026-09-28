@@ -32,6 +32,21 @@ what the problem is; a test written by the same agent tends to check that decisi
 promised behaviour (`ADR-0014`). For a one-line fix with a known cause the short path in §4 applies
 and the whole team is not assembled — but even there, the red test comes first.
 
+## Where the discovery stages fit
+
+Above the §4 threshold a defect gets a change folder (`pnpm change:new <slug> --bug`) and the same
+three stages a feature gets, mapped onto the steps above:
+
+| Stage        | For a defect it means                                                                                                                                                                                                                     |
+| ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Research** | steps 1–3 written down with citations: what was promised and where, what the code does, what the history says. The `researcher-history` sweep is how "has this been fixed before" gets answered from the record rather than from memory   |
+| **Design**   | usually short, and often one line: _restore the promised behaviour at the cause._ It becomes real work only when the fix has a shape — a changed contract, a new guard, a moved check — and then it needs its ADR like any other decision |
+| **Plan**     | the task breakdown, which for most defects is the red test, the fix and the entry                                                                                                                                                         |
+
+Below the threshold none of it applies: no folder, no stages, no team. A document for a one-line fix
+costs more than the fix — that is what `CH-004` moved away from, and adding stages makes repeating
+it cheaper, not harder.
+
 ## 1. Orientation — like a feature, only shorter
 
 Read [`docs/CHANGELOG.md`](../../../docs/CHANGELOG.md) and
@@ -90,7 +105,8 @@ What else rests on this cause: neighbouring features, cases, invariants, data. W
 see it and whether there is a workaround. Whether security is involved — then the fix follows
 invariants 16–19 and is checked by `pnpm e2e:security`.
 
-**A written plan (`pnpm plan:new <slug> --bug`) is needed if any of these hold:**
+**A change folder (`pnpm change:new <slug> --bug`) — research, design and a written plan — is
+needed if any of these hold:**
 
 1. the cause was not found in about 15 minutes;
 2. the fix changes a contract, an invariant, or behaviour that another feature's cases rely on;

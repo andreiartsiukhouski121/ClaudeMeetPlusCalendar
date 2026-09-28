@@ -108,7 +108,7 @@ experiment (step 11) does more.
   `items.length` (`HD-API-05`, `HD-FN-03` must go red).
 
 Two agents at once need **their own git worktree**, not their own ports (`CLAUDE.md`,
-`feature-pipeline` §4).
+`feature-pipeline` §6).
 
 ## 3. Blockers
 

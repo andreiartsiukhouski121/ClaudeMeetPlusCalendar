@@ -1,6 +1,6 @@
 # Bugfix: <short defect name>
 
-> Bugfix plan template. Created by `pnpm plan:new <slug> --bug`. **Not every bug needs one** — the
+> Bugfix plan template. Scaffolded by `pnpm change:new <slug> --bug`. **Not every bug needs one** — the
 > threshold is in the `bugfix-pipeline` skill §4: the cause is not obvious, the fix changes a
 > contract or an invariant, security is involved, or more than one module is affected. Otherwise
 > the flow is shorter: red test, fix, `FX-` entry.

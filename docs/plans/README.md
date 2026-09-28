@@ -6,12 +6,14 @@ contract live in the corpus — [`architecture.md`](../architecture.md), [`adr/`
 rather than restating them. Section 0 of every plan answers **Architecture impact** with ADR IDs,
 and `pnpm check:orientation` fails the commit without it.
 
-| Document                                                         | What it owns                                                                                                 |
-| ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| [TEMPLATE.md](TEMPLATE.md)                                       | **The feature plan template** — 100–150 lines, the assumption spike first; `pnpm plan:new <slug>`            |
-| [TEMPLATE-BUGFIX.md](TEMPLATE-BUGFIX.md)                         | **The bugfix plan template** — reproduction, cause, impact, "why it was not caught"; `pnpm plan:new … --bug` |
-| [feature-plan-implementation.md](feature-plan-implementation.md) | **Archive.** How the first two features were built: architecture, contract, data model, tasks                |
-| [feature-plan-testing.md](feature-plan-testing.md)               | **Archive.** How the suite looked in the first iteration: convention, case list, acceptance spec             |
+| Document                                                         | What it owns                                                                                     |
+| ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| [TEMPLATE.md](TEMPLATE.md)                                       | **The feature plan template** — 100–150 lines; scaffolded by `pnpm change:new <slug>`            |
+| [TEMPLATE-BUGFIX.md](TEMPLATE-BUGFIX.md)                         | **The bugfix plan template** — reproduction, cause, impact, "why it was not caught"; `… --bug`   |
+| [SCAFFOLD-RESEARCH.md](SCAFFOLD-RESEARCH.md)                     | **The research index scaffold** — questions, sweeps, contradictions, still unknown               |
+| [SCAFFOLD-DESIGN.md](SCAFFOLD-DESIGN.md)                         | **The design scaffold** — the shape, contract, data, alternatives, ADRs, impact                  |
+| [feature-plan-implementation.md](feature-plan-implementation.md) | **Archive.** How the first two features were built: architecture, contract, data model, tasks    |
+| [feature-plan-testing.md](feature-plan-testing.md)               | **Archive.** How the suite looked in the first iteration: convention, case list, acceptance spec |
 
 **Both large plans are an archive, not a source of truth.** The live suite convention (names, tags,
 robustness rules, case composition, run economics) is in [`e2e/README.md`](../../e2e/README.md); the

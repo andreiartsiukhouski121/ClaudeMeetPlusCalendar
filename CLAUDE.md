@@ -10,26 +10,26 @@ Commits before that entry are in Russian and are not rewritten.
 
 ## Commands
 
-| Command                       | What it does                                                                 |
-| ----------------------------- | ---------------------------------------------------------------------------- |
-| `pnpm dev`                    | both applications in parallel                                                |
-| `pnpm dev:web`                | Next.js on `http://127.0.0.1:3000`                                           |
-| `pnpm dev:api`                | Nest.js on `http://127.0.0.1:3001`                                           |
-| `pnpm lint` / `pnpm lint:fix` | ESLint over the root and every package                                       |
-| `pnpm typecheck`              | `tsc` over the root (e2e) and over each package                              |
-| `pnpm test`                   | unit tests (Vitest in `apps/api` and `apps/web`)                             |
-| `pnpm test:<feature>`         | one feature's units: `test:auth-login`, `test:home-dashboard`                |
-| `pnpm plan:new <slug>`        | create a feature plan from the template                                      |
-| `pnpm plan:new <slug> --bug`  | create a bugfix plan: reproduction, cause, impact                            |
-| `pnpm adr:new <slug>`         | record an architecture decision; takes the next free number                  |
-| `pnpm check:orientation`      | section 0 of the plans is filled in substance (in pre-commit and verify)     |
-| `pnpm verify`                 | **the whole check on a single server start**: lint + typecheck + units + e2e |
-| `pnpm e2e`                    | E2E through Playwright on ports 3100/3101; it starts the servers itself      |
-| `pnpm e2e:security`           | cross-feature security invariants (API + browser)                            |
-| `pnpm audit`                  | known CVEs in the dependencies (high and above)                              |
-| `pnpm e2e:report`             | the HTML report of the last Playwright run                                   |
-| `pnpm skills:sync`            | fetch the external skill sets into `.agents/` by the lock file               |
-| `pnpm skills:check`           | offline: verify what is on disk matches the lock file                        |
+| Command                        | What it does                                                                 |
+| ------------------------------ | ---------------------------------------------------------------------------- |
+| `pnpm dev`                     | both applications in parallel                                                |
+| `pnpm dev:web`                 | Next.js on `http://127.0.0.1:3000`                                           |
+| `pnpm dev:api`                 | Nest.js on `http://127.0.0.1:3001`                                           |
+| `pnpm lint` / `pnpm lint:fix`  | ESLint over the root and every package                                       |
+| `pnpm typecheck`               | `tsc` over the root (e2e) and over each package                              |
+| `pnpm test`                    | unit tests (Vitest in `apps/api` and `apps/web`)                             |
+| `pnpm test:<feature>`          | one feature's units: `test:auth-login`, `test:home-dashboard`                |
+| `pnpm change:new <slug>`       | scaffold a change folder: research, design, plan                             |
+| `pnpm change:new <slug> --bug` | the same, with the bugfix plan template                                      |
+| `pnpm adr:new <slug>`          | record an architecture decision; takes the next free number                  |
+| `pnpm check:orientation`       | section 0 of the plans is filled in substance (in pre-commit and verify)     |
+| `pnpm verify`                  | **the whole check on a single server start**: lint + typecheck + units + e2e |
+| `pnpm e2e`                     | E2E through Playwright on ports 3100/3101; it starts the servers itself      |
+| `pnpm e2e:security`            | cross-feature security invariants (API + browser)                            |
+| `pnpm audit`                   | known CVEs in the dependencies (high and above)                              |
+| `pnpm e2e:report`              | the HTML report of the last Playwright run                                   |
+| `pnpm skills:sync`             | fetch the external skill sets into `.agents/` by the lock file               |
+| `pnpm skills:check`            | offline: verify what is on disk matches the lock file                        |
 
 Write addresses as `127.0.0.1`, never `localhost`: on Windows `localhost` resolves to `::1`, where
 `next dev` does not listen.
@@ -75,14 +75,45 @@ behaviour already been promised?**
 | ------------------ | ------------------------------------------------ | --------------------------------------------- |
 | When               | the behaviour is in no case and no invariant yet | the behaviour is promised, the code disagrees |
 | Skill              | `feature-pipeline`                               | `bugfix-pipeline`                             |
-| Plan template      | `pnpm plan:new <slug>`                           | `pnpm plan:new <slug> --bug`                  |
-| The first step     | a spike of risky assumptions                     | reproducing the defect                        |
+| How it starts      | `pnpm change:new <slug>`                         | `pnpm change:new <slug> --bug`                |
+| The first step     | research of what already exists                  | reproducing the defect                        |
 | What gets designed | the contract and the data                        | nothing: behaviour is restored                |
 | The test           | written alongside the code                       | written **before** the fix and must go red    |
 | Ledger entry       | `FT-` (or `CH-` for process)                     | `FX-` with the "Found by" column              |
 
-What they share: section 0 "Orientation" (identical in form in both templates and read by
-`pnpm check:orientation`), acceptance through one `pnpm verify`, and a mandatory ledger entry.
+What they share: the three discovery stages in a change folder (below), section 0 "Orientation"
+(identical in form in both templates and read by `pnpm check:orientation`), acceptance through one
+`pnpm verify`, and a mandatory ledger entry.
+
+## Discovery: research, design, plan — in that order
+
+A change of any size starts with `pnpm change:new <slug>`, which creates the folder the work is
+developed in:
+
+```
+docs/plans/<slug>/
+  research/README.md   stage 1 — what the project already contains, one file per sweep
+  design.md            stage 2 — the shape of the change, written from research/
+  <slug>.plan.md       stage 3 — the task breakdown, written from research/ + design.md
+```
+
+**Each stage's artifact is the next stage's context, and each has its own review gate**:
+`research-reviewer` → `design-reviewer` → `plan-reviewer`. The procedures are in the
+`research-protocol` and `design-protocol` skills; the roles are in `team-roles`.
+
+The rule that makes research worth the stage: **record only what is in the project, never what you
+concluded from it.** Every statement carries a citation — a path and line, a document section, a
+case ID, a ledger or ADR entry, a commit — and anything uncitable is an open question or a
+`Not found` line. "Nothing here covers X" is a finding, not a failure. `PR-API-06` fails a research
+file that cites nothing and marks nothing.
+
+`PR-API-03`…`PR-API-05` hold the rest of the shape: every change folder has all three stages, no
+scaffolded file is left unfilled, and the scaffolder cannot drift from what the check requires.
+
+**Not every change needs this.** A defect below the `bugfix-pipeline` §4 threshold gets no folder and
+no stages — a red test, the fix, an `FX-` entry. So do documentation, config and renames. Adding
+stages makes `CH-004`'s failure (100 minutes of planning against 85 of code) cheaper to repeat, not
+harder.
 
 **Not every bugfix needs a plan.** The threshold is in `bugfix-pipeline` §4: the cause was not found
 in about fifteen minutes, a contract or an invariant is touched, security is involved, or more than
@@ -151,7 +182,8 @@ The orientation form is section 0 of [`docs/plans/TEMPLATE.md`](docs/plans/TEMPL
 written answers about duplication, conflicts with shipped work, conflicts with planned work,
 architecture impact, and open questions.
 
-**The step cannot be skipped technically.** A plan is created with `pnpm plan:new <slug>`, and
+**The step cannot be skipped technically.** A change folder is created with `pnpm change:new <slug>`,
+and
 `pnpm check:orientation` runs in `.husky/pre-commit` and in `pnpm verify`: an empty answer, a
 brush-off (`—`, `TODO`, `no`), an answer under 20 characters, untouched template text, and a
 reference to a non-existent ledger entry all **fail the commit**. For the duplication and planned
@@ -284,10 +316,10 @@ the hook runs the units against different content — exactly what will go into 
 
 ## Skills: our own and external
 
-There are ten in `.claude/skills/`. Six are ours — `feature-pipeline`, `bugfix-pipeline`,
-`team-roles`, `project-context`, `playwright-verify`, `regression-verify`. The other four are
-**adapters** to external sets: `git-commit`, `nestjs-best-practices`, `requesting-code-review`,
-`vercel-react-best-practices`.
+There are twelve in `.claude/skills/`. Eight are ours — `feature-pipeline`, `bugfix-pipeline`,
+`team-roles`, `project-context`, `research-protocol`, `design-protocol`, `playwright-verify`,
+`regression-verify`. The other four are **adapters** to external sets: `git-commit`,
+`nestjs-best-practices`, `requesting-code-review`, `vercel-react-best-practices`.
 
 **An external skill is wired in through an adapter, never a copy.** A copied rule drifts from the
 original silently (`FX-023`), and an external set is updated without us besides. An adapter holds
