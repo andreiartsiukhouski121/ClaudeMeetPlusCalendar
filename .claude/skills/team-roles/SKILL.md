@@ -1,9 +1,9 @@
 ---
 name: team-roles
-description: The agent team contract for this repository — the nineteen roles, what each is forbidden to do, how work is handed between them, which model each runs on, and when the team is the wrong tool. Use when orchestrating a feature or a fix across several agents, when dispatching a researcher, designer, planner, implementer, reviewer or tester, when asked "who should do this", or before deciding the full flow is needed at all.
+description: The agent team contract for this repository — the twenty-two roles, what each is forbidden to do, how work is handed between them, which model each runs on, and when the team is the wrong tool. Use when orchestrating a feature or a fix across several agents, when dispatching a researcher, designer, planner, implementer, reviewer or tester, when asked "who should do this", or before deciding the full flow is needed at all.
 ---
 
-Nineteen roles, each a file in `.claude/agents/`. A role's limits are its **tool list**, not its
+Twenty-two roles, each a file in `.claude/agents/`. A role's limits are its **tool list**, not its
 prompt: `regression-verify` §5 has forbidden "fixed it while I was there" in words for a long time,
 and an audit still found the reviewer holding write access to every file. Prose is a request; a tool
 list is a mechanism (`ADR-0014`).
@@ -14,27 +14,30 @@ the documents every role works from are in `project-context`.
 
 ## The roles
 
-| Role                  | Owns                                                 | Tools                        | Model    |
-| --------------------- | ---------------------------------------------------- | ---------------------------- | -------- |
-| `lead`                | sequencing, dispatch, gates, reporting, git          | no `Write`/`Edit`            | `opus`   |
-| `researcher`          | `research/README.md`; dispatches the sweeps          | `Write`, `Agent`             | `opus`   |
-| `researcher-code`     | `research/code.md`                                   | `Write`, `Bash`, no `Agent`  | `sonnet` |
-| `researcher-contract` | `research/contract.md`                               | `Write`, `Bash`, no `Agent`  | `sonnet` |
-| `researcher-tests`    | `research/tests.md`                                  | `Write`, `Bash`, no `Agent`  | `sonnet` |
-| `researcher-history`  | `research/history.md`                                | `Write`, `Bash`, no `Agent`  | `haiku`  |
-| `research-reviewer`   | a verdict on the research                            | `Read`, `Grep`, `Glob`       | `opus`   |
-| `designer`            | `design.md`, `docs/adr/**`                           | `Write`, no `Agent`          | `opus`   |
-| `design-reviewer`     | a verdict on the design                              | `Read`, `Grep`, `Glob`       | `opus`   |
-| `planner`             | `<slug>.plan.md`                                     | `Write`, no `Agent`          | `opus`   |
-| `plan-reviewer`       | a verdict on the plan                                | `Read`, `Grep`, `Glob`       | `opus`   |
-| `implementer-api`     | `apps/api/src/**` that is not a spec                 | `Write`, no `Agent`          | `sonnet` |
-| `implementer-web`     | `apps/web/src/**` that is not a spec                 | `Write`, no `Agent`          | `sonnet` |
-| `code-reviewer`       | a verdict on the diff                                | `Read`, `Grep`, `Glob`       | `opus`   |
-| `tester-unit`         | `**/src/**/*.spec.ts`, `*.unit.cases.md`             | `Write`, `Bash`              | `sonnet` |
-| `tester-api`          | `*.api.spec.ts`, `*.api.cases.md`                    | `Write`, `Bash`              | `sonnet` |
-| `tester-functional`   | `*.functional.spec.ts`, `*.functional.cases.md`, MCP | `Write`, `Bash`, `browser_*` | `sonnet` |
-| `tester-security`     | `e2e/security/**`, the two route lists, `pnpm audit` | `Write`, `Bash`              | `opus`   |
-| `tester-acceptance`   | the `pnpm verify` gate and the acceptance report     | `Write`, `Bash`              | `sonnet` |
+| Role                   | Owns                                                 | Tools                        | Model    |
+| ---------------------- | ---------------------------------------------------- | ---------------------------- | -------- |
+| `lead`                 | sequencing, dispatch, gates, reporting, git          | no `Write`/`Edit`            | `opus`   |
+| `researcher`           | `research/README.md`; dispatches the sweeps          | `Write`, `Agent`             | `opus`   |
+| `researcher-code`      | `research/code.md`                                   | `Write`, `Bash`, no `Agent`  | `sonnet` |
+| `researcher-contract`  | `research/contract.md`                               | `Write`, `Bash`, no `Agent`  | `sonnet` |
+| `researcher-tests`     | `research/tests.md`                                  | `Write`, `Bash`, no `Agent`  | `sonnet` |
+| `researcher-history`   | `research/history.md`                                | `Write`, `Bash`, no `Agent`  | `haiku`  |
+| `research-reviewer`    | a verdict on the research                            | `Read`, `Grep`, `Glob`       | `opus`   |
+| `designer`             | `design.md`, `docs/adr/**`                           | `Write`, no `Agent`          | `opus`   |
+| `design-reviewer`      | a verdict on the design                              | `Read`, `Grep`, `Glob`       | `opus`   |
+| `planner`              | `<slug>.plan.md`                                     | `Write`, no `Agent`          | `opus`   |
+| `plan-reviewer`        | a verdict on the plan                                | `Read`, `Grep`, `Glob`       | `opus`   |
+| `implementer-api`      | `apps/api/src/**` that is not a spec                 | `Write`, no `Agent`          | `sonnet` |
+| `implementer-web`      | `apps/web/src/**` that is not a spec                 | `Write`, no `Agent`          | `sonnet` |
+| `code-reviewer`        | a verdict on the diff                                | `Read`, `Grep`, `Glob`       | `opus`   |
+| `tester-unit`          | `**/src/**/*.spec.ts`, `*.unit.cases.md`             | `Write`, `Bash`              | `sonnet` |
+| `tester-api`           | `*.api.spec.ts`, `*.api.cases.md`                    | `Write`, `Bash`              | `sonnet` |
+| `tester-functional`    | `*.functional.spec.ts`, `*.functional.cases.md`, MCP | `Write`, `Bash`, `browser_*` | `sonnet` |
+| `tester-security`      | `e2e/security/**`, the two route lists, `pnpm audit` | `Write`, `Bash`              | `opus`   |
+| `tester-acceptance`    | the `pnpm verify` gate and the acceptance report     | `Write`, `Bash`              | `sonnet` |
+| `pipeline-reviewer`    | `docs/profiling/reviews/**`; evidence, no verdicts   | `Write`, no `Edit`/`Bash`    | `opus`   |
+| `pipeline-planner`     | `docs/profiling/plans/**`; proposals for the owner   | `Write`, no `Edit`/`Bash`    | `opus`   |
+| `pipeline-implementer` | the approved pipeline edits, and only those          | `Write`, `Edit`, `Bash`      | `sonnet` |
 
 `AR-API-08` compares this table against `.claude/agents/` **in both directions**: a role named here
 without a definition cannot be dispatched, and a definition nobody names here is unreachable.

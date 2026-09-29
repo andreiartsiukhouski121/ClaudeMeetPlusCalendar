@@ -26,17 +26,18 @@ human checks meaning — the same line the ledger and suite meta-tests draw (`AD
 
 ## Summary
 
-| ID        | Title                                                                  | Priority |
-| --------- | ---------------------------------------------------------------------- | -------- |
-| AR-API-01 | ADR files are named `ADR-NNNN-slug.md` and numbers are unique          | P0       |
-| AR-API-02 | every ADR has a heading, a known status and the three sections         | P1       |
-| AR-API-03 | the ADR index and the directory agree in both directions               | P1       |
-| AR-API-04 | superseded records link to their replacement, and back                 | P2       |
-| AR-API-05 | every controller route is in the API contract, and the other way round | P0       |
-| AR-API-06 | every guarded route is listed in `PROTECTED_ROUTES`                    | P0       |
-| AR-API-07 | every agent definition declares name, description, tools and model     | P1       |
-| AR-API-08 | every role the `team-roles` skill names exists as a definition         | P2       |
-| AR-API-09 | every ID cited in the Routes table Cases column exists in a cases doc  | P1       |
+| ID        | Title                                                                   | Priority |
+| --------- | ----------------------------------------------------------------------- | -------- |
+| AR-API-01 | ADR files are named `ADR-NNNN-slug.md` and numbers are unique           | P0       |
+| AR-API-02 | every ADR has a heading, a known status and the three sections          | P1       |
+| AR-API-03 | the ADR index and the directory agree in both directions                | P1       |
+| AR-API-04 | superseded records link to their replacement, and back                  | P2       |
+| AR-API-05 | every controller route is in the API contract, and the other way round  | P0       |
+| AR-API-06 | every guarded route is listed in `PROTECTED_ROUTES`                     | P0       |
+| AR-API-07 | every agent definition declares name, description, tools and model      | P1       |
+| AR-API-08 | every role the `team-roles` skill names exists as a definition          | P2       |
+| AR-API-09 | every ID cited in the Routes table Cases column exists in a cases doc   | P1       |
+| AR-API-10 | every stage cited in a profiling record exists in the process inventory | P1       |
 
 A walk self-check runs before all of them: if the scanner finds no ADRs, no routes, no agents or no
 Routes table, every rule below would pass having checked nothing. That failure mode is not
@@ -151,3 +152,22 @@ hypothetical — it is how `suite-integrity` once went green under any violation
   restore the cell. (The dead ID is deliberately not spelled out here in full: this very file is a
   `.cases.md` under `e2e/`, and writing the literal ID would make it "known" to the scan the check
   performs, defeating the experiment.)
+
+### AR-API-10 — every stage cited in a profiling record exists in the process inventory
+
+- **Steps:** collect every stage and gate identifier defined in `docs/process.md`; scan every
+  markdown file under `docs/profiling/` for identifiers of the same shape; report any that the
+  inventory does not define.
+- **Expected:** every cited identifier is defined. The check first asserts the inventory parsed to a
+  non-empty set, so a moved or reworded table cannot make it pass having read nothing.
+- **Why:** `ADR-0020` makes the identifiers the join key between a measurement and the thing
+  measured, precisely so a renamed heading cannot silently break the link. Without this check that
+  promise is held by review alone, and a record citing a stage nobody defined still looks like a
+  record — the identifier is well formed, it simply refers to nothing.
+- **Why the identifier shape cannot collide with a case ID:** a case ID carries `-API-`, `-FN-` or
+  `-UT-` in the middle; a stage carries `-S` or `-G` followed by a number. The two patterns cannot
+  match the same token.
+- **Control experiment:** in a profiling record, change one cited stage identifier to a well-formed
+  one the inventory does not define, and confirm the case goes red naming both the file and the
+  identifier; then restore it. Editing a record is acceptable only for this experiment — records are
+  append-only evidence (`ADR-0020`), so the restore is part of the experiment, not an afterthought.

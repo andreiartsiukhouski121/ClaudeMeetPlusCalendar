@@ -215,10 +215,10 @@ rather than a check.
 reference it: four diverging copies of this paragraph already produced `FX-027`. When the numbers
 change, change them here and set a new measurement date.
 
-Measured **2026-09-28**, Windows 11, warm `.next`, after `meetings-detail-participants`'s
-acceptance run. Suite composition — **109 e2e in 13 files and 51 units** (38 in `apps/api`, 13 in
-`apps/web`) plus one supertest module-boot check. The eight e2e added since the previous count on
-this page are `meetings-detail`'s `MD-API-01`…`07` in a new 13th file
+Measured **2026-09-29**, Windows 11, warm `.next`, after `CH-019`'s verify run. Suite composition —
+**110 e2e in 13 files and 51 units** (38 in `apps/api`, 13 in `apps/web`) plus one supertest
+module-boot check. The one e2e added since the previous line is `AR-API-10`, in the existing
+`architecture.api.spec.ts`; the file count does not move. Before that, measured 2026-09-28 at **109 e2e**: the eight added since the count before it were `meetings-detail`'s `MD-API-01`…`07` in a new 13th file
 (`e2e/regression/meetings-detail/`, deliberately no `.functional.` pair) plus `AR-API-09`, a new
 test in the existing `architecture.api.spec.ts`. `SEC-API-09` does **not** add to this count: it is
 the same case, extended in place to walk the by-id route rather than duplicated into a new one, so
@@ -226,8 +226,10 @@ it moves the file's line count but not the suite's test count. The nine added un
 `MD-UT-01`…`09` inside the existing `meetings.service.spec.ts`, so the unit file count does not
 move.
 
-**Not measured:** what the research and design stages cost in wall-clock (`BL-022`). The figures here
-are run economics only.
+**What the process costs is measured elsewhere.** `docs/profiling/` holds one record per development
+cycle — stage by stage, in tokens and wall-clock (`ADR-0020`, closing what `BL-022` asked for). The
+figures on this page are run economics only, and the two are kept apart deliberately: one paragraph
+carrying two subjects is how `FX-027` happened.
 
 | What                                             | Time        | How measured                              |
 | ------------------------------------------------ | ----------- | ----------------------------------------- |

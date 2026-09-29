@@ -14,23 +14,9 @@ role works from in `project-context`. This file holds only the order of steps.
 
 ## Seven steps
 
-| #   | Step               | Role                               | Input                 | Output                                           |
-| --- | ------------------ | ---------------------------------- | --------------------- | ------------------------------------------------ |
-| 1   | Orientation        | `planner` (or the fixer, if short) | a defect report       | new, known (`BL-`) or a regression (`FX-`)       |
-| 2   | Reproduction       | the `tester-*` for that level      | orientation done      | a command that goes red **now**                  |
-| 3   | Cause              | `implementer-api` / `-web`         | the defect reproduces | the cause plus what proved it                    |
-| 4   | Impact             | `planner`                          | the cause found       | what else rests on it, urgency, is a plan needed |
-| 5   | Red test           | the `tester-*` for that level      | a decision to fix     | a case in the suite, red on current code         |
-| 6   | Fix                | `implementer-api` / `-web`         | the red test          | a minimal edit at the cause; the test goes green |
-| 7   | Acceptance + entry | `tester-acceptance`, then `lead`   | the fix is ready      | a green `pnpm verify`, an `FX-` entry            |
-
-The order never changes. The most common and most expensive swap is fixing before step 5: then
-there is nothing to prove you fixed the right thing and nothing to stop it coming back.
-
-**The test and the fix are different roles on purpose.** Whoever writes the fix has already decided
-what the problem is; a test written by the same agent tends to check that decision rather than the
-promised behaviour (`ADR-0014`). For a one-line fix with a known cause the short path in §4 applies
-and the whole team is not assembled — but even there, the red test comes first.
+The seven steps, their roles and their IDs (`FIX-S1`…`FIX-S7`) are in
+[`docs/process.md`](../../../docs/process.md), the single home for the stage inventory (`ADR-0020`).
+This file owns what each step means for a defect and why the order is what it is.
 
 ## Where the discovery stages fit
 

@@ -161,11 +161,40 @@ words.
 | `implementer-api`, `implementer-web`                             | product code                                | write tests, dispatch         |
 | `plan-reviewer`, `code-reviewer`                                 | verdicts, in text                           | edit or run anything          |
 | `tester-unit`, `-api`, `-functional`, `-security`, `-acceptance` | tests and runs                              | touch product code, dispatch  |
+| `pipeline-reviewer`, `pipeline-planner`                          | evidence, then proposals for the owner      | edit the pipeline             |
+| `pipeline-implementer`                                           | the pipeline changes the owner approved     | decide what to change         |
 
 Two boundaries are choices rather than consequences: **test artifacts belong to the testers**
 (`e2e/**`, `**/*.spec.ts`, `*.cases.md`) and product code to the implementers; and **reviewers are
 read-only** in the literal sense. The full contract — models per role, the handoff format, when the
 team is the wrong tool — is the `team-roles` skill.
+
+## The process itself: stages, gates and what they cost
+
+The pipeline is a thing this repository builds, so it is documented and measured like anything else.
+Two documents, disjoint from the architecture corpus above and from the skills:
+
+| Document                                      | Owns                                                                            |
+| --------------------------------------------- | ------------------------------------------------------------------------------- |
+| [`docs/process.md`](docs/process.md)          | **the inventory**: which stages and gates exist, in what order, under which IDs |
+| [`docs/profiling/`](docs/profiling/README.md) | **the measurements**: one append-only record per development cycle              |
+
+The skills own the **procedure** — how a stage is run and what it costs to skip — and link to the
+inventory rather than restating it (`ADR-0020`). A stage table anywhere else is drift, which is what
+`FX-023`, `FX-027`, `FX-031` and `FX-032` are all entries about.
+
+The IDs (`FEAT-S1`…`FEAT-S8`, `FEAT-G1`…`FEAT-G4`, `FIX-S1`…`FIX-S7`, `TUNE-S1`…`TUNE-S3`) are the
+join key between a measurement and the thing measured. They are **never renumbered or reused**, and
+`AR-API-10` fails a profiling record citing a stage the inventory does not define.
+
+**A profiling record is part of finishing a cycle** (`FEAT-S8`), like the ledger entry: the numbers
+exist only while the hand-backs are still in front of you. The first record measured `FT-003` at
+3.48M tokens across 21 agents, of which product code was 2.4% and rework after a gate was 29.3%.
+
+Changing the pipeline goes through the `pipeline-tuning` skill: evidence, then proposals, then
+**the owner's approval**, then implementation of exactly what was approved. That gate is human and is
+never simulated — `CH-004` is the entry for a process that outgrew the work it guarded, and a person
+noticed.
 
 ## What has been done: the ledger and the backlog
 
@@ -316,9 +345,9 @@ the hook runs the units against different content — exactly what will go into 
 
 ## Skills: our own and external
 
-There are thirteen in `.claude/skills/`. Eight are ours — `feature-pipeline`, `bugfix-pipeline`,
-`team-roles`, `project-context`, `research-protocol`, `design-protocol`, `playwright-verify`,
-`regression-verify`. The other five are **adapters** to external sets: `git-commit`,
+There are fourteen in `.claude/skills/`. Nine are ours — `feature-pipeline`, `bugfix-pipeline`,
+`pipeline-tuning`, `team-roles`, `project-context`, `research-protocol`, `design-protocol`,
+`playwright-verify`, `regression-verify`. The other five are **adapters** to external sets: `git-commit`,
 `heroui-react`, `nestjs-best-practices`, `requesting-code-review`, `vercel-react-best-practices`.
 
 **An external skill is wired in through an adapter, never a copy.** A copied rule drifts from the

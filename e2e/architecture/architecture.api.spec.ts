@@ -26,6 +26,8 @@ const SECURITY_SPEC = 'e2e/security/security.api.spec.ts';
 const AGENTS_DIR = '.claude/agents';
 const CONTROLLERS_DIR = 'apps/api/src';
 const TEAM_ROLES_SKILL = '.claude/skills/team-roles/SKILL.md';
+const PROCESS_DOC = 'docs/process.md';
+const PROFILING_DIR = 'docs/profiling';
 
 /** Files in `docs/adr/` that are not decisions. */
 const ADR_NON_RECORDS = ['README.md', 'TEMPLATE.md'];
@@ -538,6 +540,53 @@ function knownCaseIds(root: string): Set<string> {
   return ids;
 }
 
+/**
+ * A stage or gate identifier — `FEAT-S1`, `FEAT-G4`, `FIX-S7`, `TUNE-G1`. The flow prefix is four
+ * letters or fewer and uppercase, so it cannot collide with a case ID (`HD-API-01`): those carry
+ * `-API-`/`-FN-`/`-UT-` in the middle, these carry `-S`/`-G` and a number.
+ */
+const STAGE_ID_ANYWHERE = /\b([A-Z]{3,4}-[SG]\d{1,2})\b/g;
+
+/** Stage and gate IDs defined by the inventory in `docs/process.md` (ADR-0020). */
+function definedStageIds(root: string): Set<string> {
+  const ids = new Set<string>();
+
+  for (const match of read(root, PROCESS_DOC).matchAll(STAGE_ID_ANYWHERE)) {
+    ids.add(match[1]);
+  }
+
+  return ids;
+}
+
+/**
+ * ADR-0020: a profiling record cites stages by ID so a renamed heading cannot silently break the
+ * link between a measurement and the thing measured. A record naming a stage nobody defined is the
+ * failure mode, and it is invisible to review — the ID still looks like an ID.
+ */
+function violationsStageCitations(root: string): string[] {
+  const defined = definedStageIds(root);
+  const problems: string[] = [];
+
+  for (const file of walk(root, PROFILING_DIR).filter((name) => name.endsWith('.md'))) {
+    const cited = new Set<string>();
+
+    for (const match of read(root, file).matchAll(STAGE_ID_ANYWHERE)) {
+      cited.add(match[1]);
+    }
+
+    for (const id of [...cited].sort()) {
+      if (!defined.has(id)) {
+        problems.push(
+          `${file} cites the stage \`${id}\`, but ${PROCESS_DOC} does not define it. ` +
+            'A measurement of a stage nobody declared cannot be compared with anything (ADR-0020)',
+        );
+      }
+    }
+  }
+
+  return problems;
+}
+
 function violationsCasesCitations(root: string): string[] {
   const problems: string[] = [];
   const known = knownCaseIds(root);
@@ -757,6 +806,22 @@ test.describe('Architecture corpus', { tag: '@architecture' }, () => {
       violationsCasesCitations(root),
       'A cell citing an ID no .cases.md declares is undetectable from the table itself — only a ' +
         'scan of e2e/**/*.cases.md catches it',
+    ).toEqual([]);
+  });
+
+  test('AR-API-10 — every stage cited in a profiling record exists in the process inventory', () => {
+    const root = repoRoot();
+
+    // Guard against the scan going vacuous the way AR-API-09's nearly did: if the inventory parses
+    // to nothing, every record passes while nothing is compared.
+    expect(
+      definedStageIds(root).size,
+      `No stage ids parsed out of ${PROCESS_DOC} — the check would pass having read nothing`,
+    ).toBeGreaterThan(0);
+
+    expect(
+      violationsStageCitations(root),
+      'A profiling record citing an undefined stage measures something nobody can find (ADR-0020)',
     ).toEqual([]);
   });
 });

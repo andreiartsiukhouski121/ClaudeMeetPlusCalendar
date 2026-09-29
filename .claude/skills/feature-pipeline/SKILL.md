@@ -25,19 +25,15 @@ drifts from the original silently, which is how this repository earned `FX-023` 
 Nine stages, six of them behind a gate. Each stage's artifact is the next stage's context, and the
 whole of it lives in one folder: `docs/plans/<slug>/`, created by `pnpm change:new <slug>`.
 
-| Phase                      | Where | Role                     | Input             | Output                                          |
-| -------------------------- | ----- | ------------------------ | ----------------- | ----------------------------------------------- |
-| Research                   | §0    | `researcher` + 4 sweeps  | the requirement   | `research/**` — cited findings, gaps named      |
-| Research review — **gate** | §1    | `research-reviewer`      | `research/**`     | blockers, or verdict `accept`                   |
-| Design                     | §2    | `designer`               | accepted research | `design.md`, and any ADR the shape needs        |
-| Design review — **gate**   | §3    | `design-reviewer`        | `design.md`       | blockers, or verdict `accept`                   |
-| Plan                       | §4    | `planner`                | research + design | `<slug>.plan.md`: orientation, tasks, DoD       |
-| Plan review — **gate**     | §5    | `plan-reviewer`          | the plan          | blockers, or verdict `accept`                   |
-| Implementation             | §6    | `implementer-api`/`-web` | the plan accepted | code; parallel parts each in their own worktree |
-| Tests per level            | §6    | the `tester-*` roles     | code ready        | cases plus green runs at each level touched     |
-| Code review — **gate**     | §7    | `code-reviewer`          | the diff          | blockers, or verdict `accept`                   |
-| Acceptance                 | §8    | `tester-acceptance`      | review passed     | a green `pnpm verify` and a report with numbers |
-| Ledger entry               | §12   | `lead`                   | acceptance passed | an `FT-`/`CH-` row, closed `BL-` items          |
+The stages, their gates, their order and their IDs (`FEAT-S1`…`FEAT-S8`, `FEAT-G1`…`FEAT-G4`)
+are in [`docs/process.md`](../../../docs/process.md) — the single home for that inventory
+(`ADR-0020`). They are not repeated here: this file owns the **procedure**, what each stage does and
+what it costs to run it badly, and a second table of stages would drift against the first the way
+`FX-023`, `FX-027`, `FX-031` and `FX-032` all did.
+
+A cycle also ends with a profiling record (`FEAT-S8`, `ADR-0020`): the numbers exist only while the
+hand-backs are still in front of you, and `docs/profiling/` is what the `pipeline-tuning` skill reads
+when this flow is itself the thing being changed.
 
 The `lead` sequences all of it and holds the gates; it writes nothing. Sections §9–§11 are
 cross-cutting: what not to cut, the budget, and reporting as you go.
