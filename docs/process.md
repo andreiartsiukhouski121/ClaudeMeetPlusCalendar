@@ -50,18 +50,41 @@ name, and a retired one is never reused.
 
 ## `FIX` — a defect
 
-Procedure: the `bugfix-pipeline` skill. The discovery stages `FEAT-S1`…`FEAT-S3` apply above that
-skill's §4 threshold and are skipped by design below it.
+Procedure: the `bugfix-pipeline` skill. Two paths, named explicitly rather than left to judgement:
+below `bugfix-pipeline` §4's threshold the short path runs `FIX-S1`-`FIX-S7` only, by one fixer, with
+no change folder and no team; above it the full path runs the same seven steps plus the three
+discovery stages below and the profiling record at the end, in the row order of the table. The Role
+column names the full path's team roles; on the short path one agent performs all of them.
 
-| ID       | Step               | Role                             | Output                                           |
-| -------- | ------------------ | -------------------------------- | ------------------------------------------------ |
-| `FIX-S1` | Orientation        | `planner`, or the fixer if short | new, known (`BL-`) or a regression (`FX-`)       |
-| `FIX-S2` | Reproduction       | the `tester-*` for that level    | a command that goes red **now**                  |
-| `FIX-S3` | Cause              | `implementer-api` / `-web`       | the cause plus what proved it                    |
-| `FIX-S4` | Impact             | `planner`                        | what rests on it, urgency, is a plan needed      |
-| `FIX-S5` | Red test           | the `tester-*` for that level    | a case in the suite, red on current code         |
-| `FIX-S6` | Fix                | `implementer-api` / `-web`       | a minimal edit at the cause; the test goes green |
-| `FIX-S7` | Acceptance + entry | `tester-acceptance`, then `lead` | a green `pnpm verify`, an `FX-` entry            |
+| ID        | Step               | Role                                                | Output                                                                                                                                       |
+| --------- | ------------------ | --------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `FIX-S1`  | Orientation        | `planner`, or the fixer if short                    | new, known (`BL-`) or a regression (`FX-`)                                                                                                   |
+| `FIX-S2`  | Reproduction       | the `tester-*` for that level                       | a command that goes red **now**, or — where no test touches the area — a written, repeatable procedure with its observed and expected result |
+| `FIX-S3`  | Cause              | `implementer-api` / `-web`                          | the cause plus what proved it                                                                                                                |
+| `FIX-S4`  | Impact             | `planner`                                           | what rests on it, urgency, is a plan needed                                                                                                  |
+| `FIX-S8`  | Research           | `researcher` + the sweeps the defect needs          | `research/**`: steps `FIX-S1`-`FIX-S3` written down with citations; the history sweep is always one of them                                  |
+| `FIX-S9`  | Design             | `designer`, or `planner` when the fix has no shape  | `design.md`, and any ADR the fix's shape needs                                                                                               |
+| `FIX-S10` | Plan               | `planner`                                           | `<slug>.plan.md` from `TEMPLATE-BUGFIX.md`                                                                                                   |
+| `FIX-S5`  | Red test           | `test-designer`, then the `tester-*` for that level | a scenario row in the paired `.cases.md`, then a spec red on current code — the first case there when the area had none                      |
+| `FIX-S6`  | Fix                | `implementer-api` / `-web`                          | a minimal edit at the cause; the test goes green                                                                                             |
+| `FIX-S7`  | Acceptance + entry | `tester-acceptance`                                 | a green `pnpm verify`, an `FX-` entry                                                                                                        |
+| `FIX-S11` | Profiling record   | `tester-acceptance`                                 | `docs/profiling/runs/<date>-<slug>.md` — above the §4 threshold only                                                                         |
+
+`FIX-S8`, `FIX-S9` and `FIX-S10` are new with the third tuning round (`TUNE-S3`, 2026-09-29): the
+defect flow stops borrowing `FEAT-S1`…`FEAT-S3` by reference and gets its own stages, placed after
+impact rather than before reproduction, because the §4 threshold's first condition — "the cause was
+not found in about 15 minutes" — cannot be judged before the cause is looked for. `FIX-S11` is new
+with the same round, for the same reason `FEAT-S8` exists: the numbers only exist while the
+hand-backs are still in front of you, and it belongs to `tester-acceptance` rather than to `lead`,
+because `lead` has no `Write`. `FIX-S7` drops its second role (`lead`) for the same reason —
+identical to the defect `FX-034` fixed for `FEAT-S7`/`FEAT-S8`. **The row order above carries the
+real sequence of a run; the IDs are out of sequence on purpose** — `ADR-0020` forbids renumbering and
+reuse.
+
+The defect flow carries **no review gate**, above the threshold or below it — zero against the
+feature flow's four. What stands in for one is mechanical instead, and specific to this flow: the red
+test at `FIX-S5` must fail on current code, and the control experiment at `FIX-S7` reverts the fix and
+requires the test to go red again. A wrong cause fails both.
 
 ## `TUNE` — changing the pipeline itself
 

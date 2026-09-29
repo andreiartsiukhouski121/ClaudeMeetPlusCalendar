@@ -52,6 +52,11 @@ figures in a record, state that they overlap, and treat `discovery` as the froze
 cross-record comparability and `pre-implementation` as the one to watch for whether the new stages
 are creeping the pipeline back toward `CH-004`'s shape.
 
+**A `FIX` record differs from a `FEAT` one only in which stages it rows, not in the protocol above.**
+The Flow field reads `FIX`; the stage rows are whichever of `FIX-S1`…`FIX-S11` the cycle actually ran
+— `FIX-S8`-`FIX-S11` only above `bugfix-pipeline` §4's threshold, per `docs/process.md`'s `FIX` table.
+Gate yield is written as zero by design, not left blank: the defect flow carries no review gate.
+
 **Record what you actually know.** Sub-agent cost arrives in the hand-back; wall-clock is the
 harness's duration. Where a number is unavailable, the cell says so — an invented figure is worse
 than a gap, and `FX-027` is the ledger entry for what a wrong number in a measurement paragraph

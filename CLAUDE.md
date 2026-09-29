@@ -185,7 +185,7 @@ The skills own the **procedure** — how a stage is run and what it costs to ski
 inventory rather than restating it (`ADR-0020`). A stage table anywhere else is drift, which is what
 `FX-023`, `FX-027`, `FX-031` and `FX-032` are all entries about.
 
-The IDs (`FEAT-S1`…`FEAT-S11`, `FEAT-G1`…`FEAT-G4`, `FIX-S1`…`FIX-S7`, `TUNE-S1`…`TUNE-S3`) are the
+The IDs (`FEAT-S1`…`FEAT-S11`, `FEAT-G1`…`FEAT-G4`, `FIX-S1`…`FIX-S11`, `TUNE-S1`…`TUNE-S3`) are the
 join key between a measurement and the thing measured. They are **never renumbered or reused**, and
 `AR-API-10` fails a profiling record citing a stage the inventory does not define. `FEAT-S5` is
 retired rather than deleted: the ID stays in `docs/process.md` because the first profiling record

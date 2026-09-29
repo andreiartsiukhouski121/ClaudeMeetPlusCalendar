@@ -1,6 +1,6 @@
 ---
 name: bugfix-pipeline
-description: Order of work for a defect — reproduction, cause, impact, a red test before the fix, the fix, acceptance, an FX- entry — and which role of the agent team owns each step. Use when something is broken, when the user says "bug", "it does not work", "fix it", "figure out why", "a test failed", "regression", or when a defect is found during acceptance. For new functionality, use the feature-pipeline skill.
+description: Order of work for a defect — reproduction, cause, impact, a red test before the fix, the fix, acceptance, an FX- entry — and which role of the agent team owns each step. A defect is not only a red test: it can be noticed in the running application, in the code, from an owner's report, or during unrelated work. Use when something is broken, when the user says "bug", "it does not work", "fix it", "figure out why", "a test failed", "regression", "this looks broken", "found this while doing something else", or when a defect is found during acceptance. For new functionality, use the feature-pipeline skill.
 ---
 
 The flow for a defect. It differs from `feature-pipeline` in that it **designs nothing**: the
@@ -12,28 +12,57 @@ Invariants, ports and "who runs what" live in `CLAUDE.md`; the suite convention 
 the acceptance rules in `regression-verify`; the role contract in `team-roles`; the documents each
 role works from in `project-context`. This file holds only the order of steps.
 
-## Seven steps
+## Eleven steps
 
-The seven steps, their roles and their IDs (`FIX-S1`…`FIX-S7`) are in
+The steps, their roles and their IDs (`FIX-S1`…`FIX-S11`) are in
 [`docs/process.md`](../../../docs/process.md), the single home for the stage inventory (`ADR-0020`).
-This file owns what each step means for a defect and why the order is what it is.
+Only seven of them (`FIX-S1`…`FIX-S7`) run below `bugfix-pipeline` §4's threshold; the other four are
+discovery and the profiling record, above it only (see below). This file owns what each step means
+for a defect and why the order is what it is.
 
 ## Where the discovery stages fit
 
-Above the §4 threshold a defect gets a change folder (`pnpm change:new <slug> --bug`) and the same
-three stages a feature gets, mapped onto the steps above:
+Above `bugfix-pipeline` §4's threshold a defect gets a change folder (`pnpm change:new <slug> --bug`)
+and three stages of its own — `FIX-S8`, `FIX-S9`, `FIX-S10` — placed **after** impact (`FIX-S4`)
+rather than before reproduction: the threshold's first condition is "the cause was not found in about
+15 minutes", which cannot be judged before the cause is looked for.
 
-| Stage        | For a defect it means                                                                                                                                                                                                                     |
-| ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Research** | steps 1–3 written down with citations: what was promised and where, what the code does, what the history says. The `researcher-history` sweep is how "has this been fixed before" gets answered from the record rather than from memory   |
-| **Design**   | usually short, and often one line: _restore the promised behaviour at the cause._ It becomes real work only when the fix has a shape — a changed contract, a new guard, a moved check — and then it needs its ADR like any other decision |
-| **Plan**     | the task breakdown, which for most defects is the red test, the fix and the entry                                                                                                                                                         |
+- **`FIX-S8`, Research** — by `researcher`, with sweeps chosen by the defect rather than the feature
+  flow's fixed four; the `researcher-history` sweep is always one of them, because "has this been
+  fixed before" is answered from the record, not from memory. Written into `research/**`: what was
+  promised and where, what the code does, what the history says.
+- **`FIX-S9`, Design** — usually one line: _restore the promised behaviour at the cause._ It becomes
+  real work, dispatched to `designer`, only when the fix has a shape — a changed contract, a new
+  guard, a moved check — and then it needs its own ADR like any other decision. When it stays one
+  line, `planner` writes it at `FIX-S10` instead: budget `design.md` at or under 50 lines unless it
+  carries an ADR.
+- **`FIX-S10`, Plan** — by `planner`, into `<slug>.plan.md` from `TEMPLATE-BUGFIX.md` (60-100 lines).
+  For most defects this is the red test, the fix and the entry.
 
-Below the threshold none of it applies: no folder, no stages, no team. A document for a one-line fix
-costs more than the fix — that is what `CH-004` moved away from, and adding stages makes repeating
-it cheaper, not harder.
+**No review gate sits behind any of the three** — the defect flow keeps the property it has always
+had, zero gates against the feature flow's four. What stands in for one is mechanical and specific to
+this flow: the red test at `FIX-S5` must fail on current code, and the control experiment at `FIX-S7`
+reverts the fix and requires the test to go red again. A wrong cause fails both.
+
+**Two paths**, named because the table's Role column otherwise reads as if every row always runs:
+
+- **the short path**, below the threshold — `FIX-S1` through `FIX-S7` run; `FIX-S8`-`FIX-S10` and the
+  profiling record `FIX-S11` do not; there is no change folder and no team, per `team-roles`, "When
+  the team is the wrong tool".
+- **the full path**, above it — the same seven steps, plus `FIX-S8`-`FIX-S10` between impact and the
+  red test, plus `FIX-S11` at the end. The Role column names the full path's team roles; on the short
+  path one agent performs all of them.
+
+A document for a one-line fix costs more than the fix — that is what `CH-004` moved away from, and
+naming these stages makes repeating it cheaper, not harder: it is the threshold that keeps the short
+path honest, not the absence of a name for the stages above it.
 
 ## 1. Orientation — like a feature, only shorter
+
+**A defect reaches this step from any source** — a failing test, an observation made while using the
+running application, a reading of the code, a report from the owner, or something noticed during
+unrelated work. Not only a suite failure: whichever way it was found, the same seven (or eleven)
+steps apply from here.
 
 Read [`docs/CHANGELOG.md`](../../../docs/CHANGELOG.md) and
 [`docs/BACKLOG.md`](../../../docs/BACKLOG.md), and — for the area the defect is in — the corpus that
@@ -57,12 +86,19 @@ change a decision rather than restore one, it is not a bugfix: it needs an ADR a
 
 ## 2. Reproduction — before anything else
 
-**Until the defect is reproduced there is nothing to fix.** A hypothesis without a red run is a
+**Until the defect is reproduced there is nothing to fix.** A hypothesis without a reproduction is a
 `BL-` item, not a bugfix, and should be filed as one.
 
-You need: the exact command or scenario, the expected result (with a reference to a case or an
-invariant), the actual result verbatim, stability, and the environment. The forms are in
-`docs/plans/TEMPLATE-BUGFIX.md` §1.
+**A defect is not only a red test.** Where a test already touches the area, reproduction is the
+command and its red run, as below. **Where nothing does, reproduction is a written, repeatable
+procedure instead** — the exact steps, the observed result and the expected one, with a reference to
+the case, the invariant or the contract the behaviour broke — and it counts as evidence on the same
+footing, not a lesser one: it is checked the same way a red run is, by someone else repeating the
+steps and getting the same result. §5 says what each path produces at the red-test step.
+
+You need, either way: the exact command, scenario or procedure, the expected result (with a reference
+to a case or an invariant), the actual result verbatim, stability, and the environment. The forms are
+in `docs/plans/TEMPLATE-BUGFIX.md` §1.
 
 Two traps specific to this repository, both of which have fired:
 
@@ -105,14 +141,25 @@ against 85 of code. A document for a one-line fix costs more than the fix.
 
 ## 5. The red test — before the fix, not after
 
-The test is written **first**, by a tester rather than by whoever will fix it, and must fail on
-current code. It is the same control experiment as in acceptance, only reversed: there the code is
-broken to check the test, here the code is already broken and the test is checked by it.
+The scenario is written **first**, by `test-designer`, as a row in the paired `.cases.md` — the same
+split `team-roles` states for the feature flow, applied here (`FIX-S5`). Below `bugfix-pipeline` §4's
+threshold there is no team and no `test-designer` dispatch: the fixer writes the case row with the
+spec, one agent doing what two would otherwise split. Above it, the spec and its run are a tester's:
+written against a scenario it did not author, and it must fail on current code. It is the same
+control experiment as in acceptance, only reversed: there the code is broken to check the test, here
+the code is already broken and the test is checked by it.
 
-Where it goes is decided by `e2e/README.md`: behaviour over HTTP → `<feature>.api.spec.ts`, UI →
-`*.functional.spec.ts`, a pure function → a unit next to the code. A new case needs an ID, a row in
-the paired `.cases.md`, and a title starting with that ID, or the convention meta-test fails the
-run.
+**Where the area was already covered, this reddens the shape of an existing check; where nothing
+touched it, this is new coverage — the first case there — not a repair of one.** Either way the test
+must be red on current code, for the reason it was written for, before the fix exists.
+
+Where it goes is decided by `e2e/README.md`: behaviour over HTTP → `<feature>.api.spec.ts`; a
+module-level check exercised without a browser → `*.integration.spec.ts` (project `integration`, case
+type `-INT-`); UI → `*.functional.spec.ts`; a pure function → a unit next to the code. A new case
+needs an ID, a row in the paired `.cases.md`, and a title starting with that ID, or the convention
+meta-test fails the run. Level tags (`@unit`, `@api`, `@e2e`, `@integration`) are optional but
+checked where present — `suite-integrity` rule 10 only fires once a tag exists, so an untagged spec
+still passes without one.
 
 If the defect is cross-feature — not "this page" but "any protected page" — it belongs in
 `e2e/security/**` or in the `PROTECTED_ROUTES` / `PROTECTED_PAGES` lists rather than in one
@@ -129,17 +176,27 @@ checking the wrong place; go back to step 3.
 - Refactoring around the fix is not part of the fix. A bugfix diff should read in a minute —
   otherwise a reviewer cannot tell a correction from a rewrite.
 - If the correct behaviour contradicts an existing case, **the case is right** until proven
-  otherwise. Once proven, the case and its `.cases.md` are edited in one commit and the report
-  gains a line saying "assertion changed, and why" (`regression-verify` §5).
+  otherwise. Proving it is not something the agent that finds the contradiction does on its own: it
+  reports the case ID, the exact command, the verbatim output and the argument that the
+  implementation is right; `lead` files a `BL-` row (`docs/BACKLOG.md`); and acceptance does not
+  proceed until the owner decides (`team-roles`, the boundaries section). Only once approved is the
+  case and its `.cases.md` edited — by `test-designer`, the role that owns the file — in one commit,
+  with a line saying "assertion changed, and why" (`regression-verify` §5).
 
 ## 7. Acceptance and the entry
 
 - **Control experiment:** revert the fix, confirm the new test goes red again, restore it. Without
   that there is no knowing whether the test holds this particular defect.
-- **One full `pnpm verify`**, not just the new case: the fix may have broken something next door.
+- **One full `pnpm verify`**, not just the new case: the fix may have broken something next door. If
+  a `.cases.md` changed at step 5, run `pnpm scenarios:index` first and commit the refreshed
+  `e2e/scenarios-index.md` — `PR-API-07` fails `pnpm verify` on a stale one.
 - **An `FX-` entry** in `docs/CHANGELOG.md` with the "Found by" column filled. That column is not a
   formality: it shows which checks work, and today it says the control experiments and the security
-  suite found three defects each while diff review found none.
+  suite found three defects each while diff review found none. **Where step 2's reproduction was a
+  procedure rather than a red run, say so by name here** (e.g. "observed in the running application;
+  no test covered this path") rather than in a separate `BL-` item: the area being uncovered is
+  itself a finding, and one line already carried by every entry is cheaper than a second ledger row
+  for what the new case at step 5 has already started to close.
 - **A `BL-` item** for the missing check, if "why it was not caught earlier" showed there was
   nothing to catch it with. One fix closes one defect; a repaired check closes a class.
 - If the defect was known as a `BL-` item, that item is marked closed with a reference to the `FX-`

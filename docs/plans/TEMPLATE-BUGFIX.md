@@ -35,16 +35,16 @@ Five answers. **Do not change the form** — `pnpm check:orientation` reads it a
 
 ## 1. Reproduction
 
-**Until the defect is reproduced there is nothing to fix.** A hypothesis without a red run is a
+**Until the defect is reproduced there is nothing to fix.** A hypothesis without a reproduction is a
 `BL-` item, not a bugfix.
 
-| What                | Value                                                                 |
-| ------------------- | --------------------------------------------------------------------- |
-| Command or scenario | the exact line: `pnpm e2e --grep "…"`, browser steps, request         |
-| Expected            | per the feature spec or an invariant, with a reference                |
-| Actual              | verbatim: error text, response code, screenshot                       |
-| Stability           | always / N times out of M — if it flickers, give the number           |
-| Environment         | what differs from normal: ports, seed state, servers left from before |
+| What                           | Value                                                                                                                                            |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Command, scenario or procedure | the exact line: `pnpm e2e --grep "…"`, browser steps, request — or, where no test touches the area, the numbered steps of a repeatable procedure |
+| Expected                       | per the feature spec or an invariant, with a reference                                                                                           |
+| Actual                         | verbatim: error text, response code, screenshot, or the procedure's observed result                                                              |
+| Stability                      | always / N times out of M — if it flickers, give the number                                                                                      |
+| Environment                    | what differs from normal: ports, seed state, servers left from before                                                                            |
 
 A flickering defect is fixed only once you know **what** it depends on: "sometimes red" is a
 coincidence, not a cause.
@@ -87,6 +87,15 @@ by" column gains a new value, and it becomes visible which kind of check actuall
 
 - **What we do NOT touch:** neighbouring defects, refactoring, anything "while we are here". Each
   such temptation is a separate `BL-` item, not a line in this diff.
+
+## 5a. Tests this fix is expected to break
+
+Case IDs, why each goes red, and which task above closes the window. Most fixes write "none" here —
+it exists for the ones that do not, so a break the plan foresaw is told apart from one nobody
+expected when a red test turns up later (`bugfix-pipeline` §6).
+
+| Case ID | Why it goes red | Closed by task |
+| ------- | --------------- | -------------- |
 
 ## 6. Verification
 

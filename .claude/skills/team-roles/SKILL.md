@@ -40,6 +40,12 @@ the documents every role works from are in `project-context`.
 | `pipeline-planner`     | `docs/profiling/plans/**`; proposals for the owner   | `Write`, no `Edit`/`Bash`         | `opus`   |
 | `pipeline-implementer` | the approved pipeline edits, and only those          | `Write`, `Edit`, `Bash`           | `sonnet` |
 
+`FIX-S9`, a defect's design stage, is the one place `design.md` does not always belong to `designer`:
+when the fix has no shape, `planner` writes it — one line, at `FIX-S10` — instead of a `designer`
+being dispatched for a document `bugfix-pipeline` itself calls "usually short, and often one line".
+The file still belongs to whichever role touches it; only the choice of role is conditional, and it
+is named here rather than left to judgement.
+
 `AR-API-08` compares this table against `.claude/agents/` **in both directions**: a role named here
 without a definition cannot be dispatched, and a definition nobody names here is unreachable.
 
@@ -74,7 +80,10 @@ the split survives moving `*.cases.md` off the testers: no agent grades its own 
 separating "what must be true" from "the code that asserts it" is what keeps that property, not
 which specific role holds the pen. So the red test that reproduces a defect (`bugfix-pipeline` §5)
 is written by a tester against a scenario it did not author, not by whoever will fix it, and an
-implementer who spots a missing case reports it rather than adding it.
+implementer who spots a missing case reports it rather than adding it. This ownership rule governs
+**team dispatches**; below `bugfix-pipeline` §4's threshold there is no team ("When the team is the
+wrong tool", below), and the fixer writes the case row with the spec, one agent doing what two would
+otherwise split.
 
 **A failing test the plan did not mark as expected to break is not edited by the agent that finds
 it.** If an agent believes the test, not the application, is wrong — once the ordinary
