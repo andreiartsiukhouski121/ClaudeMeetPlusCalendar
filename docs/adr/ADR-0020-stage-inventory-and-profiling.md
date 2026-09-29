@@ -13,10 +13,15 @@ has asked for that measurement since `CH-017` and nothing has produced it. The o
 exist are run times in `e2e/README.md`, which measure the suite rather than the process.
 
 The first change to run the full nine stages, `meetings-detail-participants`, cost **≈3.48M tokens
-across 21 agent dispatches**, of which 1.47M went to discovery and its three gates before a line of
-product code existed. `FT-003` shipped, but the shape of the spend was invisible until it was added
-up by hand afterwards, from twenty-one separate hand-backs. There is no artifact that would let the
-next person do that without re-reading the whole transcript.
+across 21 distinct agents and 29 dispatches**, of which 1.47M went to discovery and its three gates
+before a line of product code existed. `FT-003` shipped, but the shape of the spend was invisible
+until it was added up by hand afterwards, from twenty-one separate hand-backs. There is no artifact
+that would let the next person do that without re-reading the whole transcript.
+
+> **Correction, 2026-09-29 (pipeline-tuning proposal 10).** This paragraph first read "21 agent
+> dispatches", conflating two distinct facts the record carries: 21 distinct agents and 29
+> dispatches. Corrected rather than superseded, on the same footing as the `FX-034` correction
+> below: a factual correction of a figure, not a change of the decision.
 
 Two facts make a naive fix wrong. First, the stages already have a home: the `feature-pipeline` and
 `bugfix-pipeline` skills each carry a table of them. A second table in a document would be a third

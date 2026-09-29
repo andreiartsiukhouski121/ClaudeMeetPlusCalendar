@@ -21,8 +21,10 @@ on an unrecorded assumption is exactly what the stage before it exists to preven
 
 ## What a design contains
 
-The scaffold is `docs/plans/SCAFFOLD-DESIGN.md`, created by `pnpm change:new`. Its sections and why
-each is there:
+The scaffold is `docs/plans/SCAFFOLD-DESIGN.md`, created by `pnpm change:new`. **300 lines**, the
+same form `feature-pipeline` §4 already uses for the plan ("100–150 lines"). What the budget never
+cuts: the contract's exact error bodies, the seed as concrete values, and the rejected alternatives —
+those are exactness requirements, not length to trim. Its sections and why each is there:
 
 1. **What the research established** — links into `research/`, not a second copy of it.
 2. **The shape** — layer by layer, what changes in `apps/api` (controller, service, DTO, mapper,

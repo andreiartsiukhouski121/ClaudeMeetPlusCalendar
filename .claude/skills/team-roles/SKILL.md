@@ -96,8 +96,8 @@ soften a verdict, or merge two roles' outputs into one story.
 
 ## When the team is the wrong tool
 
-The flow has real cost: nine stages, six gates, more context and more wall-clock. Use the short path
-when:
+The flow has real cost: the stages and gates in `docs/process.md`, more context and more
+wall-clock. Use the short path when:
 
 - the fix is one line and its cause is known — `bugfix-pipeline` §4 says a red test, the fix, an
   `FX-` entry, no folder, no stages, no team;

@@ -40,14 +40,8 @@ than their names.
 
 ## Gates, in order
 
-| Gate        | Passed by                                         | Blocks                |
-| ----------- | ------------------------------------------------- | --------------------- |
-| Orientation | section 0 of the plan, `pnpm check:orientation`   | planning onward       |
-| Plan review | `plan-reviewer` verdict `accept`                  | implementation        |
-| Code review | `code-reviewer` verdict `accept`                  | acceptance            |
-| Level tests | the tester for each level that was touched        | acceptance            |
-| Acceptance  | `tester-acceptance`: green `pnpm verify` + report | the ledger entry      |
-| Ledger      | an `FT-`/`CH-`/`FX-` row with `Commit`            | calling the task done |
+The inventory of stages and gates, their order and their IDs is `docs/process.md`'s alone
+(`ADR-0020`) — read it rather than holding a second copy here.
 
 A blocker at any gate goes back to the role that owns the artifact, with the blocker text unedited.
 You do not fix it yourself, and you do not soften it.

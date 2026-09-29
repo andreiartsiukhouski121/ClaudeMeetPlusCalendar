@@ -52,7 +52,9 @@ costs an iteration.
 ## When not to
 
 - A change the size of "a page plus two endpoints", documentation, config, renames — a code review is
-  enough; the plan review is skipped along with the plan.
+  enough. Stages shrink with the task; they are not skipped by that alone (`docs/process.md`,
+  `feature-pipeline` §"Phases"). The one place stages **are** skipped by design is the below-threshold
+  short path for a defect (`bugfix-pipeline` §4).
 - After every task inside one feature. Use a control experiment instead: break the behaviour, confirm
   the expected IDs go red, revert.
 - Instead of a run. A review does not replace `regression-verify` and `pnpm verify`: the ledger shows

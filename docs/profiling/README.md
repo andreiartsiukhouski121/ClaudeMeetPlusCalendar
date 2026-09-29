@@ -25,6 +25,21 @@ calls, and the outcome. **Rework is recorded against the stage that was reworked
 caught it** — the gate's own cost is its row, and separating the two is what makes "did this gate
 pay for itself" answerable.
 
+**A stage re-run after its gate gets two rows under the same ID**, first pass and re-run, rather than
+one row combining both — and a stage dispatched to more than one role (`FEAT-S1`'s four sweeps,
+`FEAT-S5`'s `tester-api`, `tester-unit`, `tester-security`) gets one row per role. `FEAT-S8` gets a
+row of its own. No new stage IDs are minted and none is renumbered for this (`ADR-0020`): the split
+is by role and by pass within the same ID.
+
+**The cycle also carries one further number: elapsed wall-clock for the whole cycle**, from the first
+dispatch to the ledger entry, recorded next to the agent-time total at `FEAT-S8`. The per-stage rows
+stay agent-time, summed per dispatch; the elapsed figure is the one number in the record that is not
+a sum of the rows above it, because dispatches can run in parallel.
+
+**Discovery and implementation are one split, cited by stage ID rather than restated in prose**:
+`FEAT-S1`…`FEAT-G3` are discovery, `FEAT-S4`…`FEAT-S8` are everything after. Every record and
+`feature-pipeline` §10 use this same boundary.
+
 **Record what you actually know.** Sub-agent cost arrives in the hand-back; wall-clock is the
 harness's duration. Where a number is unavailable, the cell says so — an invented figure is worse
 than a gap, and `FX-027` is the ledger entry for what a wrong number in a measurement paragraph

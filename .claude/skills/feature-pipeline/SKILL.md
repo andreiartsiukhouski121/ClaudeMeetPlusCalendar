@@ -22,8 +22,8 @@ drifts from the original silently, which is how this repository earned `FX-023` 
 
 ## Phases
 
-Nine stages, six of them behind a gate. Each stage's artifact is the next stage's context, and the
-whole of it lives in one folder: `docs/plans/<slug>/`, created by `pnpm change:new <slug>`.
+Each stage's artifact is the next stage's context, and the whole of it lives in one folder:
+`docs/plans/<slug>/`, created by `pnpm change:new <slug>`.
 
 The stages, their gates, their order and their IDs (`FEAT-S1`…`FEAT-S8`, `FEAT-G1`…`FEAT-G4`)
 are in [`docs/process.md`](../../../docs/process.md) — the single home for that inventory
@@ -276,12 +276,14 @@ branch's changes and complements the automated cases rather than replacing them.
 
 ## 10. Time budget
 
-**The implementation half** of a feature the size of "a page plus two endpoints": plan 10, plan
+**Plan through acceptance**, for a feature the size of "a page plus two endpoints": plan 10, plan
 review 12, implementation 25, acceptance 10, security 3 — **about 60 minutes**, and that is the
-floor. The pipeline audit recomputed it against observed agent durations (minimum 8.7 minutes,
-median 21.4) and got 70 minutes with a narrow review and 85 with a full one, including the probes
-that now live in §0. There is no slack in those numbers: going back to a full plan review costs
-+15 minutes.
+floor. This groups stages by when they run, not by the discovery-versus-implementation split
+`docs/profiling/README.md` defines by stage ID (`FEAT-S1`…`FEAT-G3` against `FEAT-S4`…`FEAT-S8`):
+the plan and plan review counted here fall on the discovery side of that split. The pipeline audit
+recomputed the total against observed agent durations (minimum 8.7 minutes, median 21.4) and got 70
+minutes with a narrow review and 85 with a full one, including the probes that now live in §0. There
+is no slack in those numbers: going back to a full plan review costs +15 minutes.
 
 **The discovery half is now measured.** `docs/profiling/` holds one record per cycle (`ADR-0020`,
 closing `BL-022`), and the first put discovery and its three gates at 1.47M tokens against 2.01M for

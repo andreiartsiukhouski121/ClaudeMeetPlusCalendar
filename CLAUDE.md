@@ -189,7 +189,8 @@ join key between a measurement and the thing measured. They are **never renumber
 
 **A profiling record is part of finishing a cycle** (`FEAT-S8`), like the ledger entry: the numbers
 exist only while the hand-backs are still in front of you. The first record measured `FT-003` at
-3.48M tokens across 21 agents, of which product code was 2.4% and rework after a gate was 29.3%.
+3.48M tokens across 21 distinct agents and 29 dispatches, of which product code was 2.4% and rework
+after a gate was 29.3%.
 
 Changing the pipeline goes through the `pipeline-tuning` skill: evidence, then proposals, then
 **the owner's approval**, then implementation of exactly what was approved. That gate is human and is

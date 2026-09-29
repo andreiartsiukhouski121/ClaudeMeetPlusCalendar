@@ -122,6 +122,13 @@ pnpm e2e --grep "AL-FN-03"      # one case by ID
 pnpm e2e:report                 # the HTML report after a failure
 ```
 
+**While reproducing and fixing a defect found during `FEAT-S5`, filter the runs** —
+`pnpm test:<feature>`, a `--grep`, or one Playwright project — rather than repeating the full suite
+on every iteration of the loop, and run the full `pnpm e2e` **once** to confirm the fix before
+handing back. Acceptance's own unfiltered run is unaffected by this and stays where it is, at
+`FEAT-S6`: this is about the debug loop inside a stage, not about `CLAUDE.md`'s "who runs what",
+which governs `pnpm test` by hand and acceptance.
+
 The full list of run commands is in `e2e/README.md`. The scripts are named `e2e*` rather than
 `test:e2e` because `apps/api` has its own `test:e2e` on Vitest + supertest. `pnpm test` is the unit
 suite; it does not run Playwright and does not need running by hand (see "Who runs what" in

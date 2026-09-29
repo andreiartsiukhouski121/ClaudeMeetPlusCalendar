@@ -21,10 +21,7 @@ in the report is not an acceptable phrasing.
 **fixes nothing** — §5 — and that is a tool boundary, not a promise: the roles that judge do not hold
 the files they judge.
 
-For a feature the size of "a page plus two endpoints" a **separate acceptance agent is
-unnecessary**: the implementer's DoD with control experiments _is_ the acceptance, and repeating
-the same run costs 20 minutes and adds no information. The order of work for a whole feature is in
-the `feature-pipeline` skill.
+The order of work for a whole feature is in the `feature-pipeline` skill.
 
 ## 1. Identify what is being accepted
 
