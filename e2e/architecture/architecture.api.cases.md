@@ -116,16 +116,23 @@ hypothetical — it is how `suite-integrity` once went green under any violation
   either to the caller reverts to what `ADR-0014` was written to fix: everything inheriting the
   parent's model, and a reviewer able to edit the code it is judging.
 
-### AR-API-08 — every role the `team-roles` skill names exists as a definition
+### AR-API-08 — the roles table and the agent definitions agree in both directions
 
 - **Priority:** P2
-- **Steps:** collect the `implementer-*` and `tester-*` role names written in backticks in
-  `.claude/skills/team-roles/SKILL.md`; compare with the files in `.claude/agents/`.
-- **Expected:** each named role has a definition.
-- **Why:** a role described in a skill but absent from disk cannot be dispatched. It reads like a
-  boundary and is a paragraph.
-- **Known gap:** the check is one-way and covers only the two prefixed families. A definition that
-  no skill mentions is not flagged — it is unused, not broken.
+- **Steps:** collect every role named in the first column of the roles table in
+  `.claude/skills/team-roles/SKILL.md` — **every** row, not a prefixed family — and compare with the
+  files in `.claude/agents/` in both directions.
+- **Expected:** each named role has a definition, and each definition is named in the table.
+- **Why:** a role described in a skill but absent from disk cannot be dispatched — it reads like a
+  boundary and is a paragraph. A definition no table names is unreachable, which is the same failure
+  seen from the other side.
+- **Why the table is read rather than the names filtered:** the first version kept only
+  `implementer-*` and `tester-*`, so the research and design families added later would have been
+  skipped silently while the case went on claiming to cover the skill. The spec records that as the
+  "vacuously green" failure arriving through a filter instead of a moved directory.
+- **This entry was itself wrong until `FX-034`:** it described the one-way version and carried a
+  "Known gap" about the direction the spec had already been checking. Found by the first `TUNE-S1`
+  review; the same class of defect as the cases doc `FEAT-G4` caught in the previous cycle.
 
 ### AR-API-09 — every ID cited in the Routes table Cases column exists in a cases doc
 

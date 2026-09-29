@@ -15,7 +15,7 @@ Which of the three flows you are in is decided before anything else — the rule
 
 ## `FEAT` — new functionality
 
-Procedure: the `feature-pipeline` skill. Nine stages, four of them behind a gate.
+Procedure: the `feature-pipeline` skill. Eight stages, four of them behind a gate.
 
 | ID        | Stage               | Role                                 | Output                                         |
 | --------- | ------------------- | ------------------------------------ | ---------------------------------------------- |
@@ -29,11 +29,13 @@ Procedure: the `feature-pipeline` skill. Nine stages, four of them behind a gate
 | `FEAT-S5` | Tests per level     | the `tester-*` roles                 | cases plus a green run at each level touched   |
 | `FEAT-G4` | **Code review**     | `code-reviewer`                      | blockers, or the verdict `accept`              |
 | `FEAT-S6` | Acceptance          | `tester-acceptance`                  | one green `pnpm verify`, reported with numbers |
-| `FEAT-S7` | Ledger              | `lead`                               | an `FT-`/`CH-` row, closed `BL-` items         |
-| `FEAT-S8` | Profiling record    | `lead`                               | `docs/profiling/runs/<date>-<slug>.md`         |
+| `FEAT-S7` | Ledger              | `tester-acceptance`                  | an `FT-`/`CH-` row, closed `BL-` items         |
+| `FEAT-S8` | Profiling record    | `tester-acceptance`                  | `docs/profiling/runs/<date>-<slug>.md`         |
 
 `FEAT-S8` is new with `ADR-0020` and is part of finishing, like the ledger entry: the numbers only
-exist while the hand-backs are still in front of you.
+exist while the hand-backs are still in front of you. Both belong to `tester-acceptance` rather than
+to `lead`, because `lead` has no `Write` (`ADR-0014`) — a stage assigned to a role that cannot
+perform it is a paragraph, not an assignment.
 
 **A gate is passed by an artifact, not by an assurance.** Stages are never reordered or skipped, but
 they shrink with the task; a skipped stage is named out loud rather than assumed.

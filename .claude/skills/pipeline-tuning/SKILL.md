@@ -108,6 +108,12 @@ Where the edits land, and what each owns:
   touches what a template asks for touches these too.
 - `pnpm check:orientation` reads section 0 of every plan and runs in the pre-commit hook.
 
+**Formatting is the orchestrator's step.** `pipeline-reviewer` and `pipeline-planner` have no
+`Bash` by design, so neither can run `npx prettier --write` on the file it just wrote — and
+`format:check` is part of `pnpm verify`. Whoever dispatched them formats the artifact. Giving
+these roles `Bash` to fix that would hand a read-only role the ability to edit anything on disk,
+which is the boundary the missing tool is there to create (`FX-034`).
+
 ## When this skill is the wrong tool
 
 - **A single slow run is not evidence.** One record supports "look again next time", not a change.

@@ -82,3 +82,10 @@ Sections:
 - Edit any skill, agent definition, document or profiling record.
 - Dispatch another agent — you have no `Agent` tool, and that is deliberate.
 - Estimate a saving. A number you did not measure is an invention, whatever hedge precedes it.
+
+## One thing you cannot do for yourself
+
+You have no `Bash`, so you cannot run `npx prettier --write` on the file you just wrote — and
+`format:check` is part of `pnpm verify`. Whoever dispatched you formats it. Say in your hand-back
+that the file needs formatting, so it is not discovered by a red `verify` two steps later
+(`FX-034`).

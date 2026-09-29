@@ -32,7 +32,7 @@ The skills keep owning the **procedure** — what a stage does, how to run it, w
 and link to the inventory instead of restating it. The phase tables in `feature-pipeline` and
 `bugfix-pipeline` are replaced by that link.
 
-Every stage and gate gets a stable ID: `FEAT-S1`…`FEAT-S6` and `FEAT-G1`…`FEAT-G4` for a feature,
+Every stage and gate gets a stable ID: `FEAT-S1`…`FEAT-S8` and `FEAT-G1`…`FEAT-G4` for a feature,
 `FIX-S1`…`FIX-S7` for a defect, `TUNE-S1`…`TUNE-S3` and `TUNE-G1` for the pipeline-tuning loop. The
 IDs are the join key: a profiling record cites them, a tuning proposal cites them, and a renamed
 heading no longer silently breaks the link between a measurement and the thing measured.
@@ -53,6 +53,11 @@ Rejected alternatives:
   at run time; the numbers arrive in hand-backs and are recorded by the orchestrator as they arrive.
 - **Skip the IDs and cite headings.** Cheaper to write, and it is exactly the coupling that decays:
   a heading reword leaves every prior record pointing at nothing, silently.
+
+> **Correction, 2026-09-29 (`FX-034`).** This paragraph first read `FEAT-S1`…`FEAT-S6` while the
+> inventory it created defines `FEAT-S1`…`FEAT-S8`. The range was wrong when written; the decision
+> was not. Corrected rather than superseded, and recorded here so the edit is visible — an accepted
+> ADR is not revised in substance, and this is the boundary of what that allows.
 
 ## Consequences
 

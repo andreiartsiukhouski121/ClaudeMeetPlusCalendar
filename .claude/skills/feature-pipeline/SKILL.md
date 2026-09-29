@@ -283,9 +283,14 @@ median 21.4) and got 70 minutes with a narrow review and 85 with a full one, inc
 that now live in §0. There is no slack in those numbers: going back to a full plan review costs
 +15 minutes.
 
-**The discovery half — research, design and their two gates — is not yet measured.** No estimate is
-given here rather than an invented one; the first features through this flow are the measurement,
-and it belongs in `e2e/README.md` beside the run economics when it exists (`ADR-0016`).
+**The discovery half is now measured.** `docs/profiling/` holds one record per cycle (`ADR-0020`,
+closing `BL-022`), and the first put discovery and its three gates at 1.47M tokens against 2.01M for
+everything after — the larger figure on the side this budget treats as the predictable one. What
+follows is the original wording, kept because the budget above still rests on it: no estimate was
+given here rather than an invented one, and the first features through this flow were to be the
+measurement (`ADR-0016`). They were. The measurements live in `docs/profiling/`, **not** in
+`e2e/README.md` — that page is the suite's run economics, and `ADR-0020` keeps the two apart
+deliberately.
 
 If the whole comes out at twice the floor, the cause is almost always the size of a document or the
 number of review iterations, not the difficulty of the code — which is what `CH-004` was written

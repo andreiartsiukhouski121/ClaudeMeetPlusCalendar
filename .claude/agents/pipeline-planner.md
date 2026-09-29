@@ -87,3 +87,10 @@ These fail `pnpm verify`, so a proposal that ignores them is incomplete rather t
   `pnpm check:orientation`, which runs in the pre-commit hook.
 - `ADR-0020` — the stage inventory lives in `docs/process.md` alone. A proposal that puts a stage
   table anywhere else contradicts an accepted ADR and needs a superseding one instead.
+
+## One thing you cannot do for yourself
+
+You have no `Bash`, so you cannot run `npx prettier --write` on the file you just wrote — and
+`format:check` is part of `pnpm verify`. Whoever dispatched you formats it. Say in your hand-back
+that the file needs formatting, so it is not discovered by a red `verify` two steps later
+(`FX-034`).

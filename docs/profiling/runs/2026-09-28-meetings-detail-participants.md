@@ -27,18 +27,23 @@ two pairs ran in parallel, so the clock on the wall was lower.
 | `FEAT-G4` | Code review     | `code-reviewer`                    | `opus`   | 1          | 159,360       | 45    | 5.8 min     | **accept after blockers** (2)    |
 | `FEAT-S6` | Acceptance      | `tester-acceptance`                | `sonnet` | 2          | 286,179       | 67    | 15.0 min    | one green `pnpm verify`          |
 | `FEAT-S7` | Ledger          | `tester-acceptance`                | `sonnet` | 1          | 89,467        | 25    | 5.6 min     | 5 rows, `pnpm e2e e2e/ledger` ok |
-| **Total** |                 | 21 distinct agents                 |          | **30**     | **3,478,421** | 994   | **190 min** |                                  |
+| **Total** |                 | 21 distinct agents                 |          | **29**     | **3,478,421** | 994   | **190 min** |                                  |
 
 `FEAT-S8` (this record) was written by the orchestrator and is not separately measured.
+
+> **Corrections, 2026-09-29 (`FX-034`).** The Dispatches total read **30** against a column summing
+> to 29; corrected to 29. Agent-time sums to 190.5 and is stated as 190. Both were found by the
+> first `TUNE-S1` review. Declared rather than silently amended: `ADR-0020` makes these records
+> append-only evidence, and a corrected number that says so is still evidence — a tidied one is not.
 
 ## The four numbers
 
 ### 1. Discovery vs implementation
 
-| Half                                    | Tokens    | Share |
-| --------------------------------------- | --------- | ----- |
-| Discovery + its three gates (`S1`-`G3`) | 1,472,438 | 42.3% |
-| Implementation onward (`S4`-`S7`)       | 2,005,983 | 57.7% |
+| Half                                               | Tokens    | Share |
+| -------------------------------------------------- | --------- | ----- |
+| Discovery + its three gates (`S1`-`G3`)            | 1,472,438 | 42.3% |
+| Implementation onward (`S4`-`S7`, incl. `FEAT-G4`) | 2,005,983 | 57.7% |
 
 The pipeline's own budget (`feature-pipeline` §10) treats the implementation half as the known,
 bounded one and says the discovery half is unmeasured. The first measurement of both puts the larger
