@@ -183,17 +183,25 @@ than repeating it.
 ## Adding a feature to the suite
 
 1. Create `e2e/regression/<slug>/` (slug in kebab-case).
-2. Add four files: `<slug>.api.cases.md`, `<slug>.api.spec.ts`, `<slug>.functional.cases.md`,
-   `<slug>.functional.spec.ts` — plus `<slug>.unit.cases.md` if the feature has units. A
-   `.cases.md` is a header, a summary table and a Cases section with steps and expected results; the
-   nearest model is `regression/auth-login/auth-login.api.cases.md`.
-3. Assign case IDs: `<FEATURE>-<TYPE>-<NN>`, where TYPE is `API` | `FN` | `UT`. Numbers are **never
-   reused** after a case is deleted.
+2. Add a `.cases.md` and a `.spec.ts` for **each level the change actually touches**:
+   `<slug>.api.*`, `<slug>.functional.*`, `<slug>.integration.*`, plus `<slug>.unit.cases.md` if the
+   feature has units. Rules 1-3 are **pairing** rules, not existence rules — a change with no UI has
+   no `.functional.*` pair, and that is legitimate rather than a gap (`meetings-detail` is the worked
+   example). A `.cases.md` is a header, a summary table and a Cases section with steps and expected
+   results; the nearest model is `regression/auth-login/auth-login.api.cases.md`. The scenario text
+   is written at `FEAT-S9` by `test-designer`; the specs below it are the testers'.
+3. Assign case IDs: `<FEATURE>-<TYPE>-<NN>`, where TYPE is `API` | `FN` | `UT` | `INT`. Numbers are
+   **never reused** after a case is deleted. The four type codes are the ones `ANY_PREFIX_CASE_ID` in
+   `suite-integrity.api.spec.ts` recognises; an ID carrying any other code is invisible to rules 5-7
+   **without failing the prefix guard**, so the case would exist and the convention would not see it.
 4. Start every test title with its case ID. A case deliberately left unautomated is marked in the
    `.cases.md` with `- **Not automated:** <reason + task link>` — the meta-test recognizes **only**
    that syntax.
-5. Set tags with the `tag` option on `test.describe`: `['@regression', '@<slug>']`, plus `@p0` and
-   `@mutating` where they apply.
+5. Set tags with the `tag` option on `test.describe`: `['@regression', '@<slug>']`, plus the level
+   tag — `@unit`, `@api`, `@e2e` or `@integration` — and `@p0` and `@mutating` where they apply. Rule
+   10 checks a level tag against the filename suffix, so `@api` belongs on `*.api.spec.ts`, `@e2e` on
+   `*.functional.spec.ts` and `@integration` on `*.integration.spec.ts`. `@p0` and `[CriticalPass]`
+   are the same thing under two names; `@p0` is the one the suite reads (`pnpm e2e:p0`).
 6. Put unit specs next to the code in `apps/**/src/**` and list their paths and case IDs in
    `<slug>.unit.cases.md`, grouped by spec: the meta-test checks both that the paths exist and that
    each ID appears in the spec it is listed under.
