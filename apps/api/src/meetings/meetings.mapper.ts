@@ -14,5 +14,6 @@ export function toMeetingDto(meeting: Meeting): MeetingDto {
     title: meeting.title,
     startsAt: meeting.startsAt,
     durationMinutes: meeting.durationMinutes,
+    participants: meeting.participants,
   };
 }

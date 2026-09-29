@@ -1,5 +1,15 @@
 import { Type } from 'class-transformer';
-import { IsInt, IsISO8601, IsOptional, IsString, Length, Max, Min } from 'class-validator';
+import {
+  ArrayMaxSize,
+  IsArray,
+  IsInt,
+  IsISO8601,
+  IsOptional,
+  IsString,
+  Length,
+  Max,
+  Min,
+} from 'class-validator';
 
 /**
  * Body of `POST /meetings`.
@@ -27,4 +37,16 @@ export class CreateMeetingDto {
   @Min(15)
   @Max(480)
   durationMinutes?: number;
+
+  /**
+   * Free-form strings — a name or an email, never a `User.id` (`ADR-0017`). Optional, at most 20
+   * entries, each 1-100 characters. `@IsOptional()` is not optional here either: invariant 2 holds
+   * for arrays exactly as it does for `durationMinutes` (design §3, probe A2).
+   */
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(20)
+  @IsString({ each: true })
+  @Length(1, 100, { each: true })
+  participants?: string[];
 }

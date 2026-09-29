@@ -80,7 +80,30 @@ export const TEACHER_MEETINGS = {
     'Homework review', // 2026-01-13T11:30:00.000Z
     'Intro to algebra', // 2026-01-12T09:00:00.000Z
   ],
+  /**
+   * `participants`, keyed by title, for all five of `teacher`'s seeded meetings
+   * (`apps/api/src/meetings/meetings.seed.ts`, `mtg-teacher-1`…`5`). `SM-API-03` compares each
+   * array against the API's response verbatim — order included — because `teacher` is read-only
+   * and an exact array can be asserted without creating anything.
+   */
+  participants: {
+    'Intro to algebra': ['Nina Cole', 'guest.parent@purpleschool.test'],
+    'Homework review': ['Nina Cole'],
+    'Geometry workshop': ['Nina Cole', 'Omar Vance', 'guest.tutor@purpleschool.test'],
+    'Pre-exam consultation': [],
+    'Module wrap-up session': ['Nina Cole', 'Omar Vance'],
+  },
 } as const;
+
+/**
+ * `participants` for `mtg-planner-1` and `mtg-organizer-1` — the two mutation sandboxes. Mirrored
+ * here for completeness with `apps/api/src/meetings/meetings.seed.ts`, but **not** read by
+ * `SM-API-03`: `planner` and `organizer` are mutated by `*.api.spec.ts` / `*.functional.spec.ts`
+ * respectively, and comparing their meetings would race with the cases that create new ones there
+ * (plan `meetings-detail-participants` §6).
+ */
+export const PLANNER_MEETING_PARTICIPANTS = ['Ruth Delgado', 'guest.coach@purpleschool.test'];
+export const ORGANIZER_MEETING_PARTICIPANTS = ['Ruth Delgado', 'Omar Vance'];
 
 /**
  * Every meeting created by a test is dated 2030. DESC sorting plus the top-three slice mean the

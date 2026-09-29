@@ -18,28 +18,30 @@ The table below is compared against the Nest controllers in **both directions** 
 route added to the code without a row here — or a row without a route — fails `pnpm verify`. Guarded
 routes are additionally matched against `PROTECTED_ROUTES` by `AR-API-06` (invariant 16).
 
-| Method | Path          | Guard    | Success | Errors      | Cases            |
-| ------ | ------------- | -------- | ------- | ----------- | ---------------- |
-| `GET`  | `/`           | none     | `200`   | —           | `SM-API-01`      |
-| `POST` | `/auth/login` | none     | `200`   | `400`,`401` | `AL-API-01`…`14` |
-| `GET`  | `/auth/me`    | `Bearer` | `200`   | `401`       | `AL-API-10`…`14` |
-| `GET`  | `/meetings`   | `Bearer` | `200`   | `400`,`401` | `HD-API-01`…`12` |
-| `POST` | `/meetings`   | `Bearer` | `201`   | `400`,`401` | `HD-API-13`…`20` |
+| Method | Path            | Guard    | Success | Errors      | Cases                                                |
+| ------ | --------------- | -------- | ------- | ----------- | ---------------------------------------------------- |
+| `GET`  | `/`             | none     | `200`   | —           | `SM-API-01`                                          |
+| `POST` | `/auth/login`   | none     | `200`   | `400`,`401` | `AL-API-01`…`04`, `AL-API-07`…`08`, `AL-API-10`…`11` |
+| `GET`  | `/auth/me`      | `Bearer` | `200`   | `401`       | `AL-API-10`, `AL-API-13`…`15`                        |
+| `GET`  | `/meetings`     | `Bearer` | `200`   | `400`,`401` | `HD-API-01`…`10`                                     |
+| `POST` | `/meetings`     | `Bearer` | `201`   | `400`,`401` | `HD-API-13`…`17`, `HD-API-20`                        |
+| `GET`  | `/meetings/:id` | `Bearer` | `200`   | `401`,`404` | `MD-API-01`…`07`                                     |
 
 ## Error shapes
 
 Taken from `HttpException.createBody`, not from memory — this project broke on them twice
 (invariants 1 and 8).
 
-| Situation                                   | Code  | Body                                                                                            |
-| ------------------------------------------- | ----- | ----------------------------------------------------------------------------------------------- |
-| `ValidationPipe` rejected the payload       | `400` | `{"message": ["email must be an email", …], "error": "Bad Request", "statusCode": 400}`         |
-| An extra field under `forbidNonWhitelisted` | `400` | `{"message": ["property ownerId should not exist"], "error": "Bad Request", "statusCode": 400}` |
-| Bad credentials                             | `401` | `{"message": "Invalid email or password", "error": "Unauthorized", "statusCode": 401}`          |
-| Missing or invalid token                    | `401` | `{"message": "Authentication required", "error": "Unauthorized", "statusCode": 401}`            |
+| Situation                                             | Code  | Body                                                                                            |
+| ----------------------------------------------------- | ----- | ----------------------------------------------------------------------------------------------- |
+| `ValidationPipe` rejected the payload                 | `400` | `{"message": ["email must be an email", …], "error": "Bad Request", "statusCode": 400}`         |
+| An extra field under `forbidNonWhitelisted`           | `400` | `{"message": ["property ownerId should not exist"], "error": "Bad Request", "statusCode": 400}` |
+| Bad credentials                                       | `401` | `{"message": "Invalid email or password", "error": "Unauthorized", "statusCode": 401}`          |
+| Missing or invalid token                              | `401` | `{"message": "Authentication required", "error": "Unauthorized", "statusCode": 401}`            |
+| No meeting with that id, or one owned by another user | `404` | `{"message": "Meeting not found", "error": "Not Found", "statusCode": 404}`                     |
 
-**`message` is an array on a 400 and a string on a 401.** Do not write a client that assumes one
-shape.
+**`message` is an array on a 400 and a string on a 401 and on a 404.** Do not write a client that
+assumes one shape.
 
 ---
 
@@ -100,7 +102,8 @@ no `limit` still runs through `@IsInt/@Min/@Max` and answers `400`, so the dashb
 at all (invariant 2, verified by probe, `HD-API-10`). The default of `3` is supplied by the
 **service**, not the DTO — a DTO default does not survive `plainToInstance` predictably.
 
-**Body:** `{ items: MeetingDto[], total: number }`.
+**Body:** `{ items: MeetingDto[], total: number }`. Each item is a `MeetingDto` — the same five keys
+`GET /meetings/:id` returns, `participants` included.
 
 **Logic:** filter by `ownerId` from the token → sort `startsAt` **descending with `id` ascending as
 the secondary key** → slice by `limit`. `total` is `countByOwner`, the owner's **full** count, never
@@ -115,13 +118,14 @@ because a client may send an offset date (`+03:00`) that sorts wrongly as text.
 **Guard:** the class-level `JwtAuthGuard`. **Answers `201`** — POST's default, and correct here;
 there is no `@HttpCode` on this handler on purpose (`HD-API-13`).
 
-**Request:** `{ title, startsAt, durationMinutes? }`.
+**Request:** `{ title, startsAt, durationMinutes?, participants? }`.
 
-| Field             | Rule                                                   |
-| ----------------- | ------------------------------------------------------ |
-| `title`           | string, 3–100 characters                               |
-| `startsAt`        | ISO 8601                                               |
-| `durationMinutes` | optional integer 15–480; the service defaults it to 60 |
+| Field             | Rule                                                                                                  |
+| ----------------- | ----------------------------------------------------------------------------------------------------- |
+| `title`           | string, 3–100 characters                                                                              |
+| `startsAt`        | ISO 8601                                                                                              |
+| `durationMinutes` | optional integer 15–480; the service defaults it to 60                                                |
+| `participants`    | optional array of strings, at most 20 entries, each 1–100 characters; the service defaults it to `[]` |
 
 **There is no `ownerId` field, and that absence is the protection.** The owner comes from the token,
 and `forbidNonWhitelisted` rejects an attempt to send one with
@@ -130,9 +134,70 @@ and `forbidNonWhitelisted` rejects an attempt to send one with
 `durationMinutes` must carry `@IsOptional()` — the "New meeting" form omits it, so without the
 decorator the button would answer 400 every time (`HD-API-20`).
 
+`participants` must carry `@IsOptional()` for the same reason (invariant 2): the shipped "New
+meeting" form sends `{ title, startsAt }` only, and without it every such request would 400.
+
+**`participants` — accepted inputs, all `201`:**
+
+| Sent            | Stored                                                               |
+| --------------- | -------------------------------------------------------------------- |
+| field absent    | `[]`                                                                 |
+| `[]`            | `[]`                                                                 |
+| `["Nina Cole"]` | verbatim, order preserved                                            |
+| `null`          | `[]` — an explicit `null` is treated the same as absent (`ADR-0017`) |
+
+**`participants` — rejected inputs, all `400`:**
+
+| Sent                                                       | Body                                                                                                                                                                                                            |
+| ---------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| not an array (e.g. a string)                               | `{"message":["participants must contain no more than 20 elements","participants must be an array"],"error":"Bad Request","statusCode":400}`                                                                     |
+| an array holding a non-string element                      | `{"message":["each value in participants must be longer than or equal to 1 and shorter than or equal to 100 characters","each value in participants must be a string"],"error":"Bad Request","statusCode":400}` |
+| an element under 1 or over 100 characters (including `""`) | `{"message":["each value in participants must be longer than or equal to 1 and shorter than or equal to 100 characters"],"error":"Bad Request","statusCode":400}`                                               |
+| more than 20 entries                                       | `{"message":["participants must contain no more than 20 elements"],"error":"Bad Request","statusCode":400}`                                                                                                     |
+
+A case asserts membership in `message`, not its length or the order of its entries — a body may
+carry more than one of these messages at once.
+
 **Logic:** generate a `randomUUID()` id, take `ownerId` from `@CurrentUser()`, normalize `startsAt`
 to canonical UTC (`new Date(...).toISOString()`) so the store never holds mixed formats, default the
-duration, store, and return through `toMeetingDto` — which strips `ownerId`.
+duration, default `participants` to `[]`, store, and return through `toMeetingDto` — which strips
+`ownerId`.
+
+## `GET /meetings/:id` — a single meeting
+
+**Guard:** the class-level `JwtAuthGuard`. **Request:** no body, no query parameters — there is no
+query DTO on this route, so anything sent as a query string is ignored.
+
+**`:id` is not validated.** No `ParseUUIDPipe`, no regex, no length rule: every seeded id is
+`mtg-<owner>-<n>`-shaped, not a UUID, and a validating pipe would 400 the seed instead of 404-ing an
+unknown id — its 400 would also carry a **string** `message`, contradicting the rule above. A
+malformed id is simply an id no meeting has.
+
+**Body — `200`**, a `MeetingDto`, exactly five keys sorted `durationMinutes`, `id`, `participants`,
+`startsAt`, `title`:
+
+```json
+{
+  "id": "mtg-teacher-1",
+  "title": "Intro to algebra",
+  "startsAt": "2026-01-12T09:00:00.000Z",
+  "durationMinutes": 60,
+  "participants": ["Nina Cole", "guest.parent@purpleschool.test"]
+}
+```
+
+**`401`** (no token, or a broken one): `{"message":"Authentication required","error":"Unauthorized","statusCode":401}` —
+the guard answers before the handler runs.
+
+**`404`** (no meeting with that id, **or** one owned by another user — one code path,
+byte-identical): `{"message":"Meeting not found","error":"Not Found","statusCode":404}`, from
+`new NotFoundException('Meeting not found')`. The no-argument form is forbidden: it drops `error`
+and fails the error-shape rule above (`ADR-0018`).
+
+**There is no `400` on this route.**
+
+`GET /meetings/a/b` falls through to Express's own 404 handler, not to any Nest handler —
+`{"message":"Cannot GET /meetings/a/b",…}`, three keys, unrelated to the row above.
 
 ---
 

@@ -23,6 +23,12 @@ const PROTECTED_ROUTES = [
   { method: 'GET' as const, path: '/auth/me' },
   { method: 'GET' as const, path: '/meetings?limit=3' },
   { method: 'POST' as const, path: '/meetings' },
+  /*
+   * The literal `:id`, not a concrete id: `AR-API-06` builds the route from the decorators
+   * (`@Controller('meetings')` + `@Get(':id')`) and compares that string, and the guard answers
+   * 401 before the handler ever parses the parameter.
+   */
+  { method: 'GET' as const, path: '/meetings/:id' },
 ];
 
 /** POST routes with a DTO — to check `forbidNonWhitelisted` is on globally. */
@@ -208,10 +214,23 @@ test.describe('Security: API', { tag: '@security' }, () => {
   );
 
   test('SEC-API-06 — error bodies carry no stack trace and no file paths', async ({ request }) => {
+    const token = await loginApi(request, 'teacher');
     const errors = [
       await request.post('/auth/login', { data: { email: 'not-an-email' } }),
       await request.get('/meetings'),
       await request.get('/definitely-no-such-route'),
+      /*
+       * The fourth sample is not a duplicate of the third. The third 404 comes from Nest's own
+       * not-found handler and can never lose a key; this one is thrown by our controller, and
+       * `ADR-0018` makes the ARGUMENT form of `NotFoundException` mandatory precisely because the
+       * no-argument form answers with two keys only — `message` and `statusCode`, no `error`.
+       * Without a sample that reaches a handler-thrown 404, that rule is guarded by one feature
+       * case and a no-argument form on the next resource passes the cross-feature suite unseen.
+       *
+       * The token must be valid, or the guard answers 401 and the controller never runs. The id
+       * is one no meeting has: `:id` carries no pipe, so a malformed id is simply an unknown one.
+       */
+      await request.get('/meetings/no-such-meeting-id', { headers: authHeaders(token) }),
     ];
 
     for (const response of errors) {
@@ -271,12 +290,60 @@ test.describe('Security: API', { tag: '@security' }, () => {
         return body.items.map((item) => item.id);
       };
 
+      /**
+       * Ids of the teacher's meetings that a request **by id** with the student's token gives
+       * away. The by-id route must answer 404 for every one of them, and the body must not echo
+       * the id back either: a 404 that quotes the record still confirms it exists.
+       *
+       * The bodies are collected first and filtered afterwards because a condition inside a test
+       * body is forbidden by `playwright/no-conditional-in-test`.
+       */
+      const idsLeakedById = async (token: string, ids: string[]): Promise<string[]> => {
+        const bodies: string[] = [];
+
+        for (const id of ids) {
+          const response = await request.get(`/meetings/${id}`, { headers: authHeaders(token) });
+
+          expect(
+            response.status(),
+            `GET /meetings/${id} with another user's token must answer 404`,
+          ).toBe(404);
+
+          bodies.push(await response.text());
+        }
+
+        return ids.filter((id) => bodies.some((body) => body.includes(id)));
+      };
+
       const teacherIds = await idsOf(teacherToken);
       const studentIds = await idsOf(studentToken);
 
       expect(teacherIds.length).toBeGreaterThan(0);
       expect(studentIds).toEqual([]);
-      expect(teacherIds.filter((id) => studentIds.includes(id))).toEqual([]);
+
+      /*
+       * The control for the by-id half: the owner does reach their own record by id. Without it
+       * the next assertion would hold just as well against a route that answers 404 to everyone,
+       * including its owner — a broken endpoint would read as a secure one.
+       */
+      const ownById = await request.get(`/meetings/${teacherIds[0]}`, {
+        headers: authHeaders(teacherToken),
+      });
+      await expect(ownById).toBeOK();
+      expect(((await ownById.json()) as { id: string }).id).toBe(teacherIds[0]);
+
+      /*
+       * One comparison of id SETS over both routes — that is this case's subject. Whether the two
+       * 404s (an id that does not exist and an id owned by someone else) are byte-identical is
+       * `ADR-0018`'s promise and is proved in `e2e/regression/meetings-detail/`; it is not
+       * re-checked here.
+       */
+      const reachableByStudent = [
+        ...studentIds,
+        ...(await idsLeakedById(studentToken, teacherIds)),
+      ];
+
+      expect(teacherIds.filter((id) => reachableByStudent.includes(id))).toEqual([]);
     },
   );
 

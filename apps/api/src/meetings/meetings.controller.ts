@@ -1,4 +1,13 @@
-import { Body, Controller, Get, Post, Query, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  NotFoundException,
+  Param,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 
 import type { AuthenticatedUser } from '../auth/auth.types.js';
 import { CurrentUser } from '../auth/current-user.decorator.js';
@@ -38,5 +47,27 @@ export class MeetingsController {
   @Post()
   create(@CurrentUser() current: AuthenticatedUser, @Body() dto: CreateMeetingDto): MeetingDto {
     return toMeetingDto(this.meetingsService.create(current.id, dto));
+  }
+
+  /**
+   * Declared after `@Get()` and `@Post()` (design §3, probe C1/C5: `GET /meetings` and
+   * `GET /meetings/` still reach `list`). `@Param('id')` carries **no pipe**: no seed id is a UUID,
+   * and a pipe's 400 would carry a string `message` against invariant 8 (`ADR-0018`). A malformed
+   * id is simply an id no meeting has — there is no `400` on this route.
+   *
+   * The only branch: `findById` returning `undefined` — whether the id does not exist or belongs to
+   * another owner — becomes the one `NotFoundException`, with its argument, so the body keeps all
+   * three keys `statusCode`/`message`/`error` (`SEC-API-06`, `ADR-0018`). The no-argument form drops
+   * `error` and is forbidden.
+   */
+  @Get(':id')
+  findById(@CurrentUser() current: AuthenticatedUser, @Param('id') id: string): MeetingDto {
+    const meeting = this.meetingsService.findById(current.id, id);
+
+    if (meeting === undefined) {
+      throw new NotFoundException('Meeting not found');
+    }
+
+    return toMeetingDto(meeting);
   }
 }

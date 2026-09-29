@@ -9,7 +9,8 @@ import {
 } from './meetings.service.js';
 
 /**
- * Cases `HD-UT-01…09` from `e2e/regression/home-dashboard/home-dashboard.unit.cases.md`.
+ * Cases `HD-UT-01…09` from `e2e/regression/home-dashboard/home-dashboard.unit.cases.md`, and
+ * `MD-UT-01…09` from `e2e/regression/meetings-detail/meetings-detail.unit.cases.md`.
  *
  * Test data is created through `create()` under dedicated owners (`usr-unit-*`) rather than taken
  * from the seed: the seed is sorted ascending, so the "arbitrary order" of `HD-UT-01` cannot be
@@ -144,5 +145,137 @@ describe('MeetingsService', () => {
     // Twice in a row: the order must depend on neither insertion order nor the run.
     expect(service.findRecent(OWNER, 3).map((meeting) => meeting.id)).toEqual(expectedIds);
     expect(service.findRecent(OWNER, 3).map((meeting) => meeting.id)).toEqual(expectedIds);
+  });
+
+  /**
+   * Cases `MD-UT-01…09` from
+   * `e2e/regression/meetings-detail/meetings-detail.unit.cases.md`. `MD-UT-01…08` reuse the
+   * `usr-unit-*` owners created through `create()`, same convention as `HD-UT-01…09`; `MD-UT-09`
+   * reads the seed directly — it is the seed array specifically that the constructor's copy site
+   * protects.
+   */
+  it('MD-UT-01 — findById returns the full meeting for its owner', () => {
+    const created = service.create(OWNER, {
+      title: 'Full detail meeting',
+      startsAt: '2030-02-01T10:00:00.000Z',
+      durationMinutes: 45,
+      participants: ['Nina Cole'],
+    });
+
+    expect(service.findById(OWNER, created.id)).toEqual(created);
+  });
+
+  it('MD-UT-02 — findById returns undefined for an unknown id', () => {
+    service.create(OWNER, { title: 'Some meeting', startsAt: '2030-02-01T10:00:00.000Z' });
+
+    expect(service.findById(OWNER, 'no-such-id')).toBeUndefined();
+  });
+
+  it('MD-UT-03 — findById returns undefined for an id owned by somebody else', () => {
+    const created = service.create(OWNER, {
+      title: 'Owned by OWNER',
+      startsAt: '2030-02-01T10:00:00.000Z',
+    });
+
+    // Same `undefined` as MD-UT-02, by construction (ADR-0018): the ownership check lives inside
+    // `findById` itself, so a wrong owner and an unknown id are one return path, not two that
+    // merely happen to agree.
+    expect(service.findById(OTHER_OWNER, created.id)).toBeUndefined();
+  });
+
+  it('MD-UT-04 — create normalizes absent, [] and explicit null participants to []', () => {
+    const absent = service.create(OWNER, {
+      title: 'Absent participants',
+      startsAt: '2030-03-01T10:00:00.000Z',
+    });
+    const emptyArray = service.create(OWNER, {
+      title: 'Empty array participants',
+      startsAt: '2030-03-02T10:00:00.000Z',
+      participants: [],
+    });
+    const explicitNull = service.create(OWNER, {
+      title: 'Explicit null participants',
+      startsAt: '2030-03-03T10:00:00.000Z',
+      // Past the type: a validated-but-permissive runtime value, exactly what `ADR-0017` and
+      // design probe PF2 measure.
+      participants: null as unknown as string[],
+    });
+
+    expect(absent.participants).toEqual([]);
+    expect(emptyArray.participants).toEqual([]);
+    expect(explicitNull.participants).toEqual([]);
+  });
+
+  it('MD-UT-05 — create stores a given participants array verbatim, order preserved', () => {
+    const participants = ['  Nina Cole ', 'Nina Cole', 'Nina Cole', 'guest@purpleschool.test'];
+
+    const created = service.create(OWNER, {
+      title: 'Verbatim participants',
+      startsAt: '2030-03-04T10:00:00.000Z',
+      participants,
+    });
+
+    // Neither trimmed nor deduplicated: the repeated and the padded entry both survive as given.
+    expect(created.participants).toEqual(participants);
+  });
+
+  it("MD-UT-06 — create's returned array is a copy, not shared with the store", () => {
+    const created = service.create(OWNER, {
+      title: 'Copy on create',
+      startsAt: '2030-03-05T10:00:00.000Z',
+      participants: ['Nina Cole'],
+    });
+
+    created.participants.push('Mutated after the fact');
+
+    expect(service.findById(OWNER, created.id)?.participants).toEqual(['Nina Cole']);
+  });
+
+  it('MD-UT-07 — findById returns an independent array on every call', () => {
+    const created = service.create(OWNER, {
+      title: 'Copy on findById',
+      startsAt: '2030-03-06T10:00:00.000Z',
+      participants: ['Nina Cole'],
+    });
+
+    service.findById(OWNER, created.id)?.participants.push('Mutated after the fact');
+
+    expect(service.findById(OWNER, created.id)?.participants).toEqual(['Nina Cole']);
+  });
+
+  it("MD-UT-08 — findRecent's returned array is a copy, not shared with the store", () => {
+    service.create(OWNER, {
+      title: 'Copy on findRecent',
+      startsAt: '2030-03-07T10:00:00.000Z',
+      participants: ['Nina Cole'],
+    });
+
+    const [first] = service.findRecent(OWNER, 1);
+    first.participants.push('Mutated after the fact');
+
+    const [second] = service.findRecent(OWNER, 1);
+    expect(second.participants).toEqual(['Nina Cole']);
+  });
+
+  it('MD-UT-09 — the constructor copy does not share the array with SEED_MEETINGS', () => {
+    const seeded = SEED_MEETINGS.find((meeting) => meeting.participants.length > 0);
+    expect(seeded, 'seed must carry at least one meeting with participants').toBeDefined();
+    const { id, ownerId, participants: seedParticipants } = seeded as Meeting;
+    const original = [...seedParticipants];
+
+    try {
+      // Mutating the returned clone (as MD-UT-07 does) cannot expose this bug: `findById` clones
+      // on every exit regardless of what the constructor did. The only way to observe whether the
+      // constructor shared the reference is to mutate `SEED_MEETINGS` itself, from outside the
+      // service, and see whether the store's own copy moved with it.
+      seedParticipants.push('Mutated after the fact');
+
+      expect(service.findById(ownerId, id)?.participants).toEqual(original);
+    } finally {
+      // Restore the module-level constant regardless of the assertion's outcome: it is shared
+      // with every other test in this file and with `e2e/fixtures/seed.ts`'s mirror check.
+      seedParticipants.length = 0;
+      seedParticipants.push(...original);
+    }
   });
 });

@@ -38,10 +38,18 @@ point at the seed, not at the feature.
 
 - **Priority:** P0
 - **Preconditions:** `GET /meetings` works and requires `Bearer`; `TEACHER_MEETINGS` describes the
-  five meeting titles of `teacher`, and `student` is declared as the user with no meetings.
+  five meeting titles of `teacher` and, per title, its `participants` array; `student` is declared
+  as the user with no meetings.
 - **Steps:** get tokens for `teacher` and `student`, then `GET /meetings?limit=100` as each.
 - **Expected:** `teacher` has `total` = 5 and `items` contains all five seeded titles (the three
-  most recent plus the two the slice cuts); `student` has `total` = 0 and an empty `items`.
-  `limit=100` means "give me everything" — the contract's ceiling (`@Max(100)`), not a magic number
-  that would need changing as the seed grows. On failure the message points at the meeting seed and
-  names the files to compare.
+  most recent plus the two the slice cuts); for each of those five titles, the responding meeting's
+  `participants` array equals — verbatim, order included — `TEACHER_MEETINGS.participants[title]`;
+  `student` has `total` = 0 and an empty `items`. `limit=100` means "give me everything" — the
+  contract's ceiling (`@Max(100)`), not a magic number that would need changing as the seed grows.
+  On failure the message points at the meeting seed and names the files to compare, and for a
+  `participants` mismatch names the specific meeting title that disagreed.
+  `planner`'s and `organizer`'s seeded `participants` (`e2e/fixtures/seed.ts`,
+  `PLANNER_MEETING_PARTICIPANTS` / `ORGANIZER_MEETING_PARTICIPANTS`) are mirrored for completeness
+  but deliberately **not** asserted here: both owners are mutation sandboxes for other spec files,
+  and comparing their meetings here would race with cases that create new ones there
+  (`docs/plans/meetings-detail-participants/meetings-detail-participants.plan.md` §6).

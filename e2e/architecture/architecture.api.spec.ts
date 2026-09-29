@@ -49,6 +49,17 @@ const ADR_INDEX_ROW = /^\|\s*\[(ADR-\d{4})\]\(([^)]+)\)\s*\|[^|]*\|\s*([a-z]+)\s
 /** A row of the Routes table in the contract document. */
 const CONTRACT_ROUTE_ROW = /^\|\s*`(GET|POST|PUT|PATCH|DELETE)`\s*\|\s*`([^`]+)`\s*\|\s*([^|]*)\|/;
 
+/**
+ * A case ID (or the left half of a range) inside a Cases cell: `` `AL-API-01` `` optionally
+ * followed by `` …`04` `` — U+2026, a single character, not three dots. The right-hand token of a
+ * range is bare digits and inherits the prefix from the left one, so the prefix is captured
+ * separately from the number rather than as part of one opaque token.
+ */
+const CASES_RANGE_TOKEN = /`([A-Z]{2,5}-API-)(\d{2,3})`(?:…`(\d{2,3})`)?/g;
+
+/** Any case ID, anywhere in a `.cases.md` file — used to build the set of IDs that actually exist. */
+const CASE_ID_ANYWHERE = /\b([A-Z]{2,5}-API-\d{2,3})\b/g;
+
 /** `@Controller('auth')` / `@Controller()`. */
 const CONTROLLER_DECORATOR = /@Controller\(\s*(?:'([^']*)')?\s*\)/;
 
@@ -463,6 +474,89 @@ function violationsProtectedList(root: string): string[] {
     );
 }
 
+// --- API contract Cases column ----------------------------------------------------------------
+
+/**
+ * The six cells of one Routes table row, in table order: Method, Path, Guard, Success, Errors,
+ * Cases. A row starts and ends with `|`, so a plain `split('|')` yields an empty string on each
+ * side of the six real cells — sliced off here rather than carried around by every caller.
+ */
+function contractRouteCells(root: string): string[][] {
+  const rows: string[][] = [];
+
+  for (const line of read(root, API_CONTRACT).split(/\r?\n/)) {
+    if (CONTRACT_ROUTE_ROW.test(line)) {
+      rows.push(
+        line
+          .split('|')
+          .slice(1, -1)
+          .map((cell) => cell.trim()),
+      );
+    }
+  }
+
+  return rows;
+}
+
+/**
+ * Expands a Cases cell into the individual IDs it cites. A cell citing none — the dash the new
+ * `GET /meetings/:id` row carries until its own task fills it in — expands to `[]`, which is
+ * vacuously fine: nothing to check yet, not a violation.
+ */
+function expandCasesCell(cell: string): string[] {
+  const ids: string[] = [];
+
+  for (const match of cell.matchAll(CASES_RANGE_TOKEN)) {
+    const [, prefix, left, right] = match;
+
+    if (right === undefined) {
+      ids.push(`${prefix}${left}`);
+      continue;
+    }
+
+    // The right-hand token is bare digits; the prefix and the digit width both come from the
+    // left one, or the naive read gives the nonexistent ID `04` instead of `AL-API-04`.
+    const width = left.length;
+    for (let n = Number(left); n <= Number(right); n += 1) {
+      ids.push(`${prefix}${String(n).padStart(width, '0')}`);
+    }
+  }
+
+  return ids;
+}
+
+/** Every case ID that actually appears in some `.cases.md`, scanned across all of `e2e/`. */
+function knownCaseIds(root: string): Set<string> {
+  const ids = new Set<string>();
+
+  for (const file of walk(root, 'e2e').filter((name) => name.endsWith('.cases.md'))) {
+    for (const match of read(root, file).matchAll(CASE_ID_ANYWHERE)) {
+      ids.add(match[1]);
+    }
+  }
+
+  return ids;
+}
+
+function violationsCasesCitations(root: string): string[] {
+  const problems: string[] = [];
+  const known = knownCaseIds(root);
+
+  for (const [method, routePath, , , , casesCell] of contractRouteCells(root)) {
+    for (const id of expandCasesCell(casesCell)) {
+      if (!known.has(id)) {
+        problems.push(
+          `${API_CONTRACT} — \`${method}\` \`${routePath}\` cites ${id} in the Cases column, but ` +
+            'no `.cases.md` under `e2e/` declares it. A cited ID that does not exist makes the ' +
+            'column useless for tracing coverage back from the contract',
+        );
+      }
+    }
+  }
+
+  return problems;
+}
+
 // --- Agent definitions ------------------------------------------------------------------------
 
 function frontmatterFields(content: string): Map<string, string> {
@@ -645,6 +739,24 @@ test.describe('Architecture corpus', { tag: '@architecture' }, () => {
     expect(
       [...violationsRolesExist(root), ...violationsRolesDocumented(root)],
       'A role named but undefined cannot be dispatched; one defined but unnamed is unreachable',
+    ).toEqual([]);
+  });
+
+  test('AR-API-09 — every ID cited in the Routes table Cases column exists in a cases doc', () => {
+    const root = repoRoot();
+    const cited = contractRouteCells(root).flatMap((cells) => expandCasesCell(cells[5]));
+
+    // Guard against the range parser matching nothing and every row passing having checked
+    // nothing: `POST /auth/login` alone expands to eight IDs across three ranges.
+    expect(
+      cited.length,
+      'No IDs parsed out of the Routes table Cases column — the range parser matched nothing',
+    ).toBeGreaterThan(0);
+
+    expect(
+      violationsCasesCitations(root),
+      'A cell citing an ID no .cases.md declares is undetectable from the table itself — only a ' +
+        'scan of e2e/**/*.cases.md catches it',
     ).toEqual([]);
   });
 });

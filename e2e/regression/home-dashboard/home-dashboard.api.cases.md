@@ -10,8 +10,10 @@
     only — mutating them is forbidden.
   - Mutating cases run as `planner`, reserved for `*.api.spec.ts` (`*.functional.spec.ts` mutates
     `organizer`). That removes the cross-project race under `fullyParallel: true`, because
-    `GET /meetings` is isolated by owner. Counter assertions are relative (`N` → `N + 1`), the
-    title is unique and the date is the 2030 constant.
+    `GET /meetings` is isolated by owner. `planner` is also mutated by
+    `meetings-detail.api.spec.ts`, so no mutating case here reads `total`, which would race that
+    file's concurrent creates. Each case is instead proven by its own unique generated title, or —
+    for `HD-API-15`, whose rejected body carries no title — by the DTO's own bound on `title`.
 
 16 cases. Numbers `11`, `12`, `18`, `19` are **never reused**.
 
@@ -43,9 +45,9 @@
 - **Priority:** P0
 - **Steps:** `GET /meetings` as `teacher`.
 - **Expected:** 200, JSON content type, `items` an array and `total` a number. Every item has
-  **exactly** the keys `durationMinutes`, `id`, `startsAt`, `title` — the full key set rather than
-  "has an id", so an `ownerId` leak is caught too. The response text contains no `passwordHash`, no
-  seeded password and no `ownerId`.
+  **exactly** the keys `durationMinutes`, `id`, `participants`, `startsAt`, `title` — the full key
+  set rather than "has an id", so an `ownerId` leak is caught too. The response text contains no
+  `passwordHash`, no seeded password and no `ownerId`.
 
 ### HD-API-02 — GET /meetings without a token gives 401
 
@@ -114,31 +116,35 @@
 ### HD-API-13 — POST /meetings creates a meeting
 
 - **Priority:** P0
-- **Steps:** as `planner`, read `total`, then `POST /meetings` with a unique title, the 2030 date
-  and `durationMinutes: 30`.
+- **Steps:** as `planner`, `POST /meetings` with a unique title, the 2030 date and
+  `durationMinutes: 30`.
 - **Expected:** **201** (the correct answer to a POST; no status decorator needed), the body echoes
-  the title and duration with a string `id`, and afterwards `total` is `before + 1` with the new
-  title among the top three. The 2030 date guarantees it lands in the slice.
+  the title and duration with a string `id`, and afterwards the new title is among the top three.
+  The 2030 date guarantees it lands in the slice.
 
 ### HD-API-14 — POST /meetings without a token gives 401 and changes no data
 
 - **Priority:** P0
-- **Steps:** read `total` as `planner`, `POST /meetings` with no token, read `total` again.
-- **Expected:** 401 with the standard error body, and `total` is unchanged.
+- **Steps:** as `planner`, `POST /meetings` with a unique title and no token.
+- **Expected:** 401 with the standard error body, and the title is absent from `planner`'s full
+  list afterwards.
 
 ### HD-API-15 — POST /meetings without required fields gives 400
 
 - **Priority:** P1
-- **Steps:** `POST /meetings` with an empty body.
-- **Expected:** 400 with an array `message` mentioning both `title` and `startsAt`; `total` is
-  unchanged.
+- **Steps:** as `planner`, `POST /meetings` with an empty body.
+- **Expected:** 400 with an array `message` mentioning both `title` and `startsAt`. No side effect:
+  the body carries no `title`, so a leaked record could only carry one missing or shorter than the
+  DTO's own `@Length(3, 100)` — every title in `planner`'s own list afterwards must be a real string
+  of at least 3 characters. This is checked without a `total` reading, which a concurrent file's
+  inserts would otherwise move.
 
 ### HD-API-16 — POST /meetings with an extra field gives 400
 
 - **Priority:** P1
-- **Steps:** `POST /meetings` with a valid body plus `ownerId: 'usr-teacher'`.
-- **Expected:** 400 with `property ownerId should not exist`, and `total` is unchanged. This is
-  invariant 5 enforced at the HTTP level.
+- **Steps:** as `planner`, `POST /meetings` with a unique title plus `ownerId: 'usr-teacher'`.
+- **Expected:** 400 with `property ownerId should not exist`, and the title is absent from
+  `planner`'s full list afterwards. This is invariant 5 enforced at the HTTP level.
 
 ### HD-API-17 — the created meeting belongs to the token owner
 

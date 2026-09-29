@@ -20,6 +20,7 @@ export const SEED_MEETINGS: readonly Meeting[] = [
     title: 'Intro to algebra',
     startsAt: '2026-01-12T09:00:00.000Z',
     durationMinutes: 60,
+    participants: ['Nina Cole', 'guest.parent@purpleschool.test'],
   },
   {
     id: 'mtg-teacher-2',
@@ -27,6 +28,7 @@ export const SEED_MEETINGS: readonly Meeting[] = [
     title: 'Homework review',
     startsAt: '2026-01-13T11:30:00.000Z',
     durationMinutes: 45,
+    participants: ['Nina Cole'],
   },
   {
     id: 'mtg-teacher-3',
@@ -34,6 +36,7 @@ export const SEED_MEETINGS: readonly Meeting[] = [
     title: 'Geometry workshop',
     startsAt: '2026-01-15T14:00:00.000Z',
     durationMinutes: 90,
+    participants: ['Nina Cole', 'Omar Vance', 'guest.tutor@purpleschool.test'],
   },
   {
     id: 'mtg-teacher-4',
@@ -41,6 +44,7 @@ export const SEED_MEETINGS: readonly Meeting[] = [
     title: 'Pre-exam consultation',
     startsAt: '2026-01-19T08:00:00.000Z',
     durationMinutes: 30,
+    participants: [],
   },
   {
     id: 'mtg-teacher-5',
@@ -48,6 +52,7 @@ export const SEED_MEETINGS: readonly Meeting[] = [
     title: 'Module wrap-up session',
     startsAt: '2026-01-22T16:15:00.000Z',
     durationMinutes: 60,
+    participants: ['Nina Cole', 'Omar Vance'],
   },
   {
     id: 'mtg-planner-1',
@@ -55,6 +60,7 @@ export const SEED_MEETINGS: readonly Meeting[] = [
     title: 'Sprint retro',
     startsAt: '2026-01-16T13:00:00.000Z',
     durationMinutes: 45,
+    participants: ['Ruth Delgado', 'guest.coach@purpleschool.test'],
   },
   {
     id: 'mtg-organizer-1',
@@ -62,5 +68,6 @@ export const SEED_MEETINGS: readonly Meeting[] = [
     title: 'Team standup',
     startsAt: '2026-01-14T10:00:00.000Z',
     durationMinutes: 30,
+    participants: ['Ruth Delgado', 'Omar Vance'],
   },
 ];

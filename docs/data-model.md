@@ -26,13 +26,14 @@ set, so a new field on `User` does not escape by accident.
 
 ### `Meeting`
 
-| Field             | Type     | Format / constraint                             | Leaves the API?                      |
-| ----------------- | -------- | ----------------------------------------------- | ------------------------------------ |
-| `id`              | `string` | `mtg-<owner>-<n>` in the seed                   | yes                                  |
-| `ownerId`         | `string` | a `User.id`; set from the token, never the body | **never** — `toMeetingDto` strips it |
-| `title`           | `string` | 3–100 characters                                | yes                                  |
-| `startsAt`        | `string` | ISO 8601, UTC, always `…Z` — not a `Date`       | yes                                  |
-| `durationMinutes` | `number` | integer, 15–480; optional on input, default 60  | yes                                  |
+| Field             | Type       | Format / constraint                                                            | Leaves the API?                      |
+| ----------------- | ---------- | ------------------------------------------------------------------------------ | ------------------------------------ |
+| `id`              | `string`   | `mtg-<owner>-<n>` in the seed                                                  | yes                                  |
+| `ownerId`         | `string`   | a `User.id`; set from the token, never the body                                | **never** — `toMeetingDto` strips it |
+| `title`           | `string`   | 3–100 characters                                                               | yes                                  |
+| `startsAt`        | `string`   | ISO 8601, UTC, always `…Z` — not a `Date`                                      | yes                                  |
+| `durationMinutes` | `number`   | integer, 15–480; optional on input, default 60                                 | yes                                  |
+| `participants`    | `string[]` | 0–20 free-form strings, 1–100 characters each; optional on input, default `[]` | yes                                  |
 
 `MeetingDto = Omit<Meeting, 'ownerId'>`, checked by key set in `HD-API-01`. `startsAt` is a string
 rather than a `Date` deliberately: it survives JSON serialization unchanged and compares stably in
@@ -49,15 +50,16 @@ assertions.
 
 ## Value formats
 
-| Value         | Rule                                                                                                                                                                                                                |
-| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Identifiers   | opaque strings with a type prefix (`usr-`, `mtg-`). Never a number, never guessable-by-increment                                                                                                                    |
-| Timestamps    | ISO 8601 in **UTC**, milliseconds included. No local time anywhere in storage or on the wire                                                                                                                        |
-| Display dates | formatted with `Intl.DateTimeFormat('en-GB', …, { timeZone: 'UTC' })` — pinned, or tests depend on the machine's zone                                                                                               |
-| Durations     | whole minutes, 15–480                                                                                                                                                                                               |
-| Email         | validated by `@IsEmail()` on input; `trim`med on the web side before submission                                                                                                                                     |
-| Password      | validated only as a non-empty string on login — a strength rule would turn a wrong password into a 400 and make `AL-API-02` unverifiable. **Never trimmed**: trimming silently alters what was typed (invariant 15) |
-| Created dates | tests create meetings dated **2030**, so they never collide with the seed's "recent" assertions                                                                                                                     |
+| Value         | Rule                                                                                                                                                                                                                         |
+| ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Identifiers   | opaque strings with a type prefix (`usr-`, `mtg-`). Never a number, never guessable-by-increment                                                                                                                             |
+| Timestamps    | ISO 8601 in **UTC**, milliseconds included. No local time anywhere in storage or on the wire                                                                                                                                 |
+| Display dates | formatted with `Intl.DateTimeFormat('en-GB', …, { timeZone: 'UTC' })` — pinned, or tests depend on the machine's zone                                                                                                        |
+| Durations     | whole minutes, 15–480                                                                                                                                                                                                        |
+| Email         | validated by `@IsEmail()` on input; `trim`med on the web side before submission                                                                                                                                              |
+| Password      | validated only as a non-empty string on login — a strength rule would turn a wrong password into a 400 and make `AL-API-02` unverifiable. **Never trimmed**: trimming silently alters what was typed (invariant 15)          |
+| Created dates | tests create meetings dated **2030**, so they never collide with the seed's "recent" assertions                                                                                                                              |
+| Participants  | free-form strings, a name or an email, 1–100 characters, at most 20 per meeting. Never a `User.id`, never validated as an email, never trimmed or deduplicated: like a password, trimming would silently alter what was sent |
 
 ## Storage and lifetime
 
@@ -71,7 +73,8 @@ There is no database (`ADR-0007`). Each service owns an array, seeded at module 
 | Nothing else    | —                                      | —                                                          |
 
 Two consequences the suite is built around: **no test may depend on data another test created**, and
-mutating cases must use **relative** counters.
+mutating cases follow the robustness rules in `e2e/README.md` for asserting against a shared
+sandbox.
 
 ## Seed data
 

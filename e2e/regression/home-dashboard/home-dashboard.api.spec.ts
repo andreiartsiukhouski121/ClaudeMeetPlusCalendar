@@ -14,6 +14,14 @@ import { FUTURE_STARTS_AT_ISO, SEED_USERS, TEACHER_MEETINGS } from '../../fixtur
  * alone: mutating them is forbidden. Mutating cases run as `planner`, reserved for
  * `*.api.spec.ts`, while `*.functional.spec.ts` mutates `organizer`. That removes the
  * cross-project race under `fullyParallel: true`, since `GET /meetings` is isolated by owner.
+ *
+ * `planner` is also mutated by `meetings-detail.api.spec.ts`, so a `before`/`after` reading of
+ * `total` here would race that file's concurrent creates under `fullyParallel: true` — that was
+ * `HD-API-14` failing with an offset that tracked the other file's insert count. Mutating cases
+ * therefore assert by a unique generated title instead, the same approach that file already uses.
+ * `HD-API-15` posts an empty body, so there is no title to look for; it instead leans on the DTO's
+ * own `@Length(3, 100)` on `title` — a leaked record from that body could only carry a missing or
+ * too-short title, which no legitimately created meeting (here or in a concurrent file) ever has.
  */
 
 const TEACHER = SEED_USERS.teacher;
@@ -40,7 +48,7 @@ interface MeetingsPageBody {
 const UNAUTHORIZED = 'Authentication required';
 
 /** List item keys per the contract: no `ownerId` among them — `toMeetingDto` strips it. */
-const MEETING_KEYS = ['durationMinutes', 'id', 'startsAt', 'title'];
+const MEETING_KEYS = ['durationMinutes', 'id', 'participants', 'startsAt', 'title'];
 
 /**
  * The created meeting's title is always unique, or `toContainText` could match a meeting from a
@@ -68,16 +76,6 @@ async function readPage(
   expect(response.status()).toBe(200);
 
   return (await response.json()) as MeetingsPageBody;
-}
-
-/** The owner's `total`. Mutating cases count from it rather than from an absolute number. */
-async function readTotal(
-  request: APIRequestContext,
-  headers: Record<string, string>,
-): Promise<number> {
-  const page = await readPage(request, headers);
-
-  return Number(page.total);
 }
 
 test.describe('Dashboard: API contract', { tag: ['@regression', '@home-dashboard'] }, () => {
@@ -258,10 +256,12 @@ test.describe('Dashboard: API contract', { tag: ['@regression', '@home-dashboard
 });
 
 /**
- * Cases under `planner`. Serial mode backs up the data isolation: within one file two tests under
- * the same owner could otherwise land in different workers, and `HD-API-14`, `HD-API-15` and
- * `HD-API-16` read `total` before and after, so a foreign insert would turn them red. Counter
- * assertions are relative only (`N` → `N + 1`).
+ * Cases under `planner`. Serial mode keeps this file's own tests from landing in different
+ * workers, but it says nothing about `meetings-detail.api.spec.ts`, which mutates the same
+ * `planner` owner from another file entirely: the two files' inserts interleave freely under
+ * `fullyParallel: true`. Every mutating case here is proven by its own unique generated title, or
+ * — for `HD-API-15`, whose rejected body carries no title — by the DTO's own bound on `title`;
+ * neither is moved by however many meetings a concurrent file created in between.
  */
 test.describe(
   'Dashboard: API contract as planner',
@@ -274,7 +274,6 @@ test.describe(
       { tag: ['@p0', '@mutating'] },
       async ({ request }) => {
         const headers = await authHeadersFor(request, 'planner');
-        const before = await readTotal(request, headers);
         const title = uniqueTitle('E2E API meeting');
 
         const created = await request.post('/meetings', {
@@ -291,9 +290,10 @@ test.describe(
         expect(createdBody.durationMinutes).toBe(30);
 
         const after = await readPage(request, headers, '?limit=3');
-        expect(after.total).toBe(before + 1);
         // The 2030 date guarantees the new meeting lands in the top three: with a date earlier
-        // than the owner's seeded meeting (2026-01-16) the case would be falsely red.
+        // than the owner's seeded meeting (2026-01-16) the case would be falsely red. The title is
+        // the evidence of creation, not `total`, which a concurrent file mutating the same
+        // `planner` owner could move between two reads.
         expect((after.items ?? []).map((item) => item.title)).toContain(title);
       },
     );
@@ -303,10 +303,10 @@ test.describe(
       { tag: '@p0' },
       async ({ request }) => {
         const headers = await authHeadersFor(request, 'planner');
-        const before = await readTotal(request, headers);
+        const title = uniqueTitle('No token');
 
         const response = await request.post('/meetings', {
-          data: { title: uniqueTitle('No token'), startsAt: FUTURE_STARTS_AT_ISO },
+          data: { title, startsAt: FUTURE_STARTS_AT_ISO },
         });
 
         expect(response.status()).toBe(401);
@@ -314,13 +314,15 @@ test.describe(
         const body = (await response.json()) as ErrorBody;
         expect(body).toEqual({ message: UNAUTHORIZED, error: 'Unauthorized', statusCode: 401 });
 
-        expect(await readTotal(request, headers)).toBe(before);
+        // `limit=100` is the contract's ceiling (`@Max(100)`): the title must be absent from the
+        // whole list, not merely from a slice.
+        const after = await readPage(request, headers, '?limit=100');
+        expect((after.items ?? []).map((item) => item.title)).not.toContain(title);
       },
     );
 
     test('HD-API-15 — POST /meetings without required fields gives 400', async ({ request }) => {
       const headers = await authHeadersFor(request, 'planner');
-      const before = await readTotal(request, headers);
 
       const response = await request.post('/meetings', { headers, data: {} });
 
@@ -332,17 +334,30 @@ test.describe(
       expect(body.message.toString()).toContain('title');
       expect(body.message.toString()).toContain('startsAt');
 
-      expect(await readTotal(request, headers)).toBe(before);
+      // No side effect, checked without a `total` reading: this body carries no `title` at all,
+      // so a leaked record could only have one missing or shorter than the DTO's own
+      // `@Length(3, 100)`. A concurrent file's inserts always carry a unique, valid title through
+      // the same validated endpoint, so this holds no matter how many of them land in between.
+      const after = await readPage(request, headers, '?limit=100');
+      const titles = (after.items ?? []).map((item) => item.title);
+
+      for (const title of titles) {
+        expect(typeof title, 'every stored title must be a real string').toBe('string');
+        expect(
+          title.length,
+          `title "${title}" must satisfy the DTO's @Length(3, 100)`,
+        ).toBeGreaterThanOrEqual(3);
+      }
     });
 
     test('HD-API-16 — POST /meetings with an extra field gives 400', async ({ request }) => {
       const headers = await authHeadersFor(request, 'planner');
-      const before = await readTotal(request, headers);
+      const title = uniqueTitle('Owner spoofing');
 
       const response = await request.post('/meetings', {
         headers,
         data: {
-          title: uniqueTitle('Owner spoofing'),
+          title,
           startsAt: FUTURE_STARTS_AT_ISO,
           ownerId: 'usr-teacher',
         },
@@ -353,7 +368,8 @@ test.describe(
       const body = (await response.json()) as ErrorBody;
       expect(body.message.toString()).toContain('property ownerId should not exist');
 
-      expect(await readTotal(request, headers)).toBe(before);
+      const after = await readPage(request, headers, '?limit=100');
+      expect((after.items ?? []).map((item) => item.title)).not.toContain(title);
     });
 
     test(

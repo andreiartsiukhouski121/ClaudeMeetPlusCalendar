@@ -3,6 +3,8 @@ import { expect, test } from '@playwright/test';
 import { authHeadersFor, loginApi } from '../fixtures/auth.api.js';
 import { SEED_USERS, SEED_USER_KEYS, TEACHER_MEETINGS } from '../fixtures/seed.js';
 
+type TeacherMeetingTitle = keyof typeof TEACHER_MEETINGS.participants;
+
 /**
  * Seed smoke: half the suite relies on specific users and their meetings, so their absence must
  * fail here as one clear case rather than as fifteen red feature cases. The failure message must
@@ -12,7 +14,7 @@ import { SEED_USERS, SEED_USER_KEYS, TEACHER_MEETINGS } from '../fixtures/seed.j
  */
 
 interface MeetingsPageBody {
-  items?: { title: string }[];
+  items?: { title: string; participants?: string[] }[];
   total?: number;
 }
 
@@ -57,6 +59,24 @@ test.describe('Smoke: seed is in place', { tag: '@smoke' }, () => {
     expect(titles, `teacher meeting titles drifted from the seed. ${seedProblem}`).toEqual(
       expect.arrayContaining([...TEACHER_MEETINGS.latestTitles, ...TEACHER_MEETINGS.omittedTitles]),
     );
+
+    // Per-title participants for all five of teacher's seeded meetings. teacher is read-only, so
+    // each array is asserted verbatim (order included) against the fixture mirror.
+    for (const [title, expectedParticipants] of Object.entries(TEACHER_MEETINGS.participants) as [
+      TeacherMeetingTitle,
+      readonly string[],
+    ][]) {
+      const meeting = (teacherBody.items ?? []).find((item) => item.title === title);
+
+      expect(
+        meeting,
+        `teacher meeting "${title}" is missing from GET /meetings. ${seedProblem}`,
+      ).toBeDefined();
+      expect(
+        meeting?.participants,
+        `teacher meeting "${title}" participants drifted from the seed. ${seedProblem}`,
+      ).toEqual(expectedParticipants);
+    }
 
     const student = await request.get('/meetings?limit=100', {
       headers: await authHeadersFor(request, 'student'),

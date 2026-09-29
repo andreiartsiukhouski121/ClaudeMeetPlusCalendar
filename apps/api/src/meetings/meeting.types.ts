@@ -8,6 +8,12 @@ export interface Meeting {
   title: string;
   startsAt: string;
   durationMinutes: number;
+  /**
+   * Free-form strings, never a relation to `User` (`ADR-0017`). Required internally — never
+   * `undefined`, never `null` — even though it is optional on input: `create` normalizes an
+   * absent/`null` value to `[]` before storing.
+   */
+  participants: string[];
 }
 
 /**
@@ -35,4 +41,5 @@ export interface CreateMeetingInput {
   title: string;
   startsAt: string;
   durationMinutes?: number;
+  participants?: string[];
 }

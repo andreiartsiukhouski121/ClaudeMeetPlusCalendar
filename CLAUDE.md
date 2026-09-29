@@ -221,7 +221,7 @@ them **before** writing code rather than re-deriving them from documents.
 7. Sorting by date always carries a secondary key on `id`: with equal dates the order is otherwise
    undefined and the test flakes.
 8. Error shape: with a 400 from `ValidationPipe`, `message` is an **array** of strings; with a 401
-   it is a string. Do not rely on one shape.
+   and a 404 it is a string. Do not rely on one shape.
 
 **Next.js (`apps/web`)**
 

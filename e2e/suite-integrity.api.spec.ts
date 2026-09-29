@@ -40,7 +40,7 @@ const UNIT_SPEC_EXEMPT = ['apps/api/src/app.controller.spec.ts'];
  * that guard a third feature (say `PR-API-01`) would not be recognized as an ID at all, and rules
  * 5–7 would go **vacuously green** — they would stop checking anything.
  */
-const KNOWN_CASE_PREFIXES = ['AL', 'HD', 'SM', 'SEC', 'LG', 'PR', 'AR'];
+const KNOWN_CASE_PREFIXES = ['AL', 'HD', 'SM', 'SEC', 'LG', 'PR', 'AR', 'MD'];
 
 /** Case ID: `<FEATURE>-<TYPE>-<NN>`. The number is two or three digits. */
 const CASE_ID_SOURCE = `(?:${KNOWN_CASE_PREFIXES.join('|')})-(?:API|FN|UT)-\\d{2,3}`;

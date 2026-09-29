@@ -36,6 +36,7 @@ human checks meaning — the same line the ledger and suite meta-tests draw (`AD
 | AR-API-06 | every guarded route is listed in `PROTECTED_ROUTES`                    | P0       |
 | AR-API-07 | every agent definition declares name, description, tools and model     | P1       |
 | AR-API-08 | every role the `team-roles` skill names exists as a definition         | P2       |
+| AR-API-09 | every ID cited in the Routes table Cases column exists in a cases doc  | P1       |
 
 A walk self-check runs before all of them: if the scanner finds no ADRs, no routes, no agents or no
 Routes table, every rule below would pass having checked nothing. That failure mode is not
@@ -124,3 +125,29 @@ hypothetical — it is how `suite-integrity` once went green under any violation
   boundary and is a paragraph.
 - **Known gap:** the check is one-way and covers only the two prefixed families. A definition that
   no skill mentions is not flagged — it is unused, not broken.
+
+### AR-API-09 — every ID cited in the Routes table Cases column exists in a cases doc
+
+- **Priority:** P1
+- **Steps:** parse each row of the Routes table in `docs/api-contract.md`; read its Cases cell;
+  expand every `` `PREFIX-API-NN`…`MM` `` range — the separator is U+2026 (`…`), a single
+  character, and the bare right-hand token inherits the prefix and digit width from the left one,
+  so a cell reading `` `FEATURE-API-01`…`04` `` expands to four ids, not two (`FEATURE` is a
+  placeholder longer than any real prefix, chosen so this explanation is not itself read as a
+  declaration by the scan two paragraphs below); scan every `e2e/**/*.cases.md` for the IDs that
+  actually exist.
+- **Expected:** every expanded ID is found verbatim in some `.cases.md`. A cell citing no IDs — the
+  dash `GET /meetings/:id` carries until its own task fills it in — expands to nothing and passes
+  vacuously; that is correct, not a gap, because there is nothing yet to check.
+- **Why:** this is the column that lets anyone trace coverage backward from the contract to the
+  tests that prove it. A stale or mistyped ID in it is invisible until someone tries to follow it —
+  exactly how the research sweep for this feature found four defective cells.
+- **Why scan all of `e2e/`, not just `e2e/regression/`:** the `GET /` row cites `SM-API-01`, which
+  lives in `e2e/smoke/health.api.cases.md`. Restricting the scan to the regression folder would
+  fail a perfectly valid row.
+- **Control experiment:** extend a range in a cell so it swallows one of the numbers a paired doc
+  calls out as never reused — `home-dashboard.api.cases.md:16` and `auth-login.api.cases.md:16`
+  each keep such a list — and confirm the case goes red, naming the offending ID and the row; then
+  restore the cell. (The dead ID is deliberately not spelled out here in full: this very file is a
+  `.cases.md` under `e2e/`, and writing the literal ID would make it "known" to the scan the check
+  performs, defeating the experiment.)

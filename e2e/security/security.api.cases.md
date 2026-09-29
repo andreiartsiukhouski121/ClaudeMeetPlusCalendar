@@ -35,7 +35,10 @@ answers without a token, including those that do not exist yet.
 ### SEC-API-01 — every protected endpoint requires a token
 
 - **Priority:** P0
-- **Preconditions:** the protected routes are listed in the spec as `PROTECTED_ROUTES`.
+- **Preconditions:** the protected routes are listed in the spec as `PROTECTED_ROUTES`. A
+  parameterised route is written with its **literal** parameter — `/meetings/:id`, not a concrete
+  id: `AR-API-06` builds the path from the controller decorators and compares that string, and the
+  guard answers before the handler ever parses the parameter.
 - **Steps:** for each route, send a request **without** an `Authorization` header, then repeat with
   `Authorization: Bearer` carrying no value.
 - **Expected:** every request gives `401`, and the body holds no payload (no `items`, no `email`,
@@ -80,10 +83,19 @@ answers without a token, including those that do not exist yet.
 ### SEC-API-06 — error bodies carry no stack trace, file paths or library names
 
 - **Priority:** P1
-- **Steps:** trigger a 400 (malformed payload), a 401 (no token) and a 404 (unknown path), then
-  parse the bodies.
-- **Expected:** the body holds only `statusCode`, `message`, `error`. No `stack`, no `C:\` or
+- **Steps:** trigger four errors and parse the bodies — a 400 (malformed payload), a 401 (no
+  token), a 404 from an unknown path, and a 404 from a **known route with an id no meeting has**,
+  requested with a valid token so the guard passes and the controller runs.
+- **Expected:** every body holds only `statusCode`, `message`, `error`. No `stack`, no `C:\` or
   `/src/`, no `node_modules`, no `at ` trace lines.
+- **Why the fourth sample is not the third one twice:** the unknown path is answered by Nest's own
+  not-found handler, which cannot lose a key; the fourth is thrown by our code. `ADR-0018` makes
+  the **argument form** of `NotFoundException` mandatory because the no-argument form answers with
+  two keys — `message` and `statusCode`, no `error`. Only the second of the two can regress, and
+  without this sample that rule is held by a single feature case: a no-argument form on the next
+  resource would pass the cross-feature suite unseen. This is the same idea as `PROTECTED_ROUTES`,
+  applied to error bodies. `MD-API-03` keeps its own job — comparing the two 404 bodies to each
+  other; this case is about the key set of a handler-thrown 404.
 
 ### SEC-API-07 — extra body fields are rejected on every POST endpoint
 
@@ -106,10 +118,18 @@ answers without a token, including those that do not exist yet.
 
 - **Priority:** P0
 - **Steps:** take the `teacher` and `student` tokens, request `GET /meetings?limit=100` with each
-  and compare the `id` sets.
-- **Expected:** the sets do not intersect; `student`'s list is empty and `teacher`'s is not.
+  and compare the `id` sets. Then walk the by-id route: as a control the owner requests one of his
+  own meetings by id, and then every `teacher` id is requested with the `student` token.
+- **Expected:** the sets do not intersect; `student`'s list is empty and `teacher`'s is not. The
+  owner's own request answers `200` with the same `id` — without that control a route that
+  answered `404` to everyone would pass the rest vacuously. Every by-id request with the foreign
+  token answers `404` and its body does not echo the id back, so the set reachable with the
+  `student` token — through the list and through the by-id route together — still shares nothing
+  with `teacher`'s.
   Duplicates `HD-API-06` on purpose: there it is part of the meetings contract, here it is an
-  invariant that must hold once new resources appear.
+  invariant that must hold once new resources appear — the by-id route is that appearance.
+  Whether the two `404`s (an unknown id and another owner's id) are byte-identical is `ADR-0018`'s
+  promise and belongs to `e2e/regression/meetings-detail/`; this case compares **id sets** only.
 
 ### SEC-API-10 — the repository holds no committed secrets and no `.env`
 

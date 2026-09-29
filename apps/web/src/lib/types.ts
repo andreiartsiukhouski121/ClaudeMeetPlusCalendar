@@ -18,6 +18,7 @@ export interface Meeting {
   /** ISO 8601 UTC — exactly what Nest sent, with no local conversion. */
   startsAt: string;
   durationMinutes: number;
+  participants: string[];
 }
 
 export interface MeetingsPage {

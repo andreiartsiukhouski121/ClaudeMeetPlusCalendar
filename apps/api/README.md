@@ -11,13 +11,9 @@ pnpm --filter @purpleschool/api test:e2e  # supertest: AppModule boots in a test
 
 ## Endpoints
 
-| Method | Path               | Auth     | Response                                                              |
-| ------ | ------------------ | -------- | --------------------------------------------------------------------- |
-| `GET`  | `/`                | none     | `200 text/plain: Hello World!` — the "server is alive" signal         |
-| `POST` | `/auth/login`      | none     | `200 {accessToken, user}`; `401` on bad credentials; `400` on payload |
-| `GET`  | `/auth/me`         | `Bearer` | `200 {id, email, name}`; `401` without a token or with a broken one   |
-| `GET`  | `/meetings?limit=` | `Bearer` | `200 {items, total}`; `400` when `limit` is outside `1..100`          |
-| `POST` | `/meetings`        | `Bearer` | `201 MeetingDto`; `400` on payload                                    |
+Every route, its request, response and error bodies:
+[`docs/api-contract.md`](../../docs/api-contract.md) (`ADR-0019`) — the route listing lives there
+alone, so this file keeps no copy of its own.
 
 Three things that are easy to break unnoticed:
 
@@ -27,11 +23,6 @@ Three things that are easy to break unnoticed:
   limit.
 - **`ownerId` comes from the token, never from the request body.** `CreateMeetingDto` has no owner
   field, and `forbidNonWhitelisted` rejects any attempt to send one.
-
-Errors use Nest's standard shape: with a `400` from `ValidationPipe` the `message` field is an
-**array** of strings, with a `401` it is a string. `ValidationPipe` is registered as an `APP_PIPE`
-provider in `AppModule` rather than through `useGlobalPipes`: otherwise test modules would boot the
-app without validation and the 400 checks would disagree with the real server.
 
 ## Storage and the seed
 

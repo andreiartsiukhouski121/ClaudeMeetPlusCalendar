@@ -36,7 +36,8 @@ export class MeetingsService {
 
   constructor() {
     for (const seed of SEED_MEETINGS) {
-      this.meetingsById.set(seed.id, { ...seed });
+      // A shallow copy would share `participants` with the module-level `SEED_MEETINGS` array.
+      this.meetingsById.set(seed.id, { ...seed, participants: [...seed.participants] });
     }
   }
 
@@ -72,17 +73,34 @@ export class MeetingsService {
       title: input.title,
       startsAt: new Date(input.startsAt).toISOString(),
       durationMinutes: input.durationMinutes ?? DEFAULT_DURATION_MINUTES,
+      // `?? []` normalizes an absent or `null` participants field, mirroring `durationMinutes`
+      // above (`ADR-0017`); the spread avoids sharing the array with the request body's own.
+      participants: [...(input.participants ?? [])],
     };
 
     this.meetingsById.set(meeting.id, meeting);
 
-    return meeting;
+    return { ...meeting, participants: [...meeting.participants] };
+  }
+
+  /**
+   * Owner-scoped lookup by id. `Meeting | undefined` with **one** return path: a missing id and an
+   * id owned by somebody else both fall through to the same `undefined` — the ownership check lives
+   * here, not in the controller, so the two 404 situations stay byte-identical by construction
+   * (`ADR-0018`). `ownerId` is always the caller's, taken by the controller from `@CurrentUser()`.
+   */
+  findById(ownerId: string, id: string): Meeting | undefined {
+    const meeting = this.meetingsById.get(id);
+
+    return meeting && meeting.ownerId === ownerId
+      ? { ...meeting, participants: [...meeting.participants] }
+      : undefined;
   }
 
   /** Copies, not references to stored objects: callers must not mutate the store. */
   private byOwner(ownerId: string): Meeting[] {
     return [...this.meetingsById.values()]
       .filter((meeting) => meeting.ownerId === ownerId)
-      .map((meeting) => ({ ...meeting }));
+      .map((meeting) => ({ ...meeting, participants: [...meeting.participants] }));
   }
 }

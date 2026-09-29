@@ -21,6 +21,7 @@
     "test": "pnpm -r test",
     "test:auth-login": "pnpm -r test -t \"AL-UT-\"",
     "test:home-dashboard": "pnpm -r test -t \"HD-UT-\"",
+    "test:meetings-detail": "pnpm -r test -t \"MD-UT-\"",
     "audit": "pnpm audit --audit-level high",
     "check:orientation": "node scripts/check-orientation.mjs",
     "change:new": "node scripts/new-change.mjs",
