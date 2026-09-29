@@ -4,11 +4,13 @@
 > design it is written from. **Target: 100–150 lines.**
 >
 > Do not delete the sections below — they are the minimum whose absence had to be made up for
-> later. Nothing else belongs here: **test cases are written once, straight into
-> `e2e/regression/<feature>/*.cases.md`**, and the coverage matrix is the job of
-> `e2e/suite-integrity.api.spec.ts`. The first two plans in this directory grew to ~2000 lines, and
-> that cost more than it saved: three of the nine blockers in the second review and both blockers
-> in the third were bookkeeping introduced by edits to the document itself.
+> later. A re-statement of the design and a coverage matrix still do not belong here: the matrix is
+> the job of `e2e/suite-integrity.api.spec.ts`. Test **scenarios** are designed at `FEAT-S9`, by
+> `test-designer`, straight into their `.cases.md` homes (`feature-pipeline` §5a) — this plan does
+> not restate them, it names the tasks that will need one and, in §4a, the tests it expects to break.
+> The first two plans in this directory grew to ~2000 lines, and that cost more than it saved: three
+> of the nine blockers in the second review and both blockers in the third were bookkeeping
+> introduced by edits to the document itself.
 
 ## 0. Orientation: what the project already has
 
@@ -87,6 +89,15 @@ shared file (`app.module.ts`, `e2e/README.md`, the unit cases doc) becomes its o
 Parallel work needs **one git worktree per agent** — different ports are not enough, since Next 16
 registers a dev server per project directory.
 
+## 4a. Tests this change is expected to break
+
+Case IDs, why each goes red, and which task above closes the window. Most changes write "none"
+here — it exists for the ones that do not, so a break the plan foresaw is told apart from one
+nobody expected when a red test turns up later.
+
+| Case ID | Why it goes red | Closed by task |
+| ------- | --------------- | -------------- |
+
 ## 5. Risks
 
 Only what is specific to this feature and not covered by "Project invariants" in `CLAUDE.md`.
@@ -108,13 +119,20 @@ not an omission — it is a misreported result.
    dependencies, conformance to the ADRs, and whether the plan contradicts the spike. Library
    behaviour is not reviewed; the spike settled it. A second review happens only if the first found
    an architecture-changing blocker.
-5. **Implementation** (`implementer-api` / `implementer-web`) — parallel only where files do not
-   overlap, each agent in its own worktree. Tests come from the `tester-*` roles.
-6. **Code review — gate** (`code-reviewer`) — the diff against the plan, the invariants and the
+5. **Test design** (`test-designer`, `FEAT-S9`) — scenarios for every level this change touches,
+   into their `.cases.md` homes, before any spec or product code exists.
+6. **Red tests** (`tester-unit`, `tester-api`, `FEAT-S10`) — specs for those scenarios, run and
+   recorded failing for the reason each was written for.
+7. **Implementation** (`implementer-api` / `implementer-web`, `FEAT-S4`) — parallel only where
+   files do not overlap, each agent in its own worktree.
+8. **Integration and end-to-end tests** (`tester-functional`, `tester-api`, `tester-security`,
+   `FEAT-S11`) — entry condition: the red tests of step 6 are green against the implementation.
+9. **Code review — gate** (`code-reviewer`) — the diff against the plan, the invariants and the
    corpus.
-7. **Acceptance** (`tester-acceptance`) — skill `regression-verify`, one `pnpm verify`, then the
-   ledger entry.
+10. **Acceptance** (`tester-acceptance`) — skill `regression-verify`, one `pnpm verify`, then the
+    ledger entry.
 
-Baseline for a "page plus two endpoints" feature: about 70 minutes, and that is the floor. Twice
-that usually means the plan grew or the review iterated, not that the code was hard. The full order
-of work is the `feature-pipeline` skill.
+Baseline for a "page plus two endpoints" feature: **projected 70–85 minutes** (was ~70 before test
+design and the red-test split; neither is measured yet — see `feature-pipeline` §10). Twice that
+usually means the plan grew or the review iterated, not that the code was hard. The full order of
+work is the `feature-pipeline` skill.

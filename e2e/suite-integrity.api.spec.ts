@@ -3,15 +3,15 @@ import path from 'node:path';
 import { expect, test } from '@playwright/test';
 
 /**
- * The suite convention, made executable. Nine rules, one test each, so a failure names the exact
+ * The suite convention, made executable. Ten rules, one test each, so a failure names the exact
  * violation rather than "something is off with the structure".
  *
  * It works through node:fs, hence the `api` project: no browser needed, and the `.api.spec.ts`
  * suffix is mandatory by rule 1 — otherwise the file would join no project.
  *
  * Why at all: review does not catch a forgotten `.cases.md`, and a spec without the
- * `.api.`/`.functional.` suffix silently never runs — the "green" run checks nothing. This
- * meta-test catches both on every `pnpm e2e`.
+ * `.api.`/`.functional.`/`.integration.` suffix silently never runs — the "green" run checks
+ * nothing. This meta-test catches both on every `pnpm e2e`.
  *
  * Its own tests carry no case IDs: it does not describe a feature, it executes the convention, so
  * it has no paired `suite-integrity.api.cases.md` either.
@@ -42,11 +42,16 @@ const UNIT_SPEC_EXEMPT = ['apps/api/src/app.controller.spec.ts'];
  */
 const KNOWN_CASE_PREFIXES = ['AL', 'HD', 'SM', 'SEC', 'LG', 'PR', 'AR', 'MD'];
 
-/** Case ID: `<FEATURE>-<TYPE>-<NN>`. The number is two or three digits. */
-const CASE_ID_SOURCE = `(?:${KNOWN_CASE_PREFIXES.join('|')})-(?:API|FN|UT)-\\d{2,3}`;
+/**
+ * Case ID: `<FEATURE>-<TYPE>-<NN>`. The number is two or three digits. `INT` (integration) joined
+ * `API`/`FN`/`UT` with the second tuning round — a level with no type here would be invisible to
+ * rules 5–7 while still passing the prefix guard below, which is exactly the vacuous-green failure
+ * that guard exists to prevent.
+ */
+const CASE_ID_SOURCE = `(?:${KNOWN_CASE_PREFIXES.join('|')})-(?:API|FN|UT|INT)-\\d{2,3}`;
 
 /** The ID shape with ANY prefix — only to catch an unregistered one. */
-const ANY_PREFIX_CASE_ID = /\b([A-Z]{2,5})-(?:API|FN|UT)-\d{2,3}\b/g;
+const ANY_PREFIX_CASE_ID = /\b([A-Z]{2,5})-(?:API|FN|UT|INT)-\d{2,3}\b/g;
 const CASE_ID_ANYWHERE = new RegExp(CASE_ID_SOURCE, 'g');
 const CASE_ID_HEADING = new RegExp(`^#{2,6}\\s+(${CASE_ID_SOURCE})\\b`);
 const CASE_ID_TABLE_ROW = new RegExp(`^\\|\\s*(${CASE_ID_SOURCE})\\s*\\|`);
@@ -261,11 +266,17 @@ function collectUnitCaseRefs(content: string): UnitCaseRef[] {
 function violationsRule1(root: string): string[] {
   return e2eSpecs(root)
     .filter((file) => !isSelfExempt(file))
-    .filter((file) => !file.endsWith('.api.spec.ts') && !file.endsWith('.functional.spec.ts'))
+    .filter(
+      (file) =>
+        !file.endsWith('.api.spec.ts') &&
+        !file.endsWith('.functional.spec.ts') &&
+        !file.endsWith('.integration.spec.ts'),
+    )
     .map(
       (file) =>
-        `${file} — rule 1: the name ends in neither .api.spec.ts nor .functional.spec.ts, so the ` +
-        `file joins no playwright.config.ts project and silently never runs`,
+        `${file} — rule 1: the name ends in none of .api.spec.ts, .functional.spec.ts or ` +
+        `.integration.spec.ts, so the file joins no playwright.config.ts project and silently ` +
+        `never runs`,
     );
 }
 
@@ -447,6 +458,43 @@ function violationsRule9(root: string): string[] {
     });
 }
 
+/**
+ * Rule 10: the level tag on a Playwright spec matches the project its filename suffix already
+ * routes it to. The level is carried twice on purpose once a spec is tagged — once by the suffix
+ * (mechanism, checked by rule 1) and once by the tag (for `--grep`) — and a copy that can disagree
+ * with the mechanism is worse than no copy: `@api` on a `.functional.spec.ts` file would filter in
+ * a test that never runs against the contract it claims to.
+ *
+ * Only checked where a level tag is actually present: the vocabulary is additive (proposal 7, second
+ * tuning round), so an untagged spec written before this rule existed is not retroactively broken.
+ */
+const LEVEL_TAG_SUFFIX: [tag: string, suffix: string][] = [
+  ['@api', '.api.spec.ts'],
+  ['@e2e', '.functional.spec.ts'],
+  ['@integration', '.integration.spec.ts'],
+];
+
+function violationsRule10(root: string): string[] {
+  const violations: string[] = [];
+
+  for (const file of e2eSpecs(root).filter((name) => !isSelfExempt(name))) {
+    const content = read(root, file);
+
+    for (const [tag, suffix] of LEVEL_TAG_SUFFIX) {
+      const tagPresent = content.includes(`'${tag}'`) || content.includes(`"${tag}"`);
+      if (tagPresent && !file.endsWith(suffix)) {
+        violations.push(
+          `${file} — rule 10: carries the level tag ${tag}, but its name does not end in ` +
+            `${suffix}. The tag has drifted from the project the filename suffix actually routes ` +
+            `this file to`,
+        );
+      }
+    }
+  }
+
+  return violations;
+}
+
 // --- Tests -----------------------------------------------------------------------------------
 
 // This describe deliberately carries no tag: `@smoke` means `e2e/smoke/**`, and the meta-test is
@@ -547,6 +595,14 @@ test.describe('Regression suite convention', () => {
       violationsRule9(repoRoot()),
       'A copy of the address formula will drift from playwright.config.ts silently, and the BFF ' +
         'checks will go vacuously green',
+    ).toEqual([]);
+  });
+
+  test('rule 10 — a level tag matches the file it is written on', () => {
+    expect(
+      violationsRule10(repoRoot()),
+      'A level tag that disagrees with the filename suffix filters in a test that does not run ' +
+        'where the tag claims it does',
     ).toEqual([]);
   });
 });

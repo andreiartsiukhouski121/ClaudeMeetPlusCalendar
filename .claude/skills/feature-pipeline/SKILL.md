@@ -1,6 +1,6 @@
 ---
 name: feature-pipeline
-description: Order of work for NEW functionality — orientation, assumption spike, requirements and architecture, task breakdown, plan review, implementation, code review, acceptance — and which role of the agent team owns each stage. Use when starting a new feature or a set of features, when planning implementation, when asked "plan this feature", "implement the feature", "build the features from this screenshot", or when a multi-agent pipeline is requested. For a defect, use the bugfix-pipeline skill.
+description: Order of work for NEW functionality — orientation, assumption spike, requirements and architecture, task breakdown, plan review, test design, red tests, implementation, integration and end-to-end tests, code review, acceptance — and which role of the agent team owns each stage. Use when starting a new feature or a set of features, when planning implementation, when asked "plan this feature", "implement the feature", "build the features from this screenshot", or when a multi-agent pipeline is requested. For a defect, use the bugfix-pipeline skill.
 ---
 
 This skill came out of reviewing the first iteration: two simple features (a login page and a
@@ -25,7 +25,7 @@ drifts from the original silently, which is how this repository earned `FX-023` 
 Each stage's artifact is the next stage's context, and the whole of it lives in one folder:
 `docs/plans/<slug>/`, created by `pnpm change:new <slug>`.
 
-The stages, their gates, their order and their IDs (`FEAT-S1`…`FEAT-S8`, `FEAT-G1`…`FEAT-G4`)
+The stages, their gates, their order and their IDs (`FEAT-S1`…`FEAT-S11`, `FEAT-G1`…`FEAT-G4`)
 are in [`docs/process.md`](../../../docs/process.md) — the single home for that inventory
 (`ADR-0020`). They are not repeated here: this file owns the **procedure**, what each stage does and
 what it costs to run it badly, and a second table of stages would drift against the first the way
@@ -152,9 +152,14 @@ and a shared file (`app.module.ts`, `e2e/README.md`, the unit cases doc) becomes
 Without that column, "independent" tasks collide at merge time, which is what happened in the first
 iteration.
 
-What must **not** be in the plan: a re-statement of the design, a list of test cases (they are
-written once, straight into `e2e/regression/<feature>/*.cases.md`), a coverage matrix (that is
-`e2e/suite-integrity.api.spec.ts`'s job), or invariants from `CLAUDE.md`.
+What must **not** be in the plan: a re-statement of the design, a coverage matrix (that is
+`e2e/suite-integrity.api.spec.ts`'s job), or invariants from `CLAUDE.md`. Scenarios are designed at
+`FEAT-S9`, by `test-designer`, into the homes §5a below names — the plan still does not restate them,
+it only names the tasks that will need one. The task table itself gains no new column for this:
+after it, the plan carries a short subsection, **"Tests this change is expected to break"** — case
+IDs, why each goes red, and which task closes the window (`docs/plans/TEMPLATE.md`). Most changes
+write "none" there; it exists for the ones that do not, so an expected break is distinguished from
+an unmarked one when a red test is found later.
 
 The longer the plan, the more of it is work unrelated to the feature: three of the nine blockers in
 the second review and **both** blockers in the third were bookkeeping introduced by edits to the
@@ -181,6 +186,38 @@ the same edits on live code, where a run catches them.
 
 Who to call and how is in `requesting-code-review` and `team-roles`. Blockers go back to the role
 that owns the artifact, unedited — the lead does not soften a verdict.
+
+## 5a. Test design, then the red run
+
+Two stages, both before the implementer touches a file.
+
+**`FEAT-S9`, test design, by `test-designer`.** From the accepted plan and design, before any spec
+or product code exists: scenarios for every level the change touches, written straight into their
+`.cases.md` homes — unit, API and functional keep their present homes
+(`e2e/regression/<feature>/<feature>.{unit,api,functional}.cases.md`); a module-level check exercised
+without a browser is **integration**, `e2e/regression/<feature>/<feature>.integration.cases.md`, IDs
+typed `-INT-`, run by the `integration` Playwright project (the `request` fixture, no browser — the
+same mechanism the `api` project already uses, just its own project so the filename suffix keeps
+routing the file); an end-to-end journey that crosses **two or more features** gets its own
+extendable area file, `e2e/journeys/<area>/<area>.functional.cases.md`, read and extended rather than
+duplicated — a scenario that stays inside one feature stays in that feature's own
+`.functional.cases.md`. A new area or feature prefix goes into `KNOWN_CASE_PREFIXES`
+(`e2e/suite-integrity.api.spec.ts`), or the unregistered-prefix guard goes red — by design.
+
+Tags reuse the vocabulary that already exists rather than adding synonyms: `@unit`, `@api`, `@e2e`
+and `@integration` for the level (Vitest units carry none — the case ID already encodes it and
+`pnpm test:<feature>` filters on that), the existing per-feature tag, `@p0`/`@mutating` where they
+apply. A meta-test checks that a level tag matches the file's own suffix, so a tag cannot drift from
+the project the spec actually runs in. Budget: scenario text for one feature stays at or under 200
+lines per level file, the same discipline the plan and the design already carry — this stage inherits
+the `bugfix-pipeline` §4 threshold too: below it there is no change folder and no test design, only a
+red test, the fix, an `FX-` entry.
+
+**`FEAT-S10`, red tests (unit and API), by `tester-unit` and `tester-api`.** Specs for the scenarios
+`test-designer` wrote, each one run and recorded failing **for the reason it was written for** — not
+a 404, a typo or an import error, which is a broken test rather than a red one. Integration and
+end-to-end specs are not written yet; they wait for `FEAT-S11`, after the implementation below is
+green at this level.
 
 ## 6. Implementation: parallelism means worktrees, and nothing else
 
@@ -217,11 +254,32 @@ side of one feature both needed to edit `e2e/README.md` and the unit cases doc, 
 `app.module.ts` was edited by both features. Such files are either assigned to one agent or edited
 after the merge.
 
-**Implementers write product code; testers write the tests.** `apps/**/src/**` that is not a spec
-belongs to `implementer-api` / `implementer-web`; `e2e/**`, `**/*.spec.ts` and `*.cases.md` belong to
-the `tester-*` roles (`ADR-0014`). The two run against each other rather than the same agent grading
-its own homework, and the split is by file, so it is checkable. An implementer who notices a missing
-case reports it; they do not add it.
+**Implementers write product code; testers write the specs and run them; the test designer writes the
+scenario text.** `apps/**/src/**` that is not a spec belongs to `implementer-api` /
+`implementer-web`; `e2e/**` and `**/*.spec.ts` belong to the `tester-*` roles; `*.cases.md` belongs to
+`test-designer` (`ADR-0014`). The three run against each other rather than the same agent grading its
+own homework, and the split is by file, so it is checkable. An implementer who notices a missing case
+reports it; they do not add it.
+
+**A test that goes red and was not marked to break at `FEAT-S3` is not edited by whoever finds it.**
+Rule out the ordinary infrastructure causes first — an orphaned server, a hung `@playwright/test`, a
+parallel `pnpm dev`, a measurement-order flake — and only then judge whether the test or the code is
+wrong. If the implementer believes the test is wrong, it reports rather than fixes: `lead` files a
+`BL-` row (`team-roles`, the boundaries section) and the owner decides. Acceptance does not proceed
+on a disputed test in the meantime.
+
+## 6a. Integration and end-to-end tests
+
+**`FEAT-S11`, by `tester-functional`, `tester-api` and `tester-security` as the levels the change
+touches require.** Entry condition: the unit and API specs of `FEAT-S10` are green against the
+implementation. What runs here: the integration specs (`*.integration.spec.ts`, project
+`integration`) and the functional/journey specs (`*.functional.spec.ts`, project `web`) that
+`test-designer` wrote scenarios for at `FEAT-S9`, plus any security case the change touches.
+
+`FEAT-S5` — the single "tests per level" stage this replaces — is retired in `docs/process.md`, not
+deleted: the row stays, marked retired, because the existing profiling record cites it and
+`AR-API-10` would fail otherwise. Nothing here removes a check `FEAT-S5` used to run; the same work
+now has two IDs instead of one, split by when it happens relative to `FEAT-S4`.
 
 ## 7. Code review — the fourth gate
 
@@ -284,6 +342,14 @@ the plan and plan review counted here fall on the discovery side of that split. 
 recomputed the total against observed agent durations (minimum 8.7 minutes, median 21.4) and got 70
 minutes with a narrow review and 85 with a full one, including the probes that now live in §0. There
 is no slack in those numbers: going back to a full plan review costs +15 minutes.
+
+**§5a's test design (`FEAT-S9`) adds a line no record has measured yet: projected 10–25 minutes**,
+bracketed against `FEAT-S3` (the closest analogue — a document, written by one role, from accepted
+artifacts). The red run it feeds (`FEAT-S10`) and the run-boundary `FEAT-S11` adds are not a new
+line here: the plan that introduced them projects the same total work as the retired `FEAT-S5`,
+reordered, plus a few seconds per extra filtered run — negligible against the totals above. So the
+floor moves to a **projected 70–85 minutes**, not measured, and the first record after this change
+either confirms the bracket or falsifies it.
 
 **The discovery half is now measured.** `docs/profiling/` holds one record per cycle (`ADR-0020`,
 closing `BL-022`), and the first put discovery and its three gates at 1.47M tokens against 2.01M for

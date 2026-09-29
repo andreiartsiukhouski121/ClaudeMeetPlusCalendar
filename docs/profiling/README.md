@@ -38,7 +38,19 @@ a sum of the rows above it, because dispatches can run in parallel.
 
 **Discovery and implementation are one split, cited by stage ID rather than restated in prose**:
 `FEAT-S1`…`FEAT-G3` are discovery, `FEAT-S4`…`FEAT-S8` are everything after. Every record and
-`feature-pipeline` §10 use this same boundary.
+`feature-pipeline` §10 use this same boundary. **This boundary is frozen** — the second tuning round
+(`TUNE-S3`, 2026-09-29) added `FEAT-S9`, `FEAT-S10` and `FEAT-S11`, and `discovery` is deliberately
+**not** redefined to absorb any of them: the first record's 42.3% / 57.7% split stays comparable with
+every future one, which is the whole reason this boundary was fixed by ID in the first place.
+
+**A second, separate figure covers the new stages: "pre-implementation"** —
+`FEAT-S1`…`FEAT-G3` **plus `FEAT-S9` and `FEAT-S10`**, i.e. everything that runs before `FEAT-S4`
+writes any product code. It **overlaps** `discovery` rather than replacing it: every discovery stage
+is also pre-implementation, and `FEAT-S9`/`FEAT-S10` are pre-implementation but not discovery. This
+is the number proposal 1 of the second round's tuning plan projected rising to 45–47% — state both
+figures in a record, state that they overlap, and treat `discovery` as the frozen one for
+cross-record comparability and `pre-implementation` as the one to watch for whether the new stages
+are creeping the pipeline back toward `CH-004`'s shape.
 
 **Record what you actually know.** Sub-agent cost arrives in the hand-back; wall-clock is the
 harness's duration. Where a number is unavailable, the cell says so — an invented figure is worse

@@ -1,9 +1,9 @@
 ---
 name: team-roles
-description: The agent team contract for this repository — the twenty-two roles, what each is forbidden to do, how work is handed between them, which model each runs on, and when the team is the wrong tool. Use when orchestrating a feature or a fix across several agents, when dispatching a researcher, designer, planner, implementer, reviewer or tester, when asked "who should do this", or before deciding the full flow is needed at all.
+description: The agent team contract for this repository — the twenty-three roles, what each is forbidden to do, how work is handed between them, which model each runs on, and when the team is the wrong tool. Use when orchestrating a feature or a fix across several agents, when dispatching a researcher, designer, planner, implementer, reviewer or tester, when asked "who should do this", or before deciding the full flow is needed at all.
 ---
 
-Twenty-two roles, each a file in `.claude/agents/`. A role's limits are its **tool list**, not its
+Twenty-three roles, each a file in `.claude/agents/`. A role's limits are its **tool list**, not its
 prompt: `regression-verify` §5 has forbidden "fixed it while I was there" in words for a long time,
 and an audit still found the reviewer holding write access to every file. Prose is a request; a tool
 list is a mechanism (`ADR-0014`).
@@ -14,30 +14,31 @@ the documents every role works from are in `project-context`.
 
 ## The roles
 
-| Role                   | Owns                                                 | Tools                        | Model    |
-| ---------------------- | ---------------------------------------------------- | ---------------------------- | -------- |
-| `lead`                 | sequencing, dispatch, gates, reporting, git          | no `Write`/`Edit`            | `opus`   |
-| `researcher`           | `research/README.md`; dispatches the sweeps          | `Write`, `Agent`             | `opus`   |
-| `researcher-code`      | `research/code.md`                                   | `Write`, `Bash`, no `Agent`  | `sonnet` |
-| `researcher-contract`  | `research/contract.md`                               | `Write`, `Bash`, no `Agent`  | `sonnet` |
-| `researcher-tests`     | `research/tests.md`                                  | `Write`, `Bash`, no `Agent`  | `sonnet` |
-| `researcher-history`   | `research/history.md`                                | `Write`, `Bash`, no `Agent`  | `haiku`  |
-| `research-reviewer`    | a verdict on the research                            | `Read`, `Grep`, `Glob`       | `opus`   |
-| `designer`             | `design.md`, `docs/adr/**`                           | `Write`, no `Agent`          | `opus`   |
-| `design-reviewer`      | a verdict on the design                              | `Read`, `Grep`, `Glob`       | `opus`   |
-| `planner`              | `<slug>.plan.md`                                     | `Write`, no `Agent`          | `opus`   |
-| `plan-reviewer`        | a verdict on the plan                                | `Read`, `Grep`, `Glob`       | `opus`   |
-| `implementer-api`      | `apps/api/src/**` that is not a spec                 | `Write`, no `Agent`          | `sonnet` |
-| `implementer-web`      | `apps/web/src/**` that is not a spec                 | `Write`, no `Agent`          | `sonnet` |
-| `code-reviewer`        | a verdict on the diff                                | `Read`, `Grep`, `Glob`       | `opus`   |
-| `tester-unit`          | `**/src/**/*.spec.ts`, `*.unit.cases.md`             | `Write`, `Bash`              | `sonnet` |
-| `tester-api`           | `*.api.spec.ts`, `*.api.cases.md`                    | `Write`, `Bash`              | `sonnet` |
-| `tester-functional`    | `*.functional.spec.ts`, `*.functional.cases.md`, MCP | `Write`, `Bash`, `browser_*` | `sonnet` |
-| `tester-security`      | `e2e/security/**`, the two route lists, `pnpm audit` | `Write`, `Bash`              | `opus`   |
-| `tester-acceptance`    | the `pnpm verify` gate and the acceptance report     | `Write`, `Bash`              | `sonnet` |
-| `pipeline-reviewer`    | `docs/profiling/reviews/**`; evidence, no verdicts   | `Write`, no `Edit`/`Bash`    | `opus`   |
-| `pipeline-planner`     | `docs/profiling/plans/**`; proposals for the owner   | `Write`, no `Edit`/`Bash`    | `opus`   |
-| `pipeline-implementer` | the approved pipeline edits, and only those          | `Write`, `Edit`, `Bash`      | `sonnet` |
+| Role                   | Owns                                                 | Tools                             | Model    |
+| ---------------------- | ---------------------------------------------------- | --------------------------------- | -------- |
+| `lead`                 | sequencing, dispatch, gates, reporting, git          | no `Write`/`Edit`                 | `opus`   |
+| `researcher`           | `research/README.md`; dispatches the sweeps          | `Write`, `Agent`                  | `opus`   |
+| `researcher-code`      | `research/code.md`                                   | `Write`, `Bash`, no `Agent`       | `sonnet` |
+| `researcher-contract`  | `research/contract.md`                               | `Write`, `Bash`, no `Agent`       | `sonnet` |
+| `researcher-tests`     | `research/tests.md`                                  | `Write`, `Bash`, no `Agent`       | `sonnet` |
+| `researcher-history`   | `research/history.md`                                | `Write`, `Bash`, no `Agent`       | `haiku`  |
+| `research-reviewer`    | a verdict on the research                            | `Read`, `Grep`, `Glob`            | `opus`   |
+| `designer`             | `design.md`, `docs/adr/**`                           | `Write`, no `Agent`               | `opus`   |
+| `design-reviewer`      | a verdict on the design                              | `Read`, `Grep`, `Glob`            | `opus`   |
+| `planner`              | `<slug>.plan.md`                                     | `Write`, no `Agent`               | `opus`   |
+| `plan-reviewer`        | a verdict on the plan                                | `Read`, `Grep`, `Glob`            | `opus`   |
+| `test-designer`        | `*.cases.md` — the scenario text, every level        | `Write`, no `Edit`/`Bash`/`Agent` | `opus`   |
+| `implementer-api`      | `apps/api/src/**` that is not a spec                 | `Write`, no `Agent`               | `sonnet` |
+| `implementer-web`      | `apps/web/src/**` that is not a spec                 | `Write`, no `Agent`               | `sonnet` |
+| `code-reviewer`        | a verdict on the diff                                | `Read`, `Grep`, `Glob`            | `opus`   |
+| `tester-unit`          | `**/src/**/*.spec.ts`                                | `Write`, `Bash`                   | `sonnet` |
+| `tester-api`           | `*.api.spec.ts`, `*.integration.spec.ts`             | `Write`, `Bash`                   | `sonnet` |
+| `tester-functional`    | `*.functional.spec.ts`, MCP                          | `Write`, `Bash`, `browser_*`      | `sonnet` |
+| `tester-security`      | `e2e/security/**`, the two route lists, `pnpm audit` | `Write`, `Bash`                   | `opus`   |
+| `tester-acceptance`    | the `pnpm verify` gate and the acceptance report     | `Write`, `Bash`                   | `sonnet` |
+| `pipeline-reviewer`    | `docs/profiling/reviews/**`; evidence, no verdicts   | `Write`, no `Edit`/`Bash`         | `opus`   |
+| `pipeline-planner`     | `docs/profiling/plans/**`; proposals for the owner   | `Write`, no `Edit`/`Bash`         | `opus`   |
+| `pipeline-implementer` | the approved pipeline edits, and only those          | `Write`, `Edit`, `Bash`           | `sonnet` |
 
 `AR-API-08` compares this table against `.claude/agents/` **in both directions**: a role named here
 without a definition cannot be dispatched, and a definition nobody names here is unreachable.
@@ -65,11 +66,23 @@ assumed (`ADR-0016`).
 anything uncitable is an open question or a `Not found` line. A sweep that quietly designs makes the
 design unreviewable, because its reasoning arrives already wrapped in a conclusion.
 
-**Test artifacts belong to testers, product code to implementers.** `e2e/**`, `**/*.spec.ts` and
-`*.cases.md` are the testers'; `apps/**/src/**` that is not a spec is the implementers'. A
-file-level split is checkable; "the implementer writes tests too, responsibly" is not. So the red
-test that reproduces a defect (`bugfix-pipeline` §5) is written by a tester, not by whoever will fix
-it, and an implementer who spots a missing case reports it rather than adding it.
+**Scenarios belong to the test designer, specs and runs to testers, product code to implementers.**
+`*.cases.md` — the scenario text, at every level — is `test-designer`'s; `e2e/**` specs and
+`**/*.spec.ts` are the testers'; `apps/**/src/**` that is not a spec is the implementers'. A
+file-level split is checkable; "the implementer writes tests too, responsibly" is not. The point of
+the split survives moving `*.cases.md` off the testers: no agent grades its own homework, and
+separating "what must be true" from "the code that asserts it" is what keeps that property, not
+which specific role holds the pen. So the red test that reproduces a defect (`bugfix-pipeline` §5)
+is written by a tester against a scenario it did not author, not by whoever will fix it, and an
+implementer who spots a missing case reports it rather than adding it.
+
+**A failing test the plan did not mark as expected to break is not edited by the agent that finds
+it.** If an agent believes the test, not the application, is wrong — once the ordinary
+infrastructure causes are ruled out first (an orphaned server, a hung `@playwright/test`, a
+parallel `pnpm dev`, a measurement-order flake) — it reports rather than fixes: `lead` files a `BL-`
+row in `docs/BACKLOG.md` with the case ID, the exact command and verbatim output, why the test is
+believed wrong, what would have to change, and the argument that the implementation is right. The
+owner decides; acceptance does not proceed on a disputed test in the meantime.
 
 **Reviewers are read-only in the literal sense.** They hold `Read`, `Grep` and `Glob`, describe
 fixes in words, and never touch the tree. The same rule is why acceptance may not fix anything.

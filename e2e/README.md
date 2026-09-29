@@ -11,19 +11,29 @@ diverge from reality (`FX-013`, `FX-027`).
 
 ## Naming convention
 
-| Role                               | Pattern                         | Playwright project |
-| ---------------------------------- | ------------------------------- | ------------------ |
-| API contract cases                 | `<feature>.api.cases.md`        | —                  |
-| API contract spec                  | `<feature>.api.spec.ts`         | `api` (:3101)      |
-| UI cases                           | `<feature>.functional.cases.md` | —                  |
-| UI spec                            | `<feature>.functional.spec.ts`  | `web` (:3100)      |
-| Unit cases (specs live in `apps/`) | `<feature>.unit.cases.md`       | vitest             |
+| Role                                | Pattern                                                       | Playwright project    |
+| ----------------------------------- | ------------------------------------------------------------- | --------------------- |
+| API contract cases                  | `<feature>.api.cases.md`                                      | —                     |
+| API contract spec                   | `<feature>.api.spec.ts`                                       | `api` (:3101)         |
+| UI cases                            | `<feature>.functional.cases.md`                               | —                     |
+| UI spec                             | `<feature>.functional.spec.ts`                                | `web` (:3100)         |
+| Module-level cases, no browser      | `<feature>.integration.cases.md`                              | —                     |
+| Module-level spec, no browser       | `<feature>.integration.spec.ts`                               | `integration` (:3101) |
+| Cross-feature journey (2+ features) | `e2e/journeys/<area>/<area>.functional.cases.md` + `.spec.ts` | `web` (:3100)         |
+| Unit cases (specs live in `apps/`)  | `<feature>.unit.cases.md`                                     | vitest                |
 
 **The filename suffix is the only source of truth about which project executes a test.**
 `playwright.config.ts` routes by `testMatch` rather than by directory: `*.api.spec.ts` → project
-`api` (the `request` fixture, no browser), `*.functional.spec.ts` → project `web` (Desktop Chrome).
-A file with any other name **joins no project and silently never runs** — that is what
-`suite-integrity.api.spec.ts` guards against.
+`api` (the `request` fixture, no browser), `*.functional.spec.ts` → project `web` (Desktop Chrome),
+`*.integration.spec.ts` → project `integration` (the `request` fixture, no browser — several modules
+exercised together). A file with any other name **joins no project and silently never runs** — that
+is what `suite-integrity.api.spec.ts` guards against.
+
+**Scenarios (`.cases.md`) are written by `test-designer` at `FEAT-S9`**, before the paired spec
+exists; the spec and the run stay with the `tester-*` roles (`feature-pipeline` §5a, second tuning
+round). An integration ID is typed `-INT-`; a new area or feature prefix goes into
+`KNOWN_CASE_PREFIXES` in `suite-integrity.api.spec.ts` first, or the unregistered-prefix guard goes
+red.
 
 A test title must start with its case ID (`SM-API-01 — …`): that gives `--grep "HD-FN-07"`, a
 readable report, and an automatic pairing check. The same goes for units — `it('AL-UT-09 — …')`, or
@@ -96,6 +106,13 @@ Tags are set with the `tag` option on `test.describe` rather than as text in the
 `@regression`, `@smoke`, `@auth-login`, `@home-dashboard`, `@mutating` (the case changes data),
 `@p0` (the critical minimum). The service suites carry their own: `@security`, `@ledger`,
 `@process`, `@architecture`.
+
+**Level tags**, second tuning round: `@unit`, `@api`, `@e2e`, `@integration` — reusing the vocabulary
+above rather than adding synonyms (`@smoke` stays `@smoke`, `@p0` stays `@p0`). Vitest units carry
+none; the case ID already encodes the level. A meta-test (`suite-integrity.api.spec.ts` rule 10)
+fails if a level tag disagrees with the file's own suffix, so the tag cannot drift from the project
+that actually runs the spec. Selective running by level is not built — every commit still runs the
+whole suite; the tags exist for when the suite is large enough that changes.
 
 ```bash
 pnpm e2e                                    # everything
@@ -183,6 +200,8 @@ than repeating it.
 7. Add a row to the "What lives where" table above.
 8. Run `pnpm e2e e2e/suite-integrity.api.spec.ts` — it must be green. Then **one** `pnpm verify`
    rather than a series of `--grep` calls.
+9. If a `.cases.md` changed, run `pnpm scenarios:index` and commit the refreshed
+   `e2e/scenarios-index.md` — `PR-API-07` fails `pnpm verify` on a stale one.
 
 ## How many cases to write
 
@@ -215,16 +234,20 @@ rather than a check.
 reference it: four diverging copies of this paragraph already produced `FX-027`. When the numbers
 change, change them here and set a new measurement date.
 
-Measured **2026-09-29**, Windows 11, warm `.next`, after `CH-019`'s verify run. Suite composition —
-**110 e2e in 13 files and 51 units** (38 in `apps/api`, 13 in `apps/web`) plus one supertest
-module-boot check. The one e2e added since the previous line is `AR-API-10`, in the existing
-`architecture.api.spec.ts`; the file count does not move. Before that, measured 2026-09-28 at **109 e2e**: the eight added since the count before it were `meetings-detail`'s `MD-API-01`…`07` in a new 13th file
-(`e2e/regression/meetings-detail/`, deliberately no `.functional.` pair) plus `AR-API-09`, a new
-test in the existing `architecture.api.spec.ts`. `SEC-API-09` does **not** add to this count: it is
-the same case, extended in place to walk the by-id route rather than duplicated into a new one, so
-it moves the file's line count but not the suite's test count. The nine added units are
-`MD-UT-01`…`09` inside the existing `meetings.service.spec.ts`, so the unit file count does not
-move.
+Measured **2026-09-29**, Windows 11, warm `.next`, after `TUNE-S3`'s (second round) verify run. Suite
+composition — **112 e2e in 13 files and 51 units** (38 in `apps/api`, 13 in `apps/web`) plus one
+supertest module-boot check. The two e2e added since the previous line are `PR-API-07` (the scenario
+index staleness check, in the existing `process.api.spec.ts`) and rule 10 (the level-tag-matches-suffix
+check, in the existing `suite-integrity.api.spec.ts`); the file count does not move. Before that,
+measured 2026-09-29 (`CH-019`'s verify run) at **110 e2e**: the one added since the count before it was
+`AR-API-10`, in the existing `architecture.api.spec.ts`; the file count did not move. Before that,
+measured 2026-09-28 at **109 e2e**: the eight added since the count before it were `meetings-detail`'s
+`MD-API-01`…`07` in a new 13th file (`e2e/regression/meetings-detail/`, deliberately no `.functional.`
+pair) plus `AR-API-09`, a new test in the existing `architecture.api.spec.ts`. `SEC-API-09` does
+**not** add to this count: it is the same case, extended in place to walk the by-id route rather than
+duplicated into a new one, so it moves the file's line count but not the suite's test count. The nine
+added units are `MD-UT-01`…`09` inside the existing `meetings.service.spec.ts`, so the unit file count
+does not move.
 
 **What the process costs is measured elsewhere.** `docs/profiling/` holds one record per development
 cycle — stage by stage, in tokens and wall-clock (`ADR-0020`, closing what `BL-022` asked for). The
@@ -233,7 +256,7 @@ carrying two subjects is how `FX-027` happened.
 
 | What                                             | Time        | How measured                              |
 | ------------------------------------------------ | ----------- | ----------------------------------------- |
-| `pnpm e2e` — all 109                             | **27–45 s** | timing the whole command                  |
+| `pnpm e2e` — all 112                             | **26–45 s** | timing the whole command                  |
 | `pnpm e2e --project=api --grep @auth-login` — 11 | **13.1 s**  | the same; ~12 s of it is starting servers |
 | `pnpm verify` end to end                         | **47–66 s** | five measurements across two days         |
 | `pnpm verify` on a cold `.next`                  | ~137 s      | the first run of the day                  |

@@ -15,30 +15,38 @@ Which of the three flows you are in is decided before anything else — the rule
 
 ## `FEAT` — new functionality
 
-Procedure: the `feature-pipeline` skill. Eight stages, four of them behind a gate.
+Procedure: the `feature-pipeline` skill. Ten active stages, four of them behind a gate, plus one
+retired.
 
-| ID        | Stage               | Role                                 | Output                                         |
-| --------- | ------------------- | ------------------------------------ | ---------------------------------------------- |
-| `FEAT-S1` | Research            | `researcher` + four sweeps           | `research/**` — cited findings, gaps named     |
-| `FEAT-G1` | **Research review** | `research-reviewer`                  | blockers, or the verdict `accept`              |
-| `FEAT-S2` | Design              | `designer`                           | `design.md`, and any ADR the shape needs       |
-| `FEAT-G2` | **Design review**   | `design-reviewer`                    | blockers, or the verdict `accept`              |
-| `FEAT-S3` | Plan                | `planner`                            | `<slug>.plan.md`: orientation, tasks, DoD      |
-| `FEAT-G3` | **Plan review**     | `plan-reviewer`                      | blockers, or the verdict `accept`              |
-| `FEAT-S4` | Implementation      | `implementer-api`, `implementer-web` | product code                                   |
-| `FEAT-S5` | Tests per level     | the `tester-*` roles                 | cases plus a green run at each level touched   |
-| `FEAT-G4` | **Code review**     | `code-reviewer`                      | blockers, or the verdict `accept`              |
-| `FEAT-S6` | Acceptance          | `tester-acceptance`                  | one green `pnpm verify`, reported with numbers |
-| `FEAT-S7` | Ledger              | `tester-acceptance`                  | an `FT-`/`CH-` row, closed `BL-` items         |
-| `FEAT-S8` | Profiling record    | `tester-acceptance`                  | `docs/profiling/runs/<date>-<slug>.md`         |
+| ID         | Stage                             | Role                                                 | Output                                                        |
+| ---------- | --------------------------------- | ---------------------------------------------------- | ------------------------------------------------------------- |
+| `FEAT-S1`  | Research                          | `researcher` + four sweeps                           | `research/**` — cited findings, gaps named                    |
+| `FEAT-G1`  | **Research review**               | `research-reviewer`                                  | blockers, or the verdict `accept`                             |
+| `FEAT-S2`  | Design                            | `designer`                                           | `design.md`, and any ADR the shape needs                      |
+| `FEAT-G2`  | **Design review**                 | `design-reviewer`                                    | blockers, or the verdict `accept`                             |
+| `FEAT-S3`  | Plan                              | `planner`                                            | `<slug>.plan.md`: orientation, tasks, DoD                     |
+| `FEAT-G3`  | **Plan review**                   | `plan-reviewer`                                      | blockers, or the verdict `accept`                             |
+| `FEAT-S9`  | Test design                       | `test-designer`                                      | scenarios for every level touched, in their `.cases.md` homes |
+| `FEAT-S10` | Red tests (unit, API)             | `tester-unit`, `tester-api`                          | failing specs, each red for the reason it was written for     |
+| `FEAT-S4`  | Implementation                    | `implementer-api`, `implementer-web`                 | product code                                                  |
+| `FEAT-S11` | Integration and end-to-end tests  | `tester-functional`, `tester-api`, `tester-security` | green specs at the integration and end-to-end levels          |
+| `FEAT-S5`  | ~~Tests per level~~ — **retired** | —                                                    | folded into `FEAT-S10` and `FEAT-S11` above                   |
+| `FEAT-G4`  | **Code review**                   | `code-reviewer`                                      | blockers, or the verdict `accept`                             |
+| `FEAT-S6`  | Acceptance                        | `tester-acceptance`                                  | one green `pnpm verify`, reported with numbers                |
+| `FEAT-S7`  | Ledger                            | `tester-acceptance`                                  | an `FT-`/`CH-` row, closed `BL-` items                        |
+| `FEAT-S8`  | Profiling record                  | `tester-acceptance`                                  | `docs/profiling/runs/<date>-<slug>.md`                        |
 
 `FEAT-S8` is new with `ADR-0020` and is part of finishing, like the ledger entry: the numbers only
 exist while the hand-backs are still in front of you. Both belong to `tester-acceptance` rather than
 to `lead`, because `lead` has no `Write` (`ADR-0014`) — a stage assigned to a role that cannot
 perform it is a paragraph, not an assignment.
 
-**A gate is passed by an artifact, not by an assurance.** Stages are never reordered or skipped, but
-they shrink with the task; a skipped stage is named out loud rather than assumed.
+`FEAT-S9`, `FEAT-S10` and `FEAT-S11` are new with the second tuning round (`TUNE-S3`, 2026-09-29):
+scenarios are designed before any test or product code exists, the unit and API tests go red first,
+then the implementation, then integration and end-to-end. **`FEAT-S5` is not renumbered or
+deleted** — the existing profiling record cites it, and `AR-API-10` fails a record naming a stage
+this file does not define. The row order above carries the real sequence of a run; the ID is only a
+name, and a retired one is never reused.
 
 ## `FIX` — a defect
 

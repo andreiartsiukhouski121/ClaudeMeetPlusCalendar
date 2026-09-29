@@ -27,6 +27,7 @@
     "change:new": "node scripts/new-change.mjs",
     "adr:new": "node scripts/new-adr.mjs",
     "ledger:fill": "node scripts/fill-ledger-hash.mjs",
+    "scenarios:index": "node scripts/scenarios-index.mjs write",
     "skills:sync": "node scripts/skills-sync.mjs sync",
     "skills:check": "node scripts/skills-sync.mjs check",
     "verify": "pnpm check:orientation && pnpm lint && pnpm typecheck && pnpm test && pnpm --filter @purpleschool/api test:e2e && pnpm format:check && pnpm e2e && pnpm audit --audit-level high",

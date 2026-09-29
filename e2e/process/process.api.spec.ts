@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -48,7 +49,7 @@ const EVIDENCE_PATTERNS = [
   /`[^`]*\.(?:ts|tsx|mjs|js|md|json|css|ya?ml)(?::\d+)?`/,
   /\b(?:FT|CH|FX|BL)-\d{3}\b/,
   /\bADR-\d{4}\b/,
-  /\b[A-Z]{2,5}-(?:API|FN|UT)-\d{2,3}\b/,
+  /\b[A-Z]{2,5}-(?:API|FN|UT|INT)-\d{2,3}\b/,
   /^\s*-\s*\*\*Not found:\*\*/m,
 ];
 
@@ -204,6 +205,25 @@ function violationsEvidence(root: string): string[] {
   return problems;
 }
 
+const SCENARIOS_INDEX_SCRIPT = 'scripts/scenarios-index.mjs';
+
+/**
+ * Runs the generator in `check` mode: it regenerates `e2e/scenarios-index.md` in memory and exits
+ * non-zero if that differs from the file on disk. A subprocess rather than an import so there is one
+ * canonical generator instead of a second implementation here that could itself drift from it.
+ */
+function violationsScenarioIndex(root: string): string[] {
+  try {
+    execFileSync('node', [SCENARIOS_INDEX_SCRIPT, 'check'], { cwd: root, stdio: 'pipe' });
+    return [];
+  } catch (error) {
+    const failure = error as { stdout?: Buffer; stderr?: Buffer };
+    const output = `${failure.stdout?.toString() ?? ''}${failure.stderr?.toString() ?? ''}`.trim();
+
+    return [output || 'e2e/scenarios-index.md is stale. Run `pnpm scenarios:index` to refresh it.'];
+  }
+}
+
 function templates(root: string): string[] {
   return fs
     .readdirSync(path.join(root, PLANS_DIR))
@@ -318,5 +338,13 @@ test.describe('Planning process', { tag: '@process' }, () => {
           'unverifiable — an empty section 0 passes because there is nothing to compare it to',
       ).toBe(true);
     }
+  });
+
+  test('PR-API-07 — the scenario index is regenerated, never hand-edited', () => {
+    expect(
+      violationsScenarioIndex(repoRoot()),
+      'e2e/scenarios-index.md must match `node scripts/scenarios-index.mjs check` — run ' +
+        '`pnpm scenarios:index` and commit the result',
+    ).toEqual([]);
   });
 });

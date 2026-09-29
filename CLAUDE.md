@@ -158,16 +158,18 @@ words.
 | ---------------------------------------------------------------- | ------------------------------------------- | ----------------------------- |
 | `lead`                                                           | sequences, dispatches, holds gates, reports | write files                   |
 | `planner`                                                        | the plan and the ADRs                       | run the app, review, dispatch |
+| `test-designer`                                                  | test scenarios (`*.cases.md`), every level  | write specs, run, dispatch    |
 | `implementer-api`, `implementer-web`                             | product code                                | write tests, dispatch         |
 | `plan-reviewer`, `code-reviewer`                                 | verdicts, in text                           | edit or run anything          |
 | `tester-unit`, `-api`, `-functional`, `-security`, `-acceptance` | tests and runs                              | touch product code, dispatch  |
 | `pipeline-reviewer`, `pipeline-planner`                          | evidence, then proposals for the owner      | edit the pipeline             |
 | `pipeline-implementer`                                           | the pipeline changes the owner approved     | decide what to change         |
 
-Two boundaries are choices rather than consequences: **test artifacts belong to the testers**
-(`e2e/**`, `**/*.spec.ts`, `*.cases.md`) and product code to the implementers; and **reviewers are
-read-only** in the literal sense. The full contract — models per role, the handoff format, when the
-team is the wrong tool — is the `team-roles` skill.
+Two boundaries are choices rather than consequences: **scenarios belong to the test designer, specs
+and runs to the testers** (`*.cases.md` to `test-designer`; `e2e/**` and `**/*.spec.ts` to the
+`tester-*` roles) and product code to the implementers; and **reviewers are read-only** in the
+literal sense. The full contract — models per role, the handoff format, when the team is the wrong
+tool — is the `team-roles` skill.
 
 ## The process itself: stages, gates and what they cost
 
@@ -183,9 +185,11 @@ The skills own the **procedure** — how a stage is run and what it costs to ski
 inventory rather than restating it (`ADR-0020`). A stage table anywhere else is drift, which is what
 `FX-023`, `FX-027`, `FX-031` and `FX-032` are all entries about.
 
-The IDs (`FEAT-S1`…`FEAT-S8`, `FEAT-G1`…`FEAT-G4`, `FIX-S1`…`FIX-S7`, `TUNE-S1`…`TUNE-S3`) are the
+The IDs (`FEAT-S1`…`FEAT-S11`, `FEAT-G1`…`FEAT-G4`, `FIX-S1`…`FIX-S7`, `TUNE-S1`…`TUNE-S3`) are the
 join key between a measurement and the thing measured. They are **never renumbered or reused**, and
-`AR-API-10` fails a profiling record citing a stage the inventory does not define.
+`AR-API-10` fails a profiling record citing a stage the inventory does not define. `FEAT-S5` is
+retired rather than deleted: the ID stays in `docs/process.md` because the first profiling record
+cites it.
 
 **A profiling record is part of finishing a cycle** (`FEAT-S8`), like the ledger entry: the numbers
 exist only while the hand-backs are still in front of you. The first record measured `FT-003` at
@@ -392,8 +396,14 @@ reviewer read-only".
   is `e2e/README.md`.
 - **The Playwright project is chosen by the filename suffix, not by the directory:**
   `*.api.spec.ts` → project `api` (the `request` fixture, `:3101`), `*.functional.spec.ts` →
-  project `web` (browser, `:3100`). A file ending in `.spec.ts` without one of those suffixes joins
-  **no** project and silently never runs. The meta-test catches that; review does not.
+  project `web` (browser, `:3100`), `*.integration.spec.ts` → project `integration` (the `request`
+  fixture, `:3101`, no browser — several modules exercised together). A file ending in `.spec.ts`
+  without one of those suffixes joins **no** project and silently never runs. The meta-test catches
+  that; review does not. An end-to-end scenario that crosses two or more features lives in its own
+  extendable area file, `e2e/journeys/<area>/<area>.functional.cases.md`, rather than in one
+  feature's directory.
+- `*.cases.md` — the scenario text, at every level — is written by `test-designer` at `FEAT-S9`,
+  before any spec exists; the paired spec and the run belong to the `tester-*` roles.
 - Every case doc has a spec of the same name and the other way round. A spec without a paired
   `.cases.md` is a blocker.
 - `apps/api/src/**/*.spec.ts`, `apps/web/src/**/*.spec.ts` — Vitest units (services, providers, pure

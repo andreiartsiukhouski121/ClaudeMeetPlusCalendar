@@ -35,6 +35,7 @@ What the cases do **not** check: the meaning of the answers in section 0. That i
 | PR-API-04 | no scaffolded stage file is left unfilled                    | P1       |
 | PR-API-05 | the scaffolder creates the files the stage check requires    | P1       |
 | PR-API-06 | every research file cites something or says what it missed   | P0       |
+| PR-API-07 | the scenario index is regenerated, never hand-edited         | P1       |
 
 ## Cases
 
@@ -103,3 +104,14 @@ What the cases do **not** check: the meaning of the answers in section 0. That i
 - **Known gap:** the machine checks only that **something** is cited, never that the citation
   supports the claim or that the sweep was honest. That is `research-reviewer`'s job — the same line
   between form and meaning the other meta-tests draw (`ADR-0010`).
+
+### PR-API-07 — the scenario index is regenerated, never hand-edited
+
+- **Priority:** P1
+- **Steps:** run `node scripts/scenarios-index.mjs check`, which regenerates `e2e/scenarios-index.md`
+  in memory from every `.cases.md` Summary table under `e2e/` and compares it with the file on disk.
+- **Expected:** the two are identical.
+- **Why:** the index exists so a designer can read every scenario across every level and module from
+  one file (second tuning round, `TUNE-S3` 2026-09-29). A hand-maintained copy is exactly the defect
+  `FX-031` is the ledger entry for — a list of case IDs that drifted from what actually exists. The
+  fix for a stale index is always `pnpm scenarios:index`, never an edit to the file itself.

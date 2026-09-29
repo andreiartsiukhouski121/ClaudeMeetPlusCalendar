@@ -45,18 +45,24 @@ export default defineConfig<ApiOptions>({
   projects: [
     // Files are grouped by feature (e2e/regression/<feature>/), so the project is chosen by the
     // filename suffix rather than the directory:
-    //   *.api.spec.ts        -> project api  (the request fixture, baseURL :3101, no browser)
-    //   *.functional.spec.ts -> project web  (Desktop Chrome, baseURL :3100)
-    // The default testMatch catches any *.spec.ts, so it must be overridden in both projects:
+    //   *.api.spec.ts         -> project api          (the request fixture, baseURL :3101, no browser)
+    //   *.functional.spec.ts  -> project web           (Desktop Chrome, baseURL :3100)
+    //   *.integration.spec.ts -> project integration   (the request fixture, baseURL :3101, no browser)
+    // The default testMatch catches any *.spec.ts, so it must be overridden in every project:
     // otherwise a browser spec would land in api and run page.goto against :3101.
-    // A file without either suffix joins NO project and silently never runs — that is what
-    // e2e/suite-integrity.api.spec.ts guards against.
+    // A file without one of the three suffixes joins NO project and silently never runs — that is
+    // what e2e/suite-integrity.api.spec.ts guards against.
     { name: 'api', testMatch: /.*\.api\.spec\.ts$/, use: { baseURL: API_URL } },
     {
       name: 'web',
       testMatch: /.*\.functional\.spec\.ts$/,
       use: { ...devices['Desktop Chrome'], baseURL: WEB_URL },
     },
+    // Second tuning round, TUNE-S3 2026-09-29 (Q1): several modules exercised together, without a
+    // browser — a genuinely new level, not the existing api project renamed. Same mechanism as
+    // api (the request fixture, no browser) so it needs no fixture of its own, only its own project
+    // so the filename suffix keeps doing the routing.
+    { name: 'integration', testMatch: /.*\.integration\.spec\.ts$/, use: { baseURL: API_URL } },
   ],
   // cwd + `pnpm dev` instead of the root `pnpm dev:web`: fewer process layers for Windows
   // taskkill /T /F to orphan and leave a port occupied.
