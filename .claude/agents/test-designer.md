@@ -55,3 +55,9 @@ hand-back.
 
 Report which `.cases.md` files you wrote or extended, the case IDs, and any scenario you could not
 settle from the plan or the design — those go back to the role that owns the gap, not into a guess.
+
+## Facts in the corpus
+
+The corpus states facts as keyed lines — `` `FACT-1013` `total` is the owner's full count… — invariant 4 `` — and keeps reasoning in `> **Rationale — not a fact.**` blocks that carry no key. The rule is `ADR-0021`, the lifecycle is `ADR-0022`, and the `project-context` skill is where both are explained.
+
+Where a scenario exists because the corpus promises something, cite the `FACT-` key in the case text. That is what makes a case traceable to the promise it defends, and it is how a retired promise surfaces as a case nobody needs any more.

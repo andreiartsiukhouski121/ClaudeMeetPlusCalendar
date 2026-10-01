@@ -75,6 +75,24 @@ learned that way.
 Seed types and contents as concrete values that tests can rely on. Absolute dates, no `Date.now()`.
 Separate owners for mutating tests, since the store is shared.
 
+## 3a. Corpus facts this change adds or retires
+
+Which keyed facts the change states, and which it retires. Most changes to behaviour have at least
+one; a change that has none says "none" and why — a change that alters what the system does while
+the corpus keeps describing the old behaviour is how the corpus starts lying.
+
+```
+| Fact        | Adds or retires        | Where                | Task |
+| ----------- | ---------------------- | -------------------- | ---- |
+| new         | adds                   | `docs/data-model.md` | 3    |
+| `FACT-1042` | retired by the new one | `docs/data-model.md` | 3    |
+```
+
+Numbers are **not** invented here: `pnpm fact:next` hands one out when the fact is written, in the
+task that writes it. A retirement moves the old statement into that document's "Retired facts"
+register naming its successor — never an edit in place, never a deletion (`ADR-0022`) — and the task
+runs `pnpm fact:lock`.
+
 ## 4. Tasks
 
 Numbered, with dependencies, **files** and a verifiable definition of done. Verification tasks and
@@ -111,28 +129,6 @@ not an omission — it is a misreported result.
 
 ## How to use this
 
-1. **Orientation** (~5 min, `planner`) — read the ledger, the backlog and the corpus, fill
-   section 0. Duplicate or conflict: stop and say so.
-2. **Spike** (~7 min, `planner`) — prove the assumptions with throwaway code.
-3. **Plan** (~10 min, `planner`) — this template, on top of the spike's facts.
-4. **Plan review — gate** (~12 min, `plan-reviewer`) — completeness against the spec, task
-   dependencies, conformance to the ADRs, and whether the plan contradicts the spike. Library
-   behaviour is not reviewed; the spike settled it. A second review happens only if the first found
-   an architecture-changing blocker.
-5. **Test design** (`test-designer`, `FEAT-S9`) — scenarios for every level this change touches,
-   into their `.cases.md` homes, before any spec or product code exists.
-6. **Red tests** (`tester-unit`, `tester-api`, `FEAT-S10`) — specs for those scenarios, run and
-   recorded failing for the reason each was written for.
-7. **Implementation** (`implementer-api` / `implementer-web`, `FEAT-S4`) — parallel only where
-   files do not overlap, each agent in its own worktree.
-8. **Integration and end-to-end tests** (`tester-functional`, `tester-api`, `tester-security`,
-   `FEAT-S11`) — entry condition: the red tests of step 6 are green against the implementation.
-9. **Code review — gate** (`code-reviewer`) — the diff against the plan, the invariants and the
-   corpus.
-10. **Acceptance** (`tester-acceptance`) — skill `regression-verify`, one `pnpm verify`, then the
-    ledger entry.
-
-Baseline for a "page plus two endpoints" feature: **projected 70–85 minutes** (was ~70 before test
-design and the red-test split; neither is measured yet — see `feature-pipeline` §10). Twice that
-usually means the plan grew or the review iterated, not that the code was hard. The full order of
-work is the `feature-pipeline` skill.
+The stage order, the roles and the IDs are `docs/process.md`'s alone (`ADR-0020`); the time budget
+is `feature-pipeline` §10. A second list of either here is the drift `FX-023`, `FX-027`, `FX-031`
+and `FX-032` are all entries about.

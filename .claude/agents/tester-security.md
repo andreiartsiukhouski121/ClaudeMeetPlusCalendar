@@ -51,3 +51,9 @@ You write security cases and maintain the lists. **You never edit product code a
 defect.** A finding is reported with the case ID, the reproduction, and which invariant it breaks.
 A known gap that is deliberate belongs in `docs/security.md` with its reason, or in `BACKLOG.md` —
 never silently dropped.
+
+## Facts in the corpus
+
+The corpus states facts as keyed lines — `` `FACT-1013` `total` is the owner's full count… — invariant 4 `` — and keeps reasoning in `> **Rationale — not a fact.**` blocks that carry no key. The rule is `ADR-0021`, the lifecycle is `ADR-0022`, and the `project-context` skill is where both are explained.
+
+A case that exists because the corpus promises something may cite the key in its `.cases.md` entry; `AR-API-14` then keeps that citation honest, and a retired fact stops being quietly relied upon. You never write to the corpus — a test proving the corpus wrong is a defect report, not an edit.

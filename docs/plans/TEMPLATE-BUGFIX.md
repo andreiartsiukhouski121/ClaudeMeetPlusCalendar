@@ -69,6 +69,24 @@ reasoning.
   the HTML are involved. If yes, the fix follows invariants 16–19 and `pnpm e2e:security`.
 - **Urgency:** `P1` blocks production or the next feature, `P2` can wait, `P3` is incidental.
 
+## 3a. Corpus facts this fix adds or retires
+
+Which keyed facts the fix states or retires. A fix usually writes none — the system already matches
+the promise, only the code did not — but if the corpus itself was wrong, that is part of the defect
+(§0 "Architecture impact"), and the fix retires the wrong fact as it restores the right behaviour.
+
+```
+| Fact        | Adds or retires         | Where                 | Task |
+| ----------- | ------------------------ | ---------------------- | ---- |
+| new         | adds                      | `docs/data-model.md`  | 3    |
+| `FACT-1042` | retired by the new one   | `docs/data-model.md`  | 3    |
+```
+
+Numbers are **not** invented here: `pnpm fact:next` hands one out when the fact is written, in the
+task that writes it. A retirement moves the old statement into that document's "Retired facts"
+register naming its successor — never an edit in place, never a deletion (`ADR-0022`) — and the task
+runs `pnpm fact:lock`.
+
 ## 4. Why it was not caught earlier
 
 The section that turns one fix into a closed class of defects.

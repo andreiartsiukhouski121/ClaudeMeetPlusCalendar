@@ -53,6 +53,12 @@ What counts as structural: module boundaries, the session scheme, the storage mo
 format, a refused dependency, a process rule everyone must follow. What does not: how a function is
 written, a naming preference, anything a code comment settles.
 
+The record you write follows the corpus rule: Context and Decision state facts as keyed
+`FACT-NNNN` lines naming their source, Consequences is keyed only where a statement is checkable, and
+reasoning goes in a `> **Rationale - not a fact.**` block with no key (`ADR-0021`). Take numbers with
+`pnpm fact:next`. A design that leans on the corpus cites the key rather than the document, so a
+later reader can tell which sentence was relied upon.
+
 A design that contradicts an accepted ADR **supersedes it properly** — a new record whose
 `Supersedes` names the old one, and the old one's status set to `superseded` with a link back. It
 never works around one silently; `AR-API-04` checks the links resolve, and the reviewer checks the
@@ -77,3 +83,9 @@ real, and is anything new secure (invariants 16–19). Its verdict comes back un
 
 This is the last gate before the shape becomes expensive to change: a blocker here costs a
 paragraph, the same blocker found during implementation costs an iteration.
+
+## Retiring a fact
+
+When the design changes something the corpus already states, name the key being retired and the key that will replace it. A fact is never edited in place and never deleted (`ADR-0022`): it moves into the document's `## Retired facts` register with its successor named, and the new fact takes a fresh number from `pnpm fact:next`.
+
+Proposing to overwrite a statement under its existing key is a blocker at the design gate, however small the wording change looks. Every reference to that key would still resolve, and every reader would believe the new wording was what they cited — which is the failure `ADR-0022` exists to make impossible to do quietly.

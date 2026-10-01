@@ -254,3 +254,14 @@ confirmation that the browser made no request to `:3101`; a screenshot if the UI
 
 **Skipped and why** — explicitly, or "nothing". A skip that is not stated is not a skip but a
 misreported result.
+
+## Facts in the corpus
+
+`pnpm verify` runs `AR-API-11`…`AR-API-17`, so the corpus is checked by the run you already do: keys unique and sourced, reasoning unkeyed, references resolving, nothing deleted and nothing reworded under its own key.
+
+Two things the machine cannot see, and the report must therefore state:
+
+1. **A behaviour change that left the corpus untouched.** The checks only compare the documents against themselves and the lock; they have no idea what the code now does.
+2. **A reworded fact blessed with `pnpm fact:lock` instead of retired.** That is allowed, and it is a decision someone made — the lock's diff is where it shows. Name it.
+
+Both are legitimate. Both being silent is a misreported result, on the same footing as an unstated skip (`ADR-0022`).

@@ -77,3 +77,9 @@ owner's reason, so it is not proposed again next round. Report it the same way.
 - Rewrite a profiling record.
 - Add a stage, gate, role or required document that was not approved — that is the `CH-004` failure
   mode arriving through the one role that can actually cause it.
+
+## Facts in the corpus
+
+The corpus states facts as keyed lines — `` `FACT-1013` `total` is the owner's full count… — invariant 4 `` — and keeps reasoning in `> **Rationale — not a fact.**` blocks that carry no key. The rule is `ADR-0021`, the lifecycle is `ADR-0022`, and the `project-context` skill is where both are explained.
+
+If an approved change touches the corpus, it obeys the lifecycle like any other change: retire and replace, never edit in place, then `pnpm fact:lock` (`ADR-0022`). The process documents themselves are not the corpus and carry no keys.

@@ -35,7 +35,7 @@ the documents every role works from are in `project-context`.
 | `tester-api`           | `*.api.spec.ts`, `*.integration.spec.ts`             | `Write`, `Bash`                   | `sonnet` |
 | `tester-functional`    | `*.functional.spec.ts`, MCP                          | `Write`, `Bash`, `browser_*`      | `sonnet` |
 | `tester-security`      | `e2e/security/**`, the two route lists, `pnpm audit` | `Write`, `Bash`                   | `opus`   |
-| `tester-acceptance`    | the `pnpm verify` gate and the acceptance report     | `Write`, `Bash`                   | `sonnet` |
+| `tester-acceptance`    | the ledger entry and the profiling record            | `Write`, `Bash`                   | `sonnet` |
 | `pipeline-reviewer`    | `docs/profiling/reviews/**`; evidence, no verdicts   | `Write`, no `Edit`/`Bash`         | `opus`   |
 | `pipeline-planner`     | `docs/profiling/plans/**`; proposals for the owner   | `Write`, no `Edit`/`Bash`         | `opus`   |
 | `pipeline-implementer` | the approved pipeline edits, and only those          | `Write`, `Edit`, `Bash`           | `sonnet` |
@@ -106,7 +106,8 @@ A brief has five parts and nothing else:
 1. **Task** — one or two sentences of what to produce.
 2. **Where** — paths, the change folder, the plan section (`T2.3`), the case IDs.
 3. **Read** — which documents, by name. Never retell them: the corpus is ~250k tokens, and agents
-   re-reading it was measured at roughly 29% of an iteration's spend.
+   re-reading it was measured at roughly 29% of an iteration's spend (2026-09-08,
+   `docs/pipeline-audit.md`, marked ARCHIVE).
 4. **Constraints** — what must not change, and anything the user said that still applies.
 5. **Report back** — the artifact and the facts wanted (commands and numbers, not "done").
 
@@ -115,6 +116,12 @@ contents: `docs/plans/<slug>/` is the context, and it is read, not summarized in
 
 A returned artifact is accepted or sent back **whole**. The lead does not edit a reviewer's blockers,
 soften a verdict, or merge two roles' outputs into one story.
+
+**Each blocker in a verdict carries a label** — `shape` (the artifact's decisions change) or
+`correction` (the artifact is right and a statement in it is wrong, mispointed or stale), the
+reviewer's own call. A verdict with any `shape` blocker re-runs the stage. A verdict whose blockers
+are all `correction` is answered by a narrow dispatch naming the blockers and the file, which does
+not re-read the change folder.
 
 ## When the team is the wrong tool
 
@@ -140,3 +147,14 @@ its own, so they run in parallel in one tree without colliding.
 
 An agent in its own worktree is invisible from here. Do not report its progress — you have none. Its
 result lives in that worktree's `git log` and `git diff`, and merging is a separate deliberate step.
+
+## Facts in the corpus
+
+Who may touch the corpus, as a boundary rather than a habit:
+
+- **`designer`** writes ADRs, so it writes facts, and it names which existing keys a change retires.
+- **`implementer-api` / `implementer-web`** move the corpus with the code that changes behaviour, retiring and replacing rather than editing in place.
+- **`pipeline-implementer`** the same, for an approved change that reaches the corpus.
+- **Everyone else cites.** The research sweeps, the testers and the test designer read keys and quote them; they never add or retire one. The reviewers and the `lead` hold no `Write` over it at all — `lead` holds no `Write` whatsoever.
+
+A role that finds the corpus wrong reports it. "Corrected it while I was there" is the same failure as fixing product code during acceptance, with a longer shadow: the corpus is what every later change is planned from. The rules are `ADR-0021` and `ADR-0022`.

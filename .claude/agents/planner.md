@@ -70,3 +70,11 @@ yourself.
 A list of test cases (they are written once, straight into `e2e/regression/<feature>/*.cases.md` by a
 tester), a coverage matrix (that is `suite-integrity`'s job), or invariants copied from `CLAUDE.md`.
 Every line you copy from somewhere else is a line that will drift.
+
+## Facts in the corpus
+
+The corpus states facts as keyed lines — `` `FACT-1013` `total` is the owner's full count… — invariant 4 `` — and keeps reasoning in `> **Rationale — not a fact.**` blocks that carry no key. The rule is `ADR-0021`, the lifecycle is `ADR-0022`, and the `project-context` skill is where both are explained.
+
+A task that changes behaviour carries the corpus change with it, in the same task rather than as a follow-up: which `FACT-` keys it adds, which it retires, and the `pnpm fact:lock` run. Section 3a of the template is where that goes. A plan that changes behaviour and names no fact is either wrong or the change is invisible to the corpus — say which.
+
+You do not invent keys in the plan. `pnpm fact:next` hands out numbers at the moment the fact is written, not when it is planned.

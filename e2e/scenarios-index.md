@@ -17,6 +17,13 @@ One row per scenario declared in a Summary table, across every level and module 
 | api | architecture | `AR-API-08` | every role the `team-roles` skill names exists as a definition |
 | api | architecture | `AR-API-09` | every ID cited in the Routes table Cases column exists in a cases doc |
 | api | architecture | `AR-API-10` | every stage cited in a profiling record exists in the process inventory |
+| api | architecture | `AR-API-11` | every corpus fact key is unique and inside its document block |
+| api | architecture | `AR-API-12` | every keyed fact names a source |
+| api | architecture | `AR-API-13` | no fact key is defined inside a rationale block |
+| api | architecture | `AR-API-14` | every `FACT-` reference resolves, and living documents cite living facts |
+| api | architecture | `AR-API-15` | the fact lock and the corpus agree: nothing deleted or reworded |
+| api | architecture | `AR-API-16` | every retired fact names a successor that exists, or a sourced withdrawal |
+| api | architecture | `AR-API-17` | the retirement register parses, so the two rules above are not vacuous |
 | api | ledger | `LG-API-01` | both ledger files exist and are not empty |
 | api | ledger | `LG-API-02` | IDs are unique and match `FT-`/`CH-`/`FX-`/`BL-` |
 | api | ledger | `LG-API-03` | every changelog entry has its commit filled in |

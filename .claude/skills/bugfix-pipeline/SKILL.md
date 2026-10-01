@@ -210,3 +210,12 @@ checking the wrong place; go back to step 3.
 - **Its own severity scale.** Urgency is the backlog's `P1`/`P2`/`P3`, the same as everything else.
 - **A separate ledger entry type.** `FX-` already means defect.
 - **A mandatory plan for every bug** — see the threshold in §4.
+
+## Facts in the corpus
+
+A defect is a disagreement between the code and a promise, and the promise is often a keyed fact. Two shapes, and they end differently:
+
+- **The code was wrong.** The corpus stated the truth all along. Fix the code; the fact does not move. Cite its key in the `FX-` entry — it says what was promised and by whom.
+- **The corpus was wrong.** It stated something that was never true, or stopped being true. Then the fix includes retiring that key and stating the correct fact under a new one (`ADR-0022`), with the `FX-` entry in the register's "Recorded in" column. Rewriting the old statement in place hides that anyone ever believed it — and someone did, which is why there is a defect.
+
+Run `pnpm fact:lock` after either, and see `ADR-0021` / the `project-context` skill for the rule itself.

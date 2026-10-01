@@ -42,6 +42,14 @@ cross-cutting: what not to cut, the budget, and reporting as you go.
 verdict; no plan before the design review's; no implementation before the plan review's; no
 acceptance before the code review's; no "done" before a green `pnpm verify`.
 
+**Every blocker in a verdict carries a label, `shape` or `correction`.** `shape` means the artifact's
+decisions change; `correction` means the artifact is right and a statement in it is wrong, mispointed
+or stale. A verdict with any `shape` blocker re-runs the stage, as today. A verdict whose blockers
+are **all** `correction` is answered by a narrow dispatch to the role that owns the artifact — naming
+the blockers and the file, without re-reading the change folder. The label is the reviewer's call;
+`lead` holds the gate, and a `correction` blocker that turns out to change a decision is escalated
+the way a disputed test already is (§6).
+
 Phases are never reordered or skipped, but they **shrink with the task**: for a small change the
 research is one sweep and the plan is three rows in the task section. A skipped phase is named out
 loud rather than assumed — and for work below the `bugfix-pipeline` §4 threshold, the whole
@@ -94,6 +102,9 @@ covered, and confirms contradictions were **named rather than resolved**.
 Its **Gaps to carry forward** section is part of the deliverable: unknowns that reach the designer
 unannounced come back as rework.
 
+Its verdict labels each blocker `shape` or `correction` ("Phases", above); only a `shape` blocker
+sends the research back for a full re-run.
+
 ## 2. Design — the shape, not the order
 
 By `designer`, from the accepted research folder. The sections and the rules are in the
@@ -124,6 +135,9 @@ is anything new secure (invariants 16–19).
 
 This is the last gate before the shape becomes expensive to change: a blocker here costs a
 paragraph; the same blocker during implementation costs an iteration.
+
+Its verdict labels each blocker `shape` or `correction` ("Phases", above); only a `shape` blocker
+sends the design back for a full re-run.
 
 ## 4. The plan — orientation and the task breakdown
 
@@ -187,6 +201,11 @@ the same edits on live code, where a run catches them.
 Who to call and how is in `requesting-code-review` and `team-roles`. Blockers go back to the role
 that owns the artifact, unedited — the lead does not soften a verdict.
 
+Its verdict labels each blocker `shape` or `correction` ("Phases", above); only a `shape` blocker
+sends the plan back for a full re-run — the "second review happens only if the first found a blocker
+that changes the shape" rule above is now the mechanical reading of that label, not a separate
+judgement.
+
 ## 5a. Test design, then the red run
 
 Two stages, both before the implementer touches a file.
@@ -244,7 +263,8 @@ requirement is the worktree; `agent-team` is one way to satisfy it.
 - an agent in its own window is a **separate `claude` process with no shared context**. Its prompt
   must be self-contained: the task, the paths, the constraints. "Read `CLAUDE.md` and section `T1`
   of the plan" — yes; retelling eight documents with section numbers — no (the documentation corpus
-  is ~250k tokens, and five agents reading half of it is ≈29% of an iteration's spend);
+  is ~250k tokens, and five agents reading half of it is ≈29% of an iteration's spend — measured
+  2026-09-08, `docs/pipeline-audit.md`, marked ARCHIVE);
 - **you cannot see what it is doing and cannot steer it.** The result is inspected afterwards, from
   its worktree's `git log` and `git diff`. Do not report progress for such agents: you have none;
 - merging is a separate deliberate step, not a consequence of a window closing.
@@ -291,6 +311,9 @@ checklist is in the agent definition; when to call one at all is in `requesting-
 
 It reviews, it does not run. Runs are the testers' step, and their reports are inputs to this one.
 
+Its verdict labels each blocker `shape` or `correction` ("Phases", above); only a `shape` blocker
+sends the change back for a full re-run.
+
 ## Roles, models and permissions
 
 Roles are **files**, not parameters: `.claude/agents/*.md` fixes each role's tool list and model, so
@@ -310,16 +333,19 @@ and then the unit of isolation is a git worktree (§6).
 
 ## 8. Acceptance
 
-Through the `regression-verify` skill. What matters for speed: **one `pnpm verify`** rather than a
-series of `--grep` calls (measurements are in `e2e/README.md`, "Run economics"); do not run the
-units by hand; and a repeated full run adds almost nothing — a targeted control experiment does
-more.
+**`FEAT-S6`** is run by `lead` directly, through the `regression-verify` skill, with no dispatch:
+`lead` already holds `Bash`, and running `pnpm verify` writes no file, so `ADR-0014`'s reason for
+keeping acceptance off the orchestrator — "then nothing gates the work, and the lead's judgement is
+about its own code" — does not reach here, because `lead` writes no code in this flow. What matters
+for speed is unchanged: **one `pnpm verify`** rather than a series of `--grep` calls (measurements
+are in `e2e/README.md`, "Run economics"); do not run the units by hand; and a repeated full run adds
+almost nothing — a targeted control experiment does more.
 
-Acceptance is `tester-acceptance`'s stage, and it is a role rather than an extra pass by whoever
-wrote the code: the earlier wording here — "for a small feature the implementer's DoD _is_ the
-acceptance" — is exactly the self-grading `ADR-0014` removed. What that wording was protecting
-against is still true and is handled differently: acceptance is **one** `pnpm verify`, not a second
-walk through every level.
+**`FEAT-S7`** (the ledger entry) and **`FEAT-S8`** (the profiling record) stay `tester-acceptance`'s:
+both need `Write`, which `lead` does not hold. The earlier wording here — "for a small feature the
+implementer's DoD _is_ the acceptance" — is still exactly the self-grading `ADR-0014` removed: running
+the check through the orchestrator is a different thing from skipping it, which is why `pnpm verify`
+itself runs unchanged and a dedicated role still closes the cycle.
 
 Diff-level security review goes through the built-in `security-review` skill: it looks at the
 branch's changes and complements the automated cases rather than replacing them.
@@ -384,3 +410,11 @@ with "Conflicts with" filled in; a closed backlog item is marked closed with a r
 
 The "Found by" column is the only way to learn which checks actually work: today's ledger shows the
 control experiments and the security suite found three defects each, and diff review found none.
+
+## Facts in the corpus
+
+A feature that changes what the system does changes the corpus. The stage that owns it is implementation, not a follow-up commit: the fact lands with the code (`FACT-1052`), under a number from `pnpm fact:next`, with `pnpm fact:lock` run afterwards so the register matches.
+
+Where the feature contradicts something the corpus already states, the old fact is **retired** into that document's "Retired facts" register naming the key that replaces it. It is never edited in place and never deleted (`ADR-0022`) — `AR-API-15` fails the run on either. The design stage names which keys will move; the plan carries it in section 3a; the code review reads the corpus diff.
+
+The rules are `ADR-0021` and `ADR-0022`, explained in the `project-context` skill. Do not restate them here.

@@ -20,6 +20,12 @@ What does not: how a function is written, which name reads better, anything a co
   again).
 - **An architectural change writes its ADR before its code.** The plan cites the ADR ID; the
   reviewer checks the code against it. An ADR written afterwards is a justification, not a decision.
+- **Facts carry keys, reasoning does not.** Context and Decision state facts as keyed lines
+  (`FACT-NNNN`) that name their source; Consequences is largely projection and is keyed only where a
+  statement is checkable today. Reasoning goes in a block opening `> **Rationale — not a fact.**` and
+  carries no key, so it can never be cited as fact (`ADR-0021`). Take numbers with `pnpm fact:next`;
+  `AR-API-11`…`AR-API-14` check the form. Adding keys to an existing record is a change of form, not
+  of substance, and is the one edit the immutability rule above allows.
 - **The four sections are mandatory:** Context, Decision, Consequences, and the header block with
   Status and Date. `AR-API-01`…`AR-API-04` check the form on every `pnpm verify`; nothing checks the
   content — that is what review is for.
@@ -50,6 +56,8 @@ What does not: how a function is written, which name reads better, anything a co
 | [ADR-0018](ADR-0018-not-found-over-forbidden.md)      | A record the caller does not own answers 404, never 403                  | accepted |
 | [ADR-0019](ADR-0019-single-source-route-listing.md)   | The route listing lives in the API contract alone; other documents link  | accepted |
 | [ADR-0020](ADR-0020-stage-inventory-and-profiling.md) | Stage inventory and profiling                                            | accepted |
+| [ADR-0021](ADR-0021-corpus-facts-are-keyed.md)        | Every fact in the corpus carries a key; inference is marked              | accepted |
+| [ADR-0022](ADR-0022-fact-lifecycle.md)                | A fact is appended and retired, never deleted or rewritten in place      | accepted |
 
 The table is checked against the directory in both directions (`AR-API-03`): a file missing from the
 table, or a row without a file, fails the run.

@@ -52,3 +52,9 @@ console state, confirmation that no request went to `:3101`, and a screenshot if
 **A test that goes red and was not marked to break in the plan is not edited by you** — rule out an
 infrastructure cause first, then report if you believe the test is wrong; `lead` escalates to the
 owner (`team-roles`, the boundaries section).
+
+## Facts in the corpus
+
+The corpus states facts as keyed lines — `` `FACT-1013` `total` is the owner's full count… — invariant 4 `` — and keeps reasoning in `> **Rationale — not a fact.**` blocks that carry no key. The rule is `ADR-0021`, the lifecycle is `ADR-0022`, and the `project-context` skill is where both are explained.
+
+A case that exists because the corpus promises something may cite the key in its `.cases.md` entry; `AR-API-14` then keeps that citation honest, and a retired fact stops being quietly relied upon. You never write to the corpus — a test proving the corpus wrong is a defect report, not an edit.

@@ -54,3 +54,9 @@ state, not a continuation of development.
 Report the sections `regression-verify` §6 requires: runs with numbers, coverage, the interactive
 check, the control experiment, blockers, filed tasks, and **what was skipped and why** — a skip that
 is not stated is a misreported result.
+
+## Facts in the corpus
+
+The corpus states facts as keyed lines — `` `FACT-1013` `total` is the owner's full count… — invariant 4 `` — and keeps reasoning in `> **Rationale — not a fact.**` blocks that carry no key. The rule is `ADR-0021`, the lifecycle is `ADR-0022`, and the `project-context` skill is where both are explained.
+
+`pnpm verify` covers `AR-API-11`…`AR-API-17`, so the corpus is checked by the run you already do. Two things it cannot see, and you must state in the report: whether a behaviour change left the corpus untouched, and whether a fact was reworded and blessed with `pnpm fact:lock` rather than retired and replaced. Both are legitimate; both being **silent** is not.

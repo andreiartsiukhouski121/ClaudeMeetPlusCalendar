@@ -26,18 +26,25 @@ human checks meaning — the same line the ledger and suite meta-tests draw (`AD
 
 ## Summary
 
-| ID        | Title                                                                   | Priority |
-| --------- | ----------------------------------------------------------------------- | -------- |
-| AR-API-01 | ADR files are named `ADR-NNNN-slug.md` and numbers are unique           | P0       |
-| AR-API-02 | every ADR has a heading, a known status and the three sections          | P1       |
-| AR-API-03 | the ADR index and the directory agree in both directions                | P1       |
-| AR-API-04 | superseded records link to their replacement, and back                  | P2       |
-| AR-API-05 | every controller route is in the API contract, and the other way round  | P0       |
-| AR-API-06 | every guarded route is listed in `PROTECTED_ROUTES`                     | P0       |
-| AR-API-07 | every agent definition declares name, description, tools and model      | P1       |
-| AR-API-08 | every role the `team-roles` skill names exists as a definition          | P2       |
-| AR-API-09 | every ID cited in the Routes table Cases column exists in a cases doc   | P1       |
-| AR-API-10 | every stage cited in a profiling record exists in the process inventory | P1       |
+| ID        | Title                                                                     | Priority |
+| --------- | ------------------------------------------------------------------------- | -------- |
+| AR-API-01 | ADR files are named `ADR-NNNN-slug.md` and numbers are unique             | P0       |
+| AR-API-02 | every ADR has a heading, a known status and the three sections            | P1       |
+| AR-API-03 | the ADR index and the directory agree in both directions                  | P1       |
+| AR-API-04 | superseded records link to their replacement, and back                    | P2       |
+| AR-API-05 | every controller route is in the API contract, and the other way round    | P0       |
+| AR-API-06 | every guarded route is listed in `PROTECTED_ROUTES`                       | P0       |
+| AR-API-07 | every agent definition declares name, description, tools and model        | P1       |
+| AR-API-08 | every role the `team-roles` skill names exists as a definition            | P2       |
+| AR-API-09 | every ID cited in the Routes table Cases column exists in a cases doc     | P1       |
+| AR-API-10 | every stage cited in a profiling record exists in the process inventory   | P1       |
+| AR-API-11 | every corpus fact key is unique and inside its document block             | P0       |
+| AR-API-12 | every keyed fact names a source                                           | P0       |
+| AR-API-13 | no fact key is defined inside a rationale block                           | P1       |
+| AR-API-14 | every `FACT-` reference resolves, and living documents cite living facts  | P1       |
+| AR-API-15 | the fact lock and the corpus agree: nothing deleted or reworded           | P0       |
+| AR-API-16 | every retired fact names a successor that exists, or a sourced withdrawal | P0       |
+| AR-API-17 | the retirement register parses, so the two rules above are not vacuous    | P1       |
 
 A walk self-check runs before all of them: if the scanner finds no ADRs, no routes, no agents or no
 Routes table, every rule below would pass having checked nothing. That failure mode is not
@@ -178,3 +185,98 @@ hypothetical — it is how `suite-integrity` once went green under any violation
   one the inventory does not define, and confirm the case goes red naming both the file and the
   identifier; then restore it. Editing a record is acceptable only for this experiment — records are
   append-only evidence (`ADR-0020`), so the restore is part of the experiment, not an afterthought.
+
+### AR-API-11 — every corpus fact key is unique and inside its document block
+
+- **Priority:** P0
+- **Steps:** walk the four corpus targets `ADR-0021` names — `docs/architecture.md`,
+  `docs/data-model.md`, `docs/api-contract.md` and `docs/adr/` — and collect every keyed fact:
+  a list item opening with `` `FACT-NNNN` ``, or a table row whose first or last cell holds nothing
+  but the key. Assert the walk found something at all before judging anything.
+- **Expected:** no number is defined twice anywhere in the corpus, and every number falls inside its
+  document's block (`0001-0999`, `1000-1999`, `2000-2999`, `3000-3999`).
+- **Why:** a key is an address, and two facts on one address make every citation of it ambiguous —
+  including the ones held outside this repository, in a plan, a review note or an agent's memory.
+- **Failure means:** take numbers with `pnpm fact:next`, never by hand. A number is never reused,
+  not even after the fact it named was withdrawn.
+
+### AR-API-12 — every keyed fact names a source
+
+- **Priority:** P0
+- **Steps:** for each keyed fact take its statement — a list item with its continuation lines, or a
+  table row together with the nearest `**Source:**` line above its table, which the rows inherit —
+  strip the key itself, and look for a citation token: a repository path, a case ID, an `ADR-`, an
+  `FT-`/`CH-`/`FX-`/`BL-` entry, another `FACT-`, an invariant, a probe, a commit, or `this record`.
+- **Expected:** every keyed fact carries at least one.
+- **Why:** this is the rule the whole of `ADR-0021` rests on. A statement that cannot be traced is
+  an inference wearing a key, and once it is keyed it gets cited as fact — which is exactly the
+  contamination the record was written to stop.
+- **Failure means:** either cite something, or move the statement into a rationale block, where it
+  keeps its place in the document and loses its claim to being fact.
+
+### AR-API-13 — no fact key is defined inside a rationale block
+
+- **Priority:** P1
+- **Steps:** scan the corpus for blocks opening `> **Rationale`, follow them while the lines stay
+  quoted, and look for a keyed fact defined inside after stripping the quote marker.
+- **Expected:** none. A rationale block may _reference_ a key — that is how reasoning points at the
+  facts it rests on — but it may not define one.
+- **Why:** the rationale block is the one place the corpus keeps reasoning. Keying it would make
+  reasoning citable as fact and erase the separation in the act of recording it.
+
+### AR-API-14 — every `FACT-` reference in the repository resolves to a defined key
+
+- **Priority:** P1
+- **Steps:** scan every markdown file under `docs/`, `e2e/`, `.claude/` and `scripts/` for
+  `FACT-NNNN` tokens, skipping fenced code blocks, and resolve each against the keys the corpus
+  states and the keys its registers retire.
+- **Expected:** every reference resolves, and a **living** document resolves to a _stated_ fact. A
+  change folder or a profiling record may cite a retired key — it records what was true when it was
+  written, and editing it would falsify the record (`ADR-0011`).
+- **Why:** a reference to a withdrawn or mistyped key is indistinguishable by eye from a good one.
+  That is how a retired fact goes on being relied upon long after the corpus stopped saying it.
+- **Not checked, and cannot be:** the other direction across the repository boundary. An agent's
+  memory lives outside git, so nothing here can verify that a memory entry cites a real key — only
+  that a key cited inside the repository exists. A memory entry pointing at a retired key is caught
+  when it is read, not when it is written (`ADR-0021`, Consequences).
+
+### AR-API-15 — the fact lock and the corpus agree: nothing deleted, added or reworded silently
+
+- **Priority:** P0
+- **Steps:** rebuild the lock from the corpus through the same parser `pnpm fact:lock` uses, and
+  compare it with `docs/facts-lock.json` entry by entry: keys present on one side only, statuses
+  that disagree, and statement hashes that differ.
+- **Expected:** no differences.
+- **Why:** a key is an address held outside this repository — in a plan, a review note, an agent's
+  memory across sessions. Deleting a fact leaves every one of those pointing at nothing. Rewriting a
+  statement under its own key is worse: every reference still resolves, and every reader believes
+  the new wording is what they cited.
+- **Failure means:** if the words changed but the fact did not, run `pnpm fact:lock` so the rewrite
+  is visible in the diff. If the fact changed, retire the key and state the new one under a fresh
+  number (`ADR-0022`). If a key was deleted, put it back and retire it properly.
+- **What it is not:** a prohibition. `pnpm fact:lock` will bless any rewrite — what the check removes
+  is _silence_, the same bargain `skills:check` makes.
+
+### AR-API-16 — every retired fact names a successor that exists, or a sourced withdrawal
+
+- **Priority:** P0
+- **Steps:** read every `## Retired facts` register in the corpus. For each row: the status parses as
+  `retired by FACT-NNNN` or `withdrawn`; something is named in "Recorded in"; a retired key is no
+  longer stated in the body; and a named successor is a key the corpus actually states.
+- **Expected:** no violations.
+- **Why:** closing a fact means pointing at the one that replaces it. A retirement with no successor,
+  or one whose successor is itself retired, leaves the reader holding an address with no forwarding
+  note — which is the state this whole mechanism exists to prevent.
+
+### AR-API-17 — the retirement register parses, so the two rules above are not vacuous
+
+- **Priority:** P1
+- **Steps:** drive the register parser and the retirement rule over a fixture written into the spec:
+  one sound retirement, one naming a successor that does not exist, one whose successor is itself
+  retired, and one withdrawal naming nothing that recorded it. Assert the parser found all five rows
+  and that the rule objects to exactly the three broken ones.
+- **Expected:** the fixture parses, and the three objections are raised.
+- **Why:** the corpus has no retirements yet, so `AR-API-15` and `AR-API-16` would pass having read
+  an empty register — the vacuous-green class `ADR-0010` exists to close, and the one this suite has
+  already been caught by once. The fixture lives in the spec rather than under `docs/` so it can
+  never be mistaken for part of the corpus.

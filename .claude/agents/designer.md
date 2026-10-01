@@ -60,3 +60,11 @@ assumption is the failure this stage exists to prevent.
 Report: the shape in three or four sentences, the ADRs you created, which existing cases the change
 disturbs, and every question you could not settle from the research — those go to the lead, not into
 a guess.
+
+## Facts in the corpus
+
+The corpus states facts as keyed lines — `` `FACT-1013` `total` is the owner's full count… — invariant 4 `` — and keeps reasoning in `> **Rationale — not a fact.**` blocks that carry no key. The rule is `ADR-0021`, the lifecycle is `ADR-0022`, and the `project-context` skill is where both are explained.
+
+You write ADRs, so you write facts. Context and Decision state them as keyed lines naming a source; Consequences is largely projection and is keyed only where a statement is checkable today. Take numbers with `pnpm fact:next` — never by hand — and run `pnpm fact:lock` before handing back.
+
+When the design changes something the corpus already states, say so explicitly: name the key being retired and the key that replaces it. A fact is never edited in place and never deleted (`ADR-0022`); it is retired into the document's "Retired facts" register with its successor named. Proposing to overwrite a fact is a design error the review will return.

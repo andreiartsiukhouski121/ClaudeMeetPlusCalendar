@@ -59,3 +59,9 @@ git commit -m "<type>: <description>
 <body: what changed and why, if the subject is not enough>"
 pnpm ledger:fill            # as the next commit, if an entry was added
 ```
+
+## Facts in the corpus
+
+A commit that touches `docs/architecture.md`, `docs/data-model.md`, `docs/api-contract.md` or `docs/adr/` carries `docs/facts-lock.json` with it. The lock is how a reviewer sees that a fact was added, retired or reworded — a corpus diff without it means `pnpm fact:lock` was not run, and `AR-API-15` fails the next run anyway.
+
+When the commit retires a fact, the subject says so in the ordinary way (`docs:` or the type of the change that caused it); the register row names the ledger entry, which is what a reader follows (`ADR-0022`).

@@ -6,7 +6,7 @@ node scripts/check-orientation.mjs
 # full run takes 49 s here, and a hook that long starts getting bypassed with `--no-verify`.
 pnpm lint-staged
 
-# The whole unit suite (42 tests, 5.5 s). Whole rather than filtered by changed files: a failure
+# The whole unit suite (count and timing: e2e/README.md, "Run economics"). Whole rather than filtered by changed files: a failure
 # usually lands in a module that was not touched. It runs after lint-staged so the tests see the
 # text already fixed by `--fix`/`--write` — exactly what will go into the commit.
 # E2E is deliberately absent: Playwright starts two dev servers and costs over a minute — that is

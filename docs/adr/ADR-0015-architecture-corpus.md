@@ -7,48 +7,62 @@
 
 ## Context
 
-Architecture, data shapes and the API contract were spread across `CLAUDE.md`, two package
-`CLAUDE.md` files, `apps/api/README.md`, `e2e/README.md` and two archived plans — about 250k tokens of
-documentation. Every planning pass re-derived the same facts by reading code, and the pipeline audit
-measured the result: agents reading half the corpus accounted for roughly 29% of an iteration's spend,
-and four of the five most expensive review findings were facts that were written down somewhere
-nobody looked.
-
-Re-deriving is also unreliable. A fact read out of code is the current behaviour, not the decision —
-it cannot tell you that CORS is off **on purpose**, or that the third session check is not redundant.
+- `FACT-3280` Architecture, data shapes and the API contract were spread across `CLAUDE.md`, two
+  package `CLAUDE.md` files, `apps/api/README.md`, `e2e/README.md` and two archived plans — about
+  250k tokens of documentation. — `docs/pipeline-audit.md`
+- `FACT-3281` Agents reading half the corpus accounted for roughly 29% of an iteration's spend. —
+  `docs/pipeline-audit.md`
+- `FACT-3282` Four of the five most expensive review findings were facts already written down
+  somewhere nobody looked. — `docs/pipeline-audit.md`
+- `FACT-3283` A fact read out of code is the current behaviour, not the decision: it cannot tell you
+  that CORS is off on purpose, or that the third session check is not redundant. — `ADR-0005`,
+  `ADR-0004`
 
 ## Decision
 
-Four documents, disjoint by subject, are the context every role starts from:
+Four documents, disjoint by subject, are the context every role starts from.
 
-| Document               | Owns                                                                |
-| ---------------------- | ------------------------------------------------------------------- |
-| `docs/architecture.md` | the shape of the system, layers, patterns used and patterns refused |
-| `docs/adr/`            | why each of those choices was made, one immutable file per decision |
-| `docs/data-model.md`   | entities, field formats, lifetimes, and the flows between layers    |
-| `docs/api-contract.md` | every endpoint: request, response, errors, and the logic behind it  |
+**Source:** `CLAUDE.md`, "Architecture: the corpus every task starts from".
+
+| Key         | Document               | Owns                                                                |
+| ----------- | ---------------------- | ------------------------------------------------------------------- |
+| `FACT-3284` | `docs/architecture.md` | the shape of the system, layers, patterns used and patterns refused |
+| `FACT-3285` | `docs/adr/`            | why each of those choices was made, one immutable file per decision |
+| `FACT-3286` | `docs/data-model.md`   | entities, field formats, lifetimes, and the flows between layers    |
+| `FACT-3287` | `docs/api-contract.md` | every endpoint: request, response, errors, and the logic behind it  |
 
 Three rules make it stay useful:
 
-1. **Disjoint, never duplicated.** A fact lives in exactly one of them; the others link. Two copies
-   of a rule drift silently — that is `FX-023` and `FX-027`.
-2. **Read, not rebuilt.** Roles are told which documents to open, and are not expected to reconstruct
-   the same facts from code each time.
-3. **Kept honest by a gate.** Section 0 of every plan gains a fifth question — **Architecture
-   impact** — which must cite ADR IDs or say "no matches"; `pnpm check:orientation` fails the commit
-   otherwise. `AR-API-05` compares the routes in `api-contract.md` against the Nest controllers in
-   both directions, and `AR-API-06` compares the guarded ones against `PROTECTED_ROUTES`.
+- `FACT-3288` Disjoint, never duplicated: a fact lives in exactly one of them and the others link. —
+  `FX-023`, `FX-027`, `ADR-0019`, `FACT-0007`
+- `FACT-3289` Read, not rebuilt: roles are told which documents to open and are not expected to
+  reconstruct the same facts from code each time. — `.claude/skills/project-context/SKILL.md`
+- `FACT-3290` Section 0 of every plan carries an **Architecture impact** question which must cite ADR
+  IDs or say "no matches", and `pnpm check:orientation` fails the commit otherwise. —
+  `scripts/check-orientation.mjs`, `docs/plans/TEMPLATE.md`
+- `FACT-3291` `AR-API-05` compares the routes in `api-contract.md` against the Nest controllers in
+  both directions, and `AR-API-06` compares the guarded ones against `PROTECTED_ROUTES`. —
+  `e2e/architecture/architecture.api.spec.ts`
 
-Rejected: a generated API reference (Swagger/OpenAPI from decorators would describe shapes but not
-logic or reasons, and would be a second source of truth beside the suite); one large architecture
-document (the four subjects change at different rates and have different readers); leaving the facts
-where they were and pointing at them (measured cost above).
+Rejected:
+
+- `FACT-3292` A generated API reference — Swagger/OpenAPI from decorators would describe shapes but
+  not logic or reasons, and would be a second source of truth beside the suite. — this record,
+  `ADR-0008`
+- `FACT-3293` One large architecture document — the four subjects change at different rates and have
+  different readers. — this record
+- `FACT-3294` Leaving the facts where they were and pointing at them — the measured cost above. —
+  this record
 
 ## Consequences
 
-- A change that adds or renames a route now fails `pnpm verify` until `api-contract.md` is updated.
-  That is intended friction at the exact place where documentation usually rots.
-- An architectural decision writes its ADR **before** its code, and the plan cites the ID. An ADR
-  written after the fact is a justification, not a decision.
-- Prose that cannot be machine-checked — layers, patterns, refusals — is held only by review. The
-  corpus does not pretend otherwise.
+- `FACT-3295` A change that adds or renames a route fails `pnpm verify` until `api-contract.md` is
+  updated. — `AR-API-05`
+- `FACT-3296` An architectural decision writes its ADR before its code, and the plan cites the ID. —
+  `docs/adr/README.md`, "Rules"
+- `FACT-3297` Prose that cannot be machine-checked is held only by review. — `ADR-0010`,
+  `FACT-3190`, `ADR-0021`
+
+> **Rationale — not a fact.** The friction at `api-contract.md` is intended, and it sits at the exact
+> place where documentation usually rots. An ADR written after the fact is a justification, not a
+> decision.

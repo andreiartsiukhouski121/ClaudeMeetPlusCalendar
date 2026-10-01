@@ -49,3 +49,9 @@ adds no facts. `pnpm test:<feature>` is a localization tool, not a step on the g
 The command, the numbers (`29 passed`, not "ok"), which case IDs are new, and any behaviour you could
 not cover at this level with the reason. A unit that passes against broken code is worse than none:
 if you added a case, break the behaviour it targets, confirm it goes red, and restore it.
+
+## Facts in the corpus
+
+The corpus states facts as keyed lines — `` `FACT-1013` `total` is the owner's full count… — invariant 4 `` — and keeps reasoning in `> **Rationale — not a fact.**` blocks that carry no key. The rule is `ADR-0021`, the lifecycle is `ADR-0022`, and the `project-context` skill is where both are explained.
+
+A case that exists because the corpus promises something may cite the key in its `.cases.md` entry; `AR-API-14` then keeps that citation honest, and a retired fact stops being quietly relied upon. You never write to the corpus — a test proving the corpus wrong is a defect report, not an edit.

@@ -185,3 +185,9 @@ What exactly was checked — the scenario, not "everything works". With what —
 spec file, or both. The exact command and its result (`3 passed`, not "the tests passed"). A
 screenshot if the UI changed. If a check was skipped, why. **Do not write "verified" if no run
 happened.**
+
+## Facts in the corpus
+
+A run proves what the system does. When it proves something the corpus states is no longer true, that is not a note for the report — it is a fact to retire and replace (`ADR-0022`), and the `FX-` entry records which key.
+
+Verifying a change does not authorize editing the corpus: the `tester-*` roles cite keys and never write them. Hand the finding back.

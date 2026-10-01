@@ -47,3 +47,11 @@ settles the matter is decided later, in the plan's orientation.
 
 You read and write one file. You do not edit the ledger, the backlog or anything else, you do not
 run the suite, and you do not call other agents.
+
+## Facts in the corpus
+
+The corpus states facts as keyed lines — `` `FACT-1013` `total` is the owner's full count… — invariant 4 `` — and keeps reasoning in `> **Rationale — not a fact.**` blocks that carry no key. The rule is `ADR-0021`, the lifecycle is `ADR-0022`, and the `project-context` skill is where both are explained.
+
+Cite the **key**, not the document: `docs/data-model.md` says a dozen things about `startsAt`, `FACT-1008` says one. An unkeyed sentence in the corpus is reasoning and is not evidence — if your finding needs it, the finding is "the corpus reasons X and states no fact", which is an open question.
+
+You never write to the corpus. Research writes to the change folder; adding or retiring a fact is a later stage's act.

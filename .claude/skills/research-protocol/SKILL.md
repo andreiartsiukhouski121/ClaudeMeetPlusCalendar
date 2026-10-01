@@ -22,6 +22,12 @@ That syntax is fixed, and deliberately mirrors `- **Not automated:**` in the sui
 prose would let any paragraph switch the check off. `PR-API-06` accepts a citation or this marker
 and fails a research file that has neither.
 
+**Citing the corpus means citing a key.** The four corpus documents carry a `FACT-NNNN` on every
+statement of fact (`ADR-0021`). A research finding that rests on the corpus cites the key, not the
+document — `docs/data-model.md` says a dozen things about `startsAt`, `FACT-1008` says one. An
+unkeyed sentence in the corpus is reasoning and is not evidence; if a sweep needs it, the finding is
+"the corpus reasons X but states no fact", which is an open question.
+
 **"Nothing in this repository covers X" is a finding**, often the most valuable one — it is the
 difference between a design that knows it is inventing something and one that assumes it is
 following a pattern.
@@ -47,8 +53,16 @@ docs/plans/<slug>/
   research/history.md  researcher-history
 ```
 
-Created by `pnpm change:new <slug>` (add `--bug` for a defect). The folder is the change's working
-context and is kept afterwards, like plans and ledger entries.
+`pnpm change:new <slug>` (add `--bug` for a defect) scaffolds `research/README.md` and `design.md`
+only — `PR-API-03` requires exactly those two, and `PR-API-05` keeps the scaffolder and the check
+equal. The four sweep files above are written by the sweeps themselves at `FEAT-S1`, not scaffolded
+in advance. The folder is the change's working context and is kept afterwards, like plans and ledger
+entries.
+
+**Probes** (`feature-pipeline` §0 mandates five to seven of them) have the same home as any other
+finding: the fact they prove lands in `research/code.md`, in `researcher-code`'s own voice. A
+separate file holding the throwaway code itself, `research/probes.md`, is allowed alongside it —
+unscaffolded and unbudgeted, so no check and no line limit applies to it.
 
 ## The four sweeps
 

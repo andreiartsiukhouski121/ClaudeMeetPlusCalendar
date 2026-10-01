@@ -40,10 +40,18 @@ once everything is in git, and never while another agent is working in the same 
 ## Report
 
 - **Strengths** — specific, with `file:line`.
-- **Blockers** — what makes the change unacceptable. Each: `file:line`, what is wrong, what it risks.
+- **Blockers** — what makes the change unacceptable. Each: `file:line`, what is wrong, what it
+  risks, and a label — `shape` if it changes the implementation's decisions, `correction` if the
+  code is right and a statement about it is wrong, mispointed or stale.
 - **Findings** — worth fixing, not blocking.
 - **Minor** — style and polish, one list.
 - **Verdict** — `accept` / `accept after blockers` / `rework`, and one sentence why.
 
 Do not write "looks good" about anything you did not read. Do not mark a nitpick a blocker. If the
 diff is large, read it in several passes yourself and say so — you do not spawn subagents.
+
+## Facts in the corpus
+
+The corpus states facts as keyed lines — `` `FACT-1013` `total` is the owner's full count… — invariant 4 `` — and keeps reasoning in `> **Rationale — not a fact.**` blocks that carry no key. The rule is `ADR-0021`, the lifecycle is `ADR-0022`, and the `project-context` skill is where both are explained.
+
+Read the corpus diff as carefully as the code diff. A statement changed under its own key is a blocker even when the new statement is true: the key is an address held outside this repository, and repointing it silently is worse than deleting it (`ADR-0022`). A retirement with no successor, or a successor that is itself retired, is the same blocker. If the code changed behaviour and the corpus did not move, say so — `AR-API-15` cannot see that, because it only knows what the documents claim.

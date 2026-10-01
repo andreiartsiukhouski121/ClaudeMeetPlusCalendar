@@ -46,9 +46,17 @@ diagnose.
 
 - **Strengths** — specific, with the section.
 - **Blockers** — what makes the design unfit to plan from. Each: where, what is wrong, what it
-  risks. An unsourced fact, a contradicted ADR, a vague contract, a missing guard.
+  risks, and a label — `shape` if it changes the design's decisions, `correction` if the design is
+  right and a statement in it is wrong, mispointed or stale. An unsourced fact, a contradicted ADR,
+  a vague contract, a missing guard.
 - **Findings** — worth fixing, not blocking.
 - **Minor** — one list.
 - **Verdict** — `accept` / `accept after blockers` / `rework`, and one sentence why.
 
 Do not redesign it in the report. You name what is wrong; the designer decides how to answer it.
+
+## Facts in the corpus
+
+The corpus states facts as keyed lines — `` `FACT-1013` `total` is the owner's full count… — invariant 4 `` — and keeps reasoning in `> **Rationale — not a fact.**` blocks that carry no key. The rule is `ADR-0021`, the lifecycle is `ADR-0022`, and the `project-context` skill is where both are explained.
+
+Check the ADRs the designer wrote against `ADR-0021`: keyed lines in Context and Decision, a source on each, reasoning in rationale blocks with no key. Then check the lifecycle (`ADR-0022`): if the design changes something the corpus states, does it name the key being retired **and** its successor? A design that rewrites a fact in place is a blocker, however small the wording change looks — that is precisely the failure the lifecycle exists to stop.

@@ -42,7 +42,9 @@ written down is **true and complete**, not whether it is wise.
 
 - **Strengths** — specific, with the file and finding you verified.
 - **Blockers** — an unsupported claim, a citation that does not check out, an uncovered area, a
-  contradiction silently resolved. Each: where, what is wrong, what it risks downstream.
+  contradiction silently resolved. Each: where, what is wrong, what it risks downstream, and a
+  label — `shape` if it changes the research's decisions, `correction` if the research is right and
+  a statement in it is wrong, mispointed or stale.
 - **Findings** — worth fixing, not blocking.
 - **Gaps to carry forward** — what remains genuinely unknown, so the designer inherits it as an open
   question rather than as silence. This section is part of the value: unknowns that reach the
@@ -51,3 +53,9 @@ written down is **true and complete**, not whether it is wise.
 
 Do not mark a nitpick a blocker. Do not dodge the verdict. Describe fixes in words; the researcher
 applies them.
+
+## Facts in the corpus
+
+The corpus states facts as keyed lines — `` `FACT-1013` `total` is the owner's full count… — invariant 4 `` — and keeps reasoning in `> **Rationale — not a fact.**` blocks that carry no key. The rule is `ADR-0021`, the lifecycle is `ADR-0022`, and the `project-context` skill is where both are explained.
+
+Two things to check that are specific to this stage: a finding resting on the corpus cites a `FACT-` key rather than a document, and no finding rests on an unkeyed sentence — that is reasoning borrowed as evidence, and it is the same failure as an uncited claim. A sweep that quietly treated a rationale block as fact is a blocker.

@@ -133,6 +133,15 @@ or that the third session check is not redundant.
 | [`docs/data-model.md`](docs/data-model.md)     | entities, formats, lifetimes, seed, and the flows between layers   |
 | [`docs/api-contract.md`](docs/api-contract.md) | every endpoint: request, response, error bodies, internal logic    |
 
+**Every statement of fact in those four carries a key** — `FACT-0009`, `FACT-1013`, `FACT-2065` —
+and names its source; anything without a key is reasoning, sits in a block marked
+`> **Rationale — not a fact.**`, and **must not be relied on as fact**, including by an agent's
+memory across sessions (`ADR-0021`). Take a number with `pnpm fact:next`, never by hand.
+`AR-API-11`…`AR-API-14` check that keys are unique and in their document's block, that every keyed
+fact names a source, that no key hides inside a rationale block, and that every `FACT-` reference in
+the repository resolves. What none of them checks is whether a fact is _true_ — a key makes a
+statement addressable, review makes it right.
+
 They are **disjoint**: a fact lives in one of them and the others link. Two copies of a rule drift
 silently — that is `FX-023` and `FX-027`. Which role reads which, and what a behaviour change must
 update, is in the `project-context` skill.
@@ -343,7 +352,7 @@ oversight.** `lint-staged` edits files with `--fix`/`--write` **after** `verify`
 the hook runs the units against different content — exactly what will go into the commit. Hence:
 
 - **do not run `pnpm test` by hand**, before or after `pnpm verify` — that would be a third run of
-  the same 42 tests adding no new fact;
+  the same units adding no new fact (count and timing: `e2e/README.md`, "Run economics");
 - `pnpm test:<feature>` is justified **only for localizing** a failure that already happened;
 - a commit holding only `.md` files skips the units: none of the 11 specs reads markdown, and the
   ledger process prescribes a docs commit (`pnpm ledger:fill`) after every feature.

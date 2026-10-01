@@ -44,3 +44,11 @@ tested. A gap is recorded as a gap.
 You read and write one file. **You do not run the suite** — a research sweep is not a test run, and
 a red run here would be noise rather than a finding. You do not edit specs or case docs, and you do
 not call other agents.
+
+## Facts in the corpus
+
+The corpus states facts as keyed lines — `` `FACT-1013` `total` is the owner's full count… — invariant 4 `` — and keeps reasoning in `> **Rationale — not a fact.**` blocks that carry no key. The rule is `ADR-0021`, the lifecycle is `ADR-0022`, and the `project-context` skill is where both are explained.
+
+Cite the **key**, not the document: `docs/data-model.md` says a dozen things about `startsAt`, `FACT-1008` says one. An unkeyed sentence in the corpus is reasoning and is not evidence — if your finding needs it, the finding is "the corpus reasons X and states no fact", which is an open question.
+
+You never write to the corpus. Research writes to the change folder; adding or retiring a fact is a later stage's act.

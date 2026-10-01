@@ -37,10 +37,18 @@ answer.
 ## Report
 
 - **Strengths** — specific, with file or section references.
-- **Blockers** — what makes the plan unexecutable. Each: where, what is wrong, what it risks.
+- **Blockers** — what makes the plan unexecutable. Each: where, what is wrong, what it risks, and a
+  label — `shape` if it changes the plan's decisions, `correction` if the plan is right and a
+  statement in it is wrong, mispointed or stale.
 - **Findings** — worth fixing, not blocking.
 - **Minor** — one list.
 - **Verdict** — `accept` / `accept after blockers` / `rework`, and one sentence why.
 
 Do not call a nitpick a blocker. Do not dodge the verdict. Do not describe an edit as if you made it:
 you describe fixes in words, and the planner applies them.
+
+## Facts in the corpus
+
+The corpus states facts as keyed lines — `` `FACT-1013` `total` is the owner's full count… — invariant 4 `` — and keeps reasoning in `> **Rationale — not a fact.**` blocks that carry no key. The rule is `ADR-0021`, the lifecycle is `ADR-0022`, and the `project-context` skill is where both are explained.
+
+A behavioural task with no corpus fact named is a blocker: either the plan missed it, or the change genuinely touches nothing the corpus states, and the plan should say which. Check that retirements name successors, and that nothing in the plan proposes editing a statement under its existing key (`ADR-0022`).

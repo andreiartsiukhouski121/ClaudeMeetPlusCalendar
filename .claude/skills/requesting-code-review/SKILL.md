@@ -82,3 +82,12 @@ costs an iteration.
 Blockers get fixed before acceptance. Anything contentious is not silently ignored: it becomes an
 item in `docs/BACKLOG.md` with a status, or a row in the Rejected section with a reason. That
 section exists so the same idea is not proposed again.
+
+## Facts in the corpus
+
+What each gate adds once the corpus is keyed, in one line apiece:
+
+- **Research** — findings cite keys, and none rests on an unkeyed sentence.
+- **Design** — new ADRs are keyed and sourced; retirements name their successors.
+- **Plan** — every behavioural task names the facts it adds or retires, or says the change touches none.
+- **Code** — the corpus diff is read: a statement changed under its own key is a blocker even when the new statement is true (`ADR-0022`).

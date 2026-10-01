@@ -32,9 +32,21 @@ retired.
 | `FEAT-S11` | Integration and end-to-end tests  | `tester-functional`, `tester-api`, `tester-security` | green specs at the integration and end-to-end levels          |
 | `FEAT-S5`  | ~~Tests per level~~ — **retired** | —                                                    | folded into `FEAT-S10` and `FEAT-S11` above                   |
 | `FEAT-G4`  | **Code review**                   | `code-reviewer`                                      | blockers, or the verdict `accept`                             |
-| `FEAT-S6`  | Acceptance                        | `tester-acceptance`                                  | one green `pnpm verify`, reported with numbers                |
+| `FEAT-S6`  | Acceptance                        | `lead`                                               | one green `pnpm verify`, reported with numbers                |
 | `FEAT-S7`  | Ledger                            | `tester-acceptance`                                  | an `FT-`/`CH-` row, closed `BL-` items                        |
 | `FEAT-S8`  | Profiling record                  | `tester-acceptance`                                  | `docs/profiling/runs/<date>-<slug>.md`                        |
+
+Below `bugfix-pipeline` §4's threshold, a `FEAT` change skips its discovery half — `FEAT-S1`…
+`FEAT-G3` — and `FEAT-S9` test design along with it, the same way the `FIX` section below names a
+short path explicitly rather than leaving it to judgement: no change folder, no team, only a red
+test, the fix and a ledger entry. Above the threshold every row runs, in the row order of the table.
+
+**The corpus moves inside `FEAT-S4`, not after it.** A change of behaviour states its new fact in
+`docs/architecture.md`, `docs/data-model.md` or `docs/api-contract.md` in the same commit as the
+code, and retires whatever it contradicts (`ADR-0021`, `ADR-0022`). The stages around it each carry
+their share: `FEAT-S2` names which keys will move, `FEAT-S3` puts them in section 3a of the plan,
+`FEAT-G4` reads the corpus diff, and `FEAT-S6` runs `AR-API-11`…`AR-API-17` as part of
+`pnpm verify`. No stage is added for it — a fact is part of the work, not a step after it.
 
 `FEAT-S8` is new with `ADR-0020` and is part of finishing, like the ledger entry: the numbers only
 exist while the hand-backs are still in front of you. Both belong to `tester-acceptance` rather than
@@ -107,8 +119,9 @@ guarded, and it was a human who noticed.
 Each is placed where a blocker is still cheap. A wrong shape caught at `FEAT-G2` costs a paragraph;
 the same blocker found during implementation costs an iteration, and found at acceptance it costs a
 full suite run. The evidence that this is not theory is in the ledger: `FX-031`, `FX-032` and
-`FX-033` were all found by this pipeline's own gates and runs during a single change, and the diff
-review found none of them.
+`FX-033` were all found during a single change by a research sweep (`FX-031`, `FX-032`) and a test
+run (`FX-033`) — this pipeline's own stages and runs, not its gates — and the diff review found none
+of them.
 
 The counter-evidence is in the same ledger. `CH-004` records 100 minutes of planning against 85 of
 code, and the discovery half of `FT-003` cost 1.47M tokens before any product code existed. Both

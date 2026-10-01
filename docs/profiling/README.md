@@ -20,16 +20,25 @@ which is the cost this directory exists to remove.
 badly. Correcting a number is fine and should say so; tidying a run into a nicer story destroys the
 only thing the file is for.
 
-**What every row carries**: the stage or gate ID, the role, the model, wall-clock, tokens, tool
-calls, and the outcome. **Rework is recorded against the stage that was reworked, not the gate that
-caught it** — the gate's own cost is its row, and separating the two is what makes "did this gate
-pay for itself" answerable.
+**What every row carries**: the stage or gate ID, the role, the model, wall-clock, tokens, a cost
+figure, tool calls, and the outcome. **Rework is recorded against the stage that was reworked, not
+the gate that caught it** — the gate's own cost is its row, and separating the two is what makes
+"did this gate pay for itself" answerable.
 
 **A stage re-run after its gate gets two rows under the same ID**, first pass and re-run, rather than
 one row combining both — and a stage dispatched to more than one role (`FEAT-S1`'s four sweeps,
 `FEAT-S5`'s `tester-api`, `tester-unit`, `tester-security`) gets one row per role. `FEAT-S8` gets a
 row of its own. No new stage IDs are minted and none is renumbered for this (`ADR-0020`): the split
 is by role and by pass within the same ID.
+
+**The table also carries a row for the orchestrator (`lead`)**, covering work done in its own
+context rather than in a dispatch — holding gates, sequencing, and, since the fourth tuning round,
+running `FEAT-S6` directly. No sub-agent hand-back reports that cost, so it has to be attributed
+separately or it disappears from the record entirely.
+
+**A cost column sits beside tokens**, so a change to a role's model has a unit to be judged against;
+without it, tokens are the only figure this directory holds and a cheaper model can never be shown
+to have saved anything.
 
 **The cycle also carries one further number: elapsed wall-clock for the whole cycle**, from the first
 dispatch to the ledger entry, recorded next to the agent-time total at `FEAT-S8`. The per-stage rows
@@ -58,9 +67,11 @@ The Flow field reads `FIX`; the stage rows are whichever of `FIX-S1`…`FIX-S11`
 Gate yield is written as zero by design, not left blank: the defect flow carries no review gate.
 
 **Record what you actually know.** Sub-agent cost arrives in the hand-back; wall-clock is the
-harness's duration. Where a number is unavailable, the cell says so — an invented figure is worse
-than a gap, and `FX-027` is the ledger entry for what a wrong number in a measurement paragraph
-costs.
+harness's duration; the orchestrator's own row and the cost column are the orchestrator's to
+attribute, and it has miscounted its own table before (`FX-034`: dispatches 30 → 29, agent-time 190
+against a column summing to 190.5). Where a number is unavailable, the cell says so — an invented
+figure is worse than a gap, and `FX-027` is the ledger entry for what a wrong number in a measurement
+paragraph costs.
 
 **Four numbers are the point of the exercise**, and every record ends with them:
 

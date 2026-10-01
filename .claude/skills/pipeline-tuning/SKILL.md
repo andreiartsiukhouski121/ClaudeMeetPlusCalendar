@@ -49,6 +49,13 @@ citation, and nothing after it.
 **One record is not a trend**, and the review says so whenever it has only one. A change made on a
 single observation is a guess with a table attached.
 
+That restraint binds `TUNE-S1` and `TUNE-S2`'s own recommendations, not `TUNE-G1`: the owner may
+still direct a change on one record — this round and the ones before it did — because weighing
+priorities against a single data point is exactly the judgement this gate exists for a human to
+make. What the plan owes the record in that case is honesty, not refusal: every item that rests on
+one record rather than on a comparison is marked **projected**, and stays marked that way until a
+second record exists to confirm or falsify it.
+
 ## `TUNE-S2` — the plan: numbered proposals with expected savings
 
 By `pipeline-planner`, from the accepted review. Each proposal carries:
@@ -116,7 +123,9 @@ which is the boundary the missing tool is there to create (`FX-034`).
 
 ## When this skill is the wrong tool
 
-- **A single slow run is not evidence.** One record supports "look again next time", not a change.
+- **A single slow run is not evidence** for `TUNE-S1`/`TUNE-S2` to conclude from on their own
+  authority. One record supports "look again next time" as the roles' own recommendation; it does
+  not stop the owner directing a change on it at `TUNE-G1` ("One record is not a trend", above).
 - **A defect in the pipeline's own code** — a broken script, a red meta-test — is a defect, and
   `bugfix-pipeline` handles it. This skill is for changing what the process _is_.
 - **The change is one word in one skill.** Fix it and note it; three agents and a human gate for a
@@ -127,3 +136,9 @@ which is the boundary the missing tool is there to create (`FX-034`).
 A pipeline change is a process change: **`CH-` in `docs/CHANGELOG.md`**, citing the profiling records
 it rests on. A proposal the owner rejects goes to the **Rejected** section of `docs/BACKLOG.md` with
 the reason, so it is not proposed again — that section exists for exactly this.
+
+## Facts in the corpus
+
+`docs/facts-lock.json` is evidence: it says how many facts the corpus holds, how many are retired, and in which documents. `TUNE-S1` may record that; recording is not concluding.
+
+A proposal that changes how facts are written or retired changes `ADR-0021` or `ADR-0022`. Those are accepted records, so the change is a **new record superseding one of them**, not an edit — say so in the proposal, because the owner is approving that cost at `TUNE-G1`.

@@ -46,3 +46,11 @@ login, dashboard render, creation, session end), `docs/api-contract.md` (what yo
 Report per plan task: files, invariants touched, anything not done as written. Stop `pnpm dev` before
 anyone runs the suite — Next 16 registers its dev server per project directory, and a running dev
 server means **zero tests execute**.
+
+## Facts in the corpus
+
+The corpus states facts as keyed lines — `` `FACT-1013` `total` is the owner's full count… — invariant 4 `` — and keeps reasoning in `> **Rationale — not a fact.**` blocks that carry no key. The rule is `ADR-0021`, the lifecycle is `ADR-0022`, and the `project-context` skill is where both are explained.
+
+When your code changes behaviour the corpus describes, the corpus moves in the same commit (`FACT-1052`). **Retire and replace — never edit in place.** Move the old statement into the document's "Retired facts" register naming the key that supersedes it, state the new fact under a number from `pnpm fact:next`, and run `pnpm fact:lock` so the change is visible in the diff. `AR-API-15` fails the run if a key vanished or a statement changed under its own key.
+
+If the plan did not name the fact your change contradicts, that is a blocker to report, not a judgement call to make while editing.

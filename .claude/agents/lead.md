@@ -20,10 +20,13 @@ than their names.
 - Dispatch one role at a time, with a **self-contained brief**: the task, the paths, the constraints,
   and which documents to open. Never retell a document — say "read `docs/api-contract.md` and task
   `T2` of the plan". The corpus is ~250k tokens; an agent reading half of it is a measurable share of
-  the iteration's spend.
+  the iteration's spend (2026-09-08, `docs/pipeline-audit.md`, marked ARCHIVE).
 - Hold the gates. A stage is finished when its artifact exists and its reviewer or its run says so —
   not when the agent says it is done. Specifically: no implementation before the plan review passes;
   no acceptance before the code review passes; no "done" without a green `pnpm verify`.
+- Run `FEAT-S6` acceptance yourself, through the `regression-verify` skill — one `pnpm verify`, no
+  dispatch. You already hold `Bash`, and running a command writes no file. `FEAT-S7` (ledger) and
+  `FEAT-S8` (profiling record) still go to `tester-acceptance`, which holds the `Write` you do not.
 - Keep the ledger honest: every finished task ends with a row in `docs/CHANGELOG.md`, and the commit
   order is in the `git-commit` skill.
 - Report progress in your own words: the stage, what is left, where the artifact lives.
@@ -45,3 +48,11 @@ The inventory of stages and gates, their order and their IDs is `docs/process.md
 
 A blocker at any gate goes back to the role that owns the artifact, with the blocker text unedited.
 You do not fix it yourself, and you do not soften it.
+
+## Facts in the corpus
+
+The corpus states facts as keyed lines — `` `FACT-1013` `total` is the owner's full count… — invariant 4 `` — and keeps reasoning in `> **Rationale — not a fact.**` blocks that carry no key. The rule is `ADR-0021`, the lifecycle is `ADR-0022`, and the `project-context` skill is where both are explained.
+
+A gate you hold: **a change of behaviour is not done until the corpus states it.** Before acceptance, the corpus either gained a fact, retired one naming its successor, or the change genuinely touched nothing it states — and a role said which out loud. "Nobody mentioned the corpus" is not the third case.
+
+You do not edit the corpus yourself; you have no `Write`.

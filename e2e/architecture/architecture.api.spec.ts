@@ -3,6 +3,23 @@ import path from 'node:path';
 
 import { expect, test } from '@playwright/test';
 
+import {
+  FACT_BLOCKS,
+  FACT_DEFINITION_LIST,
+  FACT_KEY_ANYWHERE,
+  RATIONALE_OPENER,
+  allRetiredFacts,
+  allStatedFacts,
+  lockDifferences,
+  maskedLines,
+  blockFiles,
+  factKey,
+  hasSourceToken,
+  parseRetiredRegister,
+  statedFacts,
+  type RetiredFact,
+} from '../../scripts/facts-parse.mjs';
+
 /**
  * The architecture corpus, made executable. Cases live in the paired `architecture.api.cases.md`.
  *
@@ -709,6 +726,257 @@ function violationsRolesDocumented(root: string): string[] {
 
 // --- Tests ------------------------------------------------------------------------------------
 
+/* ------------------- Corpus fact keys and their lifecycle (ADR-0021, ADR-0022) ------------------- */
+
+/**
+ * `ADR-0021`: every statement of fact in the corpus carries a `FACT-NNNN` key and names its source,
+ * and anything without a key is reasoning that must not be cited as fact. `ADR-0022`: a fact is
+ * appended and retired, never deleted and never rewritten in place under the same key.
+ *
+ * The parsing lives in `scripts/facts-parse.mjs`, which `pnpm fact:lock` reads through too. A second
+ * parser here would be the drift `FX-023` and `FX-027` record: the lock would bless a shape these
+ * rules reject.
+ *
+ * What these rules check is form, not truth — the same line every other rule here draws. A key and a
+ * source make a statement addressable and traceable; whether the source says what the statement
+ * claims is review's job.
+ *
+ * The failure modes they catch are the invisible ones: two facts sharing a number; a fact stated
+ * with nothing behind it; a key inside a rationale block, which would make reasoning citable as
+ * fact; a reference to a key nobody defines; a fact deleted outright, so every reference held
+ * outside this repository points at nothing; and a statement rewritten under its old key, which is
+ * worse than deletion because every reference still resolves.
+ */
+
+/** Live documents must cite live facts; these keep records of what was true when written. */
+const HISTORICAL_DIRS = ['docs/plans', 'docs/profiling'];
+
+/** Where a `FACT-` reference may appear outside the corpus. */
+const FACT_REFERENCE_SCAN = ['docs', 'e2e', '.claude', 'scripts'];
+
+function violationsFactKeys(root: string): string[] {
+  const problems: string[] = [];
+  const seen = new Map<number, { file: string; line: number }>();
+
+  for (const block of FACT_BLOCKS) {
+    for (const fact of statedFacts(root, block.target)) {
+      const key = factKey(fact.number);
+      const first = seen.get(fact.number);
+
+      if (first !== undefined) {
+        problems.push(
+          `${fact.file}:${fact.line} defines ${key}, already defined at ${first.file}:${first.line}. ` +
+            'A number shared by two facts makes every reference to it ambiguous, and references ' +
+            'are held outside this repository too (ADR-0021)',
+        );
+        continue;
+      }
+      seen.set(fact.number, { file: fact.file, line: fact.line });
+
+      if (fact.number < block.from || fact.number > block.to) {
+        problems.push(
+          `${fact.file}:${fact.line} defines ${key}, outside this document's block ` +
+            `${block.from}-${block.to}. Take the next free number with \`pnpm fact:next\` (ADR-0021)`,
+        );
+      }
+    }
+  }
+
+  return problems;
+}
+
+function violationsFactSources(root: string): string[] {
+  const problems: string[] = [];
+
+  for (const fact of allStatedFacts(root)) {
+    const key = factKey(fact.number);
+    // The key itself is a `FACT-` token; it must not count as its own source.
+    const withoutKey = fact.scope.split(`\`${key}\``).join('');
+
+    if (!hasSourceToken(withoutKey)) {
+      problems.push(
+        `${fact.file}:${fact.line} — ${key} states a fact and names no source. A statement that ` +
+          'cannot be traced is an inference wearing a key: give it a path, a case ID, an ADR, a ' +
+          'ledger entry, an invariant, a probe, or move it into a rationale block (ADR-0021)',
+      );
+    }
+  }
+
+  return problems;
+}
+
+function violationsFactsInRationale(root: string): string[] {
+  const problems: string[] = [];
+
+  for (const block of FACT_BLOCKS) {
+    for (const file of blockFiles(root, block.target)) {
+      const lines = maskedLines(read(root, file));
+      let inRationale = false;
+
+      for (let i = 0; i < lines.length; i += 1) {
+        const line = lines[i];
+
+        if (RATIONALE_OPENER.test(line)) {
+          inRationale = true;
+        } else if (!line.trimStart().startsWith('>')) {
+          inRationale = false;
+        }
+
+        if (!inRationale) {
+          continue;
+        }
+
+        const listMatch = FACT_DEFINITION_LIST.exec(line.replace(/^\s*>\s?/, ''));
+        if (listMatch !== null) {
+          problems.push(
+            `${file}:${i + 1} defines FACT-${listMatch[1]} inside a rationale block. A rationale ` +
+              'block is reasoning and carries no keys — keying it makes it citable as fact, which ' +
+              'is the separation ADR-0021 exists to draw',
+          );
+        }
+      }
+    }
+  }
+
+  return problems;
+}
+
+/**
+ * A reference must resolve. In a living document it must resolve to a *stated* fact: pointing at a
+ * retired key is how a document goes on relying on something the corpus withdrew. A historical
+ * record — a change folder, a profiling run — may point at a retired key, because it records what
+ * was true when it was written and editing it would falsify the record (`ADR-0011`).
+ */
+function violationsFactReferences(root: string): string[] {
+  const problems: string[] = [];
+  const stated = new Set(allStatedFacts(root).map((fact) => fact.number));
+  const retired = new Map(allRetiredFacts(root).map((row) => [row.number, row]));
+
+  for (const dir of FACT_REFERENCE_SCAN) {
+    for (const file of walk(root, dir).filter((name) => name.endsWith('.md'))) {
+      const historical = HISTORICAL_DIRS.some((prefix) => file.startsWith(prefix));
+      const lines = maskedLines(read(root, file));
+
+      for (let i = 0; i < lines.length; i += 1) {
+        // A register row is the record of a retired key, not a reference to it.
+        if (retired.has(Number(FACT_DEFINITION_LIST.exec(lines[i])?.[1] ?? -1))) {
+          continue;
+        }
+
+        for (const match of lines[i].matchAll(FACT_KEY_ANYWHERE)) {
+          const number = Number(match[1]);
+
+          if (stated.has(number)) {
+            continue;
+          }
+
+          const row = retired.get(number);
+          if (row === undefined) {
+            problems.push(
+              `${file}:${i + 1} cites ${factKey(number)}, which the corpus does not define. A ` +
+                'reference to a withdrawn or mistyped key looks exactly like a good one, and that ' +
+                'is how a retired fact goes on being relied upon (ADR-0021)',
+            );
+            continue;
+          }
+
+          if (historical || file === row.file) {
+            continue;
+          }
+
+          const successor =
+            row.supersededBy === null ? 'nothing replaces it' : `see ${factKey(row.supersededBy)}`;
+          problems.push(
+            `${file}:${i + 1} cites ${factKey(number)}, which is ${row.status} — ${successor}. A ` +
+              'living document cites a living fact; only a change folder or a profiling record may ' +
+              'keep pointing at what was true when it was written (ADR-0022)',
+          );
+        }
+      }
+    }
+  }
+
+  return problems;
+}
+
+/**
+ * Retirement integrity, as a pure function of the register and the live keys, so `AR-API-17` can
+ * drive it with a fixture. Until the corpus has its first retirement a rule reading only real
+ * documents would pass having parsed nothing — the vacuous-green class `ADR-0010` exists to close.
+ */
+export function violationsRetirement(retired: RetiredFact[], stated: Set<number>): string[] {
+  const problems: string[] = [];
+  const retiredNumbers = new Set(retired.map((row) => row.number));
+
+  for (const row of retired) {
+    const key = factKey(row.number);
+
+    if (row.status === 'bad') {
+      problems.push(
+        `${row.file}:${row.line} — ${key} carries the status "${row.rawStatus}". A register row is ` +
+          'either `retired by FACT-NNNN` or `withdrawn` (ADR-0022)',
+      );
+      continue;
+    }
+
+    if (stated.has(row.number)) {
+      problems.push(
+        `${row.file}:${row.line} — ${key} is both retired and still stated in the body of a ` +
+          'document. A retired fact leaves the body; the register is where it survives (ADR-0022)',
+      );
+    }
+
+    if (!row.recordedIn || row.recordedIn === '—') {
+      problems.push(
+        `${row.file}:${row.line} — ${key} names nothing that recorded its retirement. A ledger ` +
+          'entry, an ADR or a commit, or the retirement is an edit nobody agreed to (ADR-0022)',
+      );
+    }
+
+    if (row.status === 'withdrawn') {
+      continue;
+    }
+
+    const successor = row.supersededBy;
+    if (successor === null) {
+      problems.push(
+        `${row.file}:${row.line} — ${key} is retired and names no successor. A fact is closed by ` +
+          'naming the key that replaces it, or it is `withdrawn` (ADR-0022)',
+      );
+      continue;
+    }
+
+    if (!stated.has(successor)) {
+      problems.push(
+        `${row.file}:${row.line} — ${key} names ${factKey(successor)} as its successor, and the ` +
+          `corpus does not state it${retiredNumbers.has(successor) ? ' — that key is itself retired' : ''}. ` +
+          'A chain of retirements that ends nowhere leaves the reader with no current fact (ADR-0022)',
+      );
+    }
+  }
+
+  return problems;
+}
+
+/**
+ * A register with one good row and four broken ones, used by `AR-API-17`. It is written here rather
+ * than in a file under `docs/` because it must never be mistaken for part of the corpus.
+ */
+const RETIREMENT_FIXTURE = [
+  '# Fixture',
+  '',
+  '## Retired facts',
+  '',
+  '| Key         | Stated                     | Status                 | Recorded in |',
+  '| ----------- | -------------------------- | ---------------------- | ----------- |',
+  '| `FACT-1900` | a fact that was replaced   | `retired by FACT-1901` | `CH-024`    |',
+  '| `FACT-1902` | a fact whose heir is gone  | `retired by FACT-1999` | `CH-024`    |',
+  '| `FACT-1903` | a fact retired into a void | `retired by FACT-1904` | `CH-024`    |',
+  '| `FACT-1904` | itself retired             | `withdrawn`            | `FX-041`    |',
+  '| `FACT-1905` | a withdrawal nobody logged | `withdrawn`            | —           |',
+  '',
+].join('\n');
+
 test.describe('Architecture corpus', { tag: '@architecture' }, () => {
   test('walk self-check — the scanner finds the corpus, the controllers and the agents', () => {
     const root = repoRoot();
@@ -823,5 +1091,86 @@ test.describe('Architecture corpus', { tag: '@architecture' }, () => {
       violationsStageCitations(root),
       'A profiling record citing an undefined stage measures something nobody can find (ADR-0020)',
     ).toEqual([]);
+  });
+
+  test('AR-API-11 — every corpus fact key is unique and inside its document block', () => {
+    const root = repoRoot();
+
+    // Guard against the parser matching nothing and every rule below passing vacuously — the exact
+    // failure `suite-integrity` once had.
+    expect(
+      allStatedFacts(root).length,
+      'No FACT- definitions parsed out of the corpus — the check would pass having read nothing',
+    ).toBeGreaterThan(0);
+
+    expect(
+      violationsFactKeys(root),
+      'Two facts on one number make every citation of it ambiguous, including the ones held ' +
+        'outside this repository (ADR-0021)',
+    ).toEqual([]);
+  });
+
+  test('AR-API-12 — every keyed fact names a source', () => {
+    expect(
+      violationsFactSources(repoRoot()),
+      'A keyed statement with nothing behind it is how an inference enters the corpus as a fact ' +
+        '(ADR-0021)',
+    ).toEqual([]);
+  });
+
+  test('AR-API-13 — no fact key is defined inside a rationale block', () => {
+    expect(
+      violationsFactsInRationale(repoRoot()),
+      'Rationale is reasoning, and keying it makes it citable as fact — the separation ADR-0021 ' +
+        'exists to draw',
+    ).toEqual([]);
+  });
+
+  test('AR-API-14 — every FACT- reference resolves, and living documents cite living facts', () => {
+    expect(
+      violationsFactReferences(repoRoot()),
+      'A reference to a withdrawn or mistyped key is indistinguishable from a good one by eye ' +
+        '(ADR-0021, ADR-0022)',
+    ).toEqual([]);
+  });
+
+  test('AR-API-15 — the fact lock and the corpus agree: nothing deleted, added or reworded silently', () => {
+    expect(
+      lockDifferences(repoRoot()),
+      'A fact is never deleted and never rewritten under its own key. Run `pnpm fact:lock` when ' +
+        'the words changed but the fact did not, and retire-and-replace when the fact changed ' +
+        '(ADR-0022)',
+    ).toEqual([]);
+  });
+
+  test('AR-API-16 — every retired fact names a successor that exists, or a sourced withdrawal', () => {
+    const root = repoRoot();
+    const stated = new Set(allStatedFacts(root).map((fact) => fact.number));
+
+    expect(
+      violationsRetirement(allRetiredFacts(root), stated),
+      'A fact closed without naming what replaces it leaves every reader holding an address with ' +
+        'no forwarding note (ADR-0022)',
+    ).toEqual([]);
+  });
+
+  test('AR-API-17 — the retirement register parses, so the two rules above are not vacuous', () => {
+    // The corpus has no retirements yet, so AR-API-15 and AR-API-16 would pass having read an empty
+    // register. This drives the same parser and the same rule over a register that is deliberately
+    // broken in four ways, and requires each one to be reported.
+    const rows = parseRetiredRegister(RETIREMENT_FIXTURE, 'docs/fixture.md');
+
+    expect(rows, 'The register parser found no rows in the fixture').toHaveLength(5);
+    expect(rows[0].status).toBe('retired');
+    expect(rows[0].supersededBy).toBe(1901);
+    expect(rows[3].status).toBe('withdrawn');
+
+    const problems = violationsRetirement(rows, new Set([1901]));
+
+    expect(
+      problems.map((problem) => problem.replace(/^docs\/fixture\.md:\d+ — /, '').slice(0, 11)),
+      'The rule must object to: an heir that does not exist, an heir that is itself retired, and ' +
+        'a withdrawal naming nothing that recorded it',
+    ).toEqual(['FACT-1902 n', 'FACT-1903 n', 'FACT-1905 n']);
   });
 });

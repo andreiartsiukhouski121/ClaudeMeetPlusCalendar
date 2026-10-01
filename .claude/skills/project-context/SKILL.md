@@ -30,6 +30,13 @@ corpus is how a document starts describing something that no longer exists.
 | `docs/security.md`     | the threat model and the deliberate gaps                              | —                                |
 | `e2e/README.md`        | the suite convention and run economics                                | —                                |
 
+**Every fact in the corpus is keyed.** The four corpus documents state facts as keyed lines and
+rows — `` `FACT-0009` The browser never reaches Nest. — `HD-FN-11`, `SEC-FN-03`, `ADR-0002` `` — and
+keep reasoning in blocks opening `> **Rationale — not a fact.**`. Cite a key when you rely on
+something; **do not rely on an unkeyed statement**, because nothing traces it to the project
+(`ADR-0021`). Adding a fact means taking a number with `pnpm fact:next` and naming a source;
+`AR-API-11`…`AR-API-14` fail the run otherwise.
+
 **Disjoint on purpose.** A fact lives in exactly one place and the others link to it. Two copies of a
 rule drift silently — this repository earned `FX-023` (an address formula in four files) and `FX-027`
 (a measurement paragraph in four files) that way. If you are about to write a sentence that already
@@ -94,3 +101,15 @@ every run.
 The prose — layers, patterns, refusals — is **not** machine-checkable and is held only by review. The
 corpus does not pretend otherwise: a check that pretends to be smarter than it is does more harm than
 no check at all.
+
+## The lifecycle of a fact
+
+A fact is **appended and retired, never deleted and never rewritten in place** (`ADR-0022`).
+
+- Reality changed → retire the old key into the document's `## Retired facts` register, naming the key that replaces it, and state the new fact under a number from `pnpm fact:next`.
+- It stopped being true with nothing to replace it → the register row says `withdrawn` and names what withdrew it.
+- The words were clumsy but the fact is unchanged → fix them and run `pnpm fact:lock`, so the rewrite is visible in the diff rather than silent.
+
+`docs/facts-lock.json` pins every key ever allocated with a hash of its statement, the way `skills-lock.json` pins an external set. `AR-API-15` fails when a key vanished or a statement changed under it; `AR-API-16` fails when a retirement names no successor, or one that does not exist. `pnpm fact:check` performs the same comparison offline; it is defined but not called by `pnpm verify` — the comparison reaches `verify` through `AR-API-15` inside `pnpm e2e` instead.
+
+**Why it is this strict:** a key is an address held outside this repository — in a plan, a review note, an agent's memory across sessions. An address that can be deleted, or quietly repointed at different words, is not an address. Citing a retired key from a living document fails `AR-API-14`; a change folder or a profiling record may keep pointing at one, because it records what was true when it was written.
