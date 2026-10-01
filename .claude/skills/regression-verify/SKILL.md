@@ -16,10 +16,12 @@ from reality.
 **Nothing counts as done without an actual run.** "Verified" without a command and without numbers
 in the report is not an acceptable phrasing.
 
-**Who runs what.** This skill is the `tester-acceptance` role's procedure; the level suites belong to
-`tester-unit`, `tester-api`, `tester-functional` and `tester-security` (`team-roles`). Acceptance
-**fixes nothing** — §5 — and that is a tool boundary, not a promise: the roles that judge do not hold
-the files they judge.
+**Who runs what.** This skill is the procedure for `FEAT-S6`, which `lead` runs directly with no
+dispatch (`CH-025`): the run is one command and `lead` already holds `Bash`. `tester-acceptance` owns
+what comes after it and needs `Write` — the control experiment of §5, the ledger entry (`FEAT-S7`) and
+the profiling record (`FEAT-S8`). The level suites belong to `tester-unit`, `tester-api`,
+`tester-functional` and `tester-security` (`team-roles`). Acceptance **fixes nothing** — §5 — and that
+is a tool boundary, not a promise: the roles that judge do not hold the files they judge.
 
 The order of work for a whole feature is in the `feature-pipeline` skill.
 

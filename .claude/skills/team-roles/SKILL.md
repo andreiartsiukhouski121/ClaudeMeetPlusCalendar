@@ -35,7 +35,7 @@ the documents every role works from are in `project-context`.
 | `tester-api`           | `*.api.spec.ts`, `*.integration.spec.ts`             | `Write`, `Bash`                   | `sonnet` |
 | `tester-functional`    | `*.functional.spec.ts`, MCP                          | `Write`, `Bash`, `browser_*`      | `sonnet` |
 | `tester-security`      | `e2e/security/**`, the two route lists, `pnpm audit` | `Write`, `Bash`                   | `opus`   |
-| `tester-acceptance`    | the ledger entry and the profiling record            | `Write`, `Bash`                   | `sonnet` |
+| `tester-acceptance`    | the control experiment, the ledger, the profiling    | `Write`, `Bash`                   | `sonnet` |
 | `pipeline-reviewer`    | `docs/profiling/reviews/**`; evidence, no verdicts   | `Write`, no `Edit`/`Bash`         | `opus`   |
 | `pipeline-planner`     | `docs/profiling/plans/**`; proposals for the owner   | `Write`, no `Edit`/`Bash`         | `opus`   |
 | `pipeline-implementer` | the approved pipeline edits, and only those          | `Write`, `Edit`, `Bash`           | `sonnet` |
