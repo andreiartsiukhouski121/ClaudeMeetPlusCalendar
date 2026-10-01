@@ -58,6 +58,7 @@ What does not: how a function is written, which name reads better, anything a co
 | [ADR-0020](ADR-0020-stage-inventory-and-profiling.md) | Stage inventory and profiling                                            | accepted |
 | [ADR-0021](ADR-0021-corpus-facts-are-keyed.md)        | Every fact in the corpus carries a key; inference is marked              | accepted |
 | [ADR-0022](ADR-0022-fact-lifecycle.md)                | A fact is appended and retired, never deleted or rewritten in place      | accepted |
+| [ADR-0023](ADR-0023-heroui-adoption.md)               | HeroUI v3 replaces CSS Modules in `apps/web`                             | accepted |
 
 The table is checked against the directory in both directions (`AR-API-03`): a file missing from the
 table, or a row without a file, fails the run.

@@ -5,8 +5,6 @@ import { LogoutButton } from '@/components/logout-button';
 import { MeetingList } from '@/components/meeting-list';
 import { getCurrentUser, getMeetings } from '@/lib/dal';
 
-import styles from './page.module.css';
-
 export const metadata: Metadata = {
   title: 'Home — PurpleSchool',
 };
@@ -22,22 +20,23 @@ export const metadata: Metadata = {
  * Markup dictated by the cases:
  *  - exactly ONE `h1`, carrying the user's email (`HD-FN-02`, `HD-FN-14`);
  *  - the counter as a **single text node** in exactly the `Meetings total: 5` format, or
- *    `getByText` in `HD-FN-03` will not match.
+ *    `getByText` in `HD-FN-03` will not match. The template literal stays for that reason —
+ *    splitting it across elements for styling would break the locator.
  */
 export default async function HomePage() {
   const user = await getCurrentUser();
   const { items, total } = await getMeetings();
 
   return (
-    <main className={styles.page}>
-      <header className={styles.header}>
-        <h1 className={styles.greeting}>Hello, {user.email}</h1>
+    <main className="mx-auto flex w-full max-w-5xl flex-col gap-6 p-6">
+      <header className="flex items-center justify-between gap-4">
+        <h1 className="text-2xl font-semibold">Hello, {user.email}</h1>
         <LogoutButton />
       </header>
 
-      <p className={styles.counter}>{`Meetings total: ${String(total)}`}</p>
+      <p className="text-foreground-500">{`Meetings total: ${String(total)}`}</p>
 
-      <div className={styles.content}>
+      <div className="grid gap-6 md:grid-cols-2">
         <MeetingList meetings={items} />
         <CreateMeetingForm />
       </div>

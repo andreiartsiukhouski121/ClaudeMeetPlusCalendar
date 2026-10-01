@@ -2736,6 +2736,71 @@
       "status": "active",
       "document": "docs/adr",
       "hash": "0ab929ee9043c4261432e9ee93aa6af2b1f49a582c504dc435229dd18cb999f2"
+    },
+    "FACT-3505": {
+      "status": "active",
+      "document": "docs/adr",
+      "hash": "36abae929999361e82ec30a91e2f7f61913e3ed8f717a14ee1f697999d482c2f"
+    },
+    "FACT-3506": {
+      "status": "active",
+      "document": "docs/adr",
+      "hash": "1d59c03174cd5cf9eb9bbd7090b0883fa83cfe85b733dd86bf1c2c70165c7bd8"
+    },
+    "FACT-3507": {
+      "status": "active",
+      "document": "docs/adr",
+      "hash": "3b5b9929b8166c8603e05088f93c8113c785c9285b8aff3ef3cae622fe24b009"
+    },
+    "FACT-3508": {
+      "status": "active",
+      "document": "docs/adr",
+      "hash": "f65eeeb593b7b5204235d6ed1c469a639cb3dd94fdbea90bf1d2b8d0bc38d969"
+    },
+    "FACT-3509": {
+      "status": "active",
+      "document": "docs/adr",
+      "hash": "3fdedb150280a293db1993f9e3cd1654faea60882f03306493bebadb36c0b8ac"
+    },
+    "FACT-3510": {
+      "status": "active",
+      "document": "docs/adr",
+      "hash": "8887131231811f41b74263238214ad5065a848e5f50266356a41ec803da586e5"
+    },
+    "FACT-3511": {
+      "status": "active",
+      "document": "docs/adr",
+      "hash": "4568a4e00622e3a8bd39c9a1f638327b552626094a2f8bf6f1ac213804364836"
+    },
+    "FACT-3512": {
+      "status": "active",
+      "document": "docs/adr",
+      "hash": "3f6fc79f4596448cdfdeffe7c3cfa423b74be95329941a4f003d064fac1774f1"
+    },
+    "FACT-3513": {
+      "status": "active",
+      "document": "docs/adr",
+      "hash": "d8c74a53dc30aba012d76e41e425cb754b08ff0aae8d26677be986b51b67aff7"
+    },
+    "FACT-3514": {
+      "status": "active",
+      "document": "docs/adr",
+      "hash": "bd6c8c5003c2df5b827229604b30346b099221fb52c1d994eee56f0bb22df055"
+    },
+    "FACT-3515": {
+      "status": "active",
+      "document": "docs/adr",
+      "hash": "ab646305264c7746fec2e2c7b5586436872e58bc836ae915b1dff26d503bd9f5"
+    },
+    "FACT-3516": {
+      "status": "active",
+      "document": "docs/adr",
+      "hash": "94153f9f491dcc9410b40072f45e75773e106932316cd365673dcc54fa13c822"
+    },
+    "FACT-3517": {
+      "status": "active",
+      "document": "docs/adr",
+      "hash": "fff9e7318b62c6d747105733a9241b23c2622247d029297db0a869fb98f1976b"
     }
   }
 }
