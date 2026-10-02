@@ -25,6 +25,14 @@ to talk to), `e2e/README.md` (the convention), `CLAUDE.md` invariants 9–15 and
 - **The UI is HeroUI v3 on React Aria** (`ADR-0023`). A HeroUI change that needs a locator edited to
   stay green means the accessibility contract moved — that is a defect to report, not a test to fix.
   The migration itself changed no test, which is the baseline to judge the next one against.
+- **You own `e2e/accessibility/`** — the `axe-core` scan at WCAG 2.1 AA (`ADR-0025`). **A new page
+  means a new line in `AUDITED_PAGES`**, exactly like `PROTECTED_PAGES` under invariant 16; nothing
+  notices a forgotten one. A violation is a defect with an `FX-` entry, never an allowlist entry:
+  the first thing the suite found was the component library's own default accent at 3.58:1
+  (`FX-039`).
+- **For anything visual, query `ui-ux-pro-max` rather than recalling a rule.** It is searchable, it
+  ranks accessibility first, and it is a reference — it fails nothing, so what it tells you becomes
+  either a case or a finding.
 - A UI label is part of the contract: if a label changed, the locator changes in the same commit, and
   that is a finding to report, not a silent edit.
 - Sessions come from the `authUser` option and the `authedPage` fixture — a real login through the

@@ -25,3 +25,13 @@ body {
   display: flex;
   flex-direction: column;
 }
+
+/*
+ * HeroUI's default `--accent` is `oklch(62.04% .195 253.83)`, which puts its own `--accent-foreground`
+ * on it at a contrast of 3.58:1 — below the 4.5:1 WCAG AA needs for 14px text, and the first thing
+ * the accessibility suite found (`FX-039`). Darkened until `ACC-FN-01` passes; the hue and chroma are
+ * the library's. These rules sit outside any `@layer`, so they beat the layered defaults.
+ */
+:root {
+  --accent: oklch(50% 0.195 253.83);
+}

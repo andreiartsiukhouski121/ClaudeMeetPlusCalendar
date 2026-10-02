@@ -35,6 +35,21 @@ Also: does the design state its **impact** on existing cases by ID, and its open
 deliberate omissions? Silence about a disturbed case becomes a red run somebody else has to
 diagnose.
 
+## If the design touches the UI
+
+Two extra things, and both are cheaper to fix here than anywhere later:
+
+- **It names the HeroUI components it will use and the accessible names the markup will carry.** A
+  design that leaves markup to the implementer leaves the functional locators undecided, and those
+  are a contract (`ADR-0023`).
+- **It proposes none of the four refused patterns** — HeroUI's `Form`/`FieldError`, `ListBox` for a
+  plain list, `onPress` for a submit control, `isRequired`/`type="email"`/`validate` on a field.
+  The last breaks invariant 15, and HeroUI's own documentation shows three of them, so a design
+  copied from it arrives wrong. Each is a blocker.
+
+A design adding a page says it will be added to `AUDITED_PAGES` and `PROTECTED_PAGES`: nothing
+notices a forgotten line (`ADR-0025`, invariant 16).
+
 ## What you do not check
 
 - Task order, dependencies, effort, file lists — the plan stage owns those, and judging them here

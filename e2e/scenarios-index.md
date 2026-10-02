@@ -7,6 +7,10 @@ One row per scenario declared in a Summary table, across every level and module 
 
 | Level | Module | ID | Title |
 | ----- | ------ | -- | ----- |
+| functional | accessibility | `ACC-FN-01` | every public page passes WCAG 2.1 AA |
+| functional | accessibility | `ACC-FN-02` | the dashboard passes WCAG 2.1 AA for a signed-in user |
+| functional | accessibility | `ACC-FN-03` | the login form in its error state passes WCAG 2.1 AA |
+| functional | accessibility | `ACC-FN-04` | every audited page has exactly one `h1` and a `main` landmark |
 | api | architecture | `AR-API-01` | ADR files are named `ADR-NNNN-slug.md` and numbers are unique |
 | api | architecture | `AR-API-02` | every ADR has a heading, a known status and the three sections |
 | api | architecture | `AR-API-03` | the ADR index and the directory agree in both directions |

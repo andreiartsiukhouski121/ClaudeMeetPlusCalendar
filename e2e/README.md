@@ -58,6 +58,7 @@ readable report, and an automatic pairing check. The same goes for units — `it
 | Suite convention               | —                 | none (in `SELF_EXEMPT`)                                        | `suite-integrity.api.spec.ts`                                                                                                                                                                       | api     | `pnpm e2e e2e/suite-integrity.api.spec.ts`       |
 | Security                       | `security`        | `security/security.api.cases.md`                               | `security/security.api.spec.ts`                                                                                                                                                                     | api     | `pnpm e2e:security`                              |
 | Security                       | `security`        | `security/security.functional.cases.md`                        | `security/security.functional.spec.ts`                                                                                                                                                              | web     | `pnpm e2e:security`                              |
+| Accessibility                  | `accessibility`   | `accessibility/accessibility.functional.cases.md`              | `accessibility/accessibility.functional.spec.ts`                                                                                                                                                    | web     | `pnpm e2e:a11y`                                  |
 
 `smoke/seed.api.spec.ts` was filled in stages: `SM-API-02` (seeded user logins) arrived with
 `POST /auth/login`, `SM-API-03` (seeded meetings) with the `/meetings` controller. Earlier than
@@ -69,6 +70,13 @@ that, each would have been knowingly red, and a red test in a commit is a blocke
 **invariants that must hold for every new endpoint and every new page**. Both specs walk routes and
 pages from a list (`PROTECTED_ROUTES`, `POST_ROUTES`, `PROTECTED_PAGES`): add a protected route, add
 a line, and the check picks it up without a new case.
+
+`e2e/accessibility/` is there for the same reason and works the same way (`ADR-0025`): `axe-core` at
+WCAG 2.1 AA over every entry of `AUDITED_PAGES`. **Three hand-maintained lists now connect the
+cross-feature suites to a growing application.** Only one of them is itself checked — `AR-API-06`
+builds the routes from the Nest decorators and compares them against `PROTECTED_ROUTES`. Pages are
+not derivable from decorators, so `PROTECTED_PAGES` and `AUDITED_PAGES` are held by review alone
+(`BL-030`).
 
 Some cases deliberately duplicate checks inside features. `AL-API-14` pins that `GET /auth/me`
 without a token gives 401 — that is the login contract; `SEC-API-01` pins that **no** protected
@@ -104,8 +112,8 @@ without password verification, not to measure microseconds under the load of a t
 
 Tags are set with the `tag` option on `test.describe` rather than as text in the title:
 `@regression`, `@smoke`, `@auth-login`, `@home-dashboard`, `@mutating` (the case changes data),
-`@p0` (the critical minimum). The service suites carry their own: `@security`, `@ledger`,
-`@process`, `@architecture`.
+`@p0` (the critical minimum). The service suites carry their own: `@security`, `@accessibility`,
+`@ledger`, `@process`, `@architecture`.
 
 **Level tags**, second tuning round: `@unit`, `@api`, `@e2e`, `@integration` — reusing the vocabulary
 above rather than adding synonyms (`@smoke` stays `@smoke`, `@p0` stays `@p0`). Vitest units carry

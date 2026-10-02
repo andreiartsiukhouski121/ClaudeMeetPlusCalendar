@@ -79,6 +79,19 @@ If the `browser_*` tools are unavailable, the server did not come up — see sec
 replace this step with "checking it in your head": say the interactive part is unavailable and
 leave the checking to the specs.
 
+## 3a. If the change is visual, scan it
+
+`pnpm e2e:a11y` — the `axe-core` scan at WCAG 2.1 AA (`ADR-0025`). It is already part of
+`pnpm verify`, so this is for the debug loop, not for acceptance. **A new page means a new line in
+`AUDITED_PAGES`**, or the scan passes having looked at everything except what you just added.
+
+A violation is a defect: fix it and record an `FX-`. Do not add an allowlist entry — the first run
+of this suite found the component library's own default accent failing contrast at 3.58:1
+(`FX-039`), which is exactly the class of thing an allowlist would have buried.
+
+For a question the scan cannot answer — spacing, hierarchy, whether an interaction reads as one —
+query `ui-ux-pro-max` rather than recalling a rule; it is searchable and ranks accessibility first.
+
 ## 4. Pin it with a spec file
 
 Every behavioural change gets a new or updated spec in `e2e/regression/<feature>/`. The full

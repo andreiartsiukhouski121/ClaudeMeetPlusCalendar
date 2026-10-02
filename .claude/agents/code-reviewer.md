@@ -37,6 +37,20 @@ once everything is in git, and never while another agent is working in the same 
    documentation starts lying.
 7. **The ledger.** An `FT-`/`CH-`/`FX-` row exists, and "Found by" is filled for defects.
 
+## When the change touches the UI
+
+`apps/web` is HeroUI v3 on Tailwind v4 (`ADR-0023`). Press the diff against the four patterns this
+repository refuses — HeroUI's `Form`/`FieldError`, `ListBox` for a plain list, `onPress` for a
+submit control, and `isRequired`/`type="email"`/`validate` on a field, the last of which breaks
+invariant 15 — and read the `heroui-react` skill rather than the library's documentation, which
+shows three of them.
+
+The `axe-core` scan (`ADR-0025`) covers contrast, ARIA and landmarks, so do not re-derive those by
+eye. What it does **not** cover, and you therefore do: whether a new page was added to
+`AUDITED_PAGES`, whether an accessible name changed without its locator moving, and whether the
+flow makes sense for someone using a keyboard. `ui-ux-pro-max` is searchable and is the reference
+for the last of those.
+
 ## Report
 
 - **Strengths** — specific, with `file:line`.
