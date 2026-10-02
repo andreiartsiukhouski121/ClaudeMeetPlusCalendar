@@ -33,6 +33,14 @@ those are exactness requirements, not length to trim. Its sections and why each 
 3. **Contract** — method, path, auth, body, success, and the **exact error bodies**. From the
    framework's behaviour, not from memory: this repository broke on that twice (invariants 1 and 8).
    If the HTTP contract does not change, say so explicitly rather than omitting the section.
+
+   A design that touches the UI **names the HeroUI components it will use** and the accessible
+   names the markup will carry, because those names are what the functional cases address
+   (`ADR-0023`). Four HeroUI patterns are refused here and a design proposing one is a blocker at
+   `FEAT-G2`: its `Form` and `FieldError`, `ListBox` for a plain list, `onPress` for a submit
+   control, and `isRequired`/`type="email"`/`validate` on a field — the last breaks invariant 15.
+   The `heroui-react` skill carries the reasons.
+
 4. **Data** — entities and fields with formats, what the mapper strips, what the seed gains, which
    owner mutating cases may use. Absolute dates, never `Date.now()`.
 5. **Alternatives rejected** — one option plus two straw men is not a comparison. Each rejected

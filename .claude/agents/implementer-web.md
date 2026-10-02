@@ -27,11 +27,18 @@ login, dashboard render, creation, session end), `docs/api-contract.md` (what yo
   `lib/session-cookie.ts`.
 - `import 'server-only'` does not resolve under Vitest. Keep testable logic in modules without it.
 - Cookie `secure` follows `NODE_ENV === 'production'`, never an unconditional `true`.
-- Form fields carry no `required`, and email is `type="text"` — otherwise the browser blocks
-  submission and the server validation branch never runs. The password is never trimmed.
+- Form fields carry no `required` and no `isRequired`, and email is `type="text"` — otherwise the
+  browser or React Aria blocks submission and the server validation branch never runs. The password
+  is never trimmed. **HeroUI's form documentation breaks this in three places**, so a form copied
+  from it is wrong before it is written; read the `heroui-react` skill first.
 - Date display is pinned to `timeZone: 'UTC'`.
 - The token is never passed as a prop into a client component, and the browser never calls the API.
 - Addresses are written `127.0.0.1`, never `localhost`.
+- **The UI is HeroUI v3 on Tailwind v4** (`ADR-0023`) — there are no CSS Modules. The `<form>`
+  element stays native wherever a Server Action is bound to it, submit is `<Button type="submit">`
+  rather than `onPress`, and lists stay `ul`/`li` rather than `ListBox`. Reach for the
+  `heroui-react` skill before using any HeroUI component: your model knowledge of it is v2 and the
+  provider, `framer-motion` and the package names are all gone in v3.
 
 ## Boundaries
 

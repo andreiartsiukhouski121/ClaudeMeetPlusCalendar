@@ -256,6 +256,21 @@
       "document": "docs/architecture.md",
       "hash": "b3fec47c2c7180e204f1b78cee357f4694257723305721ef04bee00f4be95d19"
     },
+    "FACT-0052": {
+      "status": "active",
+      "document": "docs/architecture.md",
+      "hash": "33dd89e3950070f2b0f36458463f16d2b670d921a162c938f96bc4addaa503b0"
+    },
+    "FACT-0053": {
+      "status": "active",
+      "document": "docs/architecture.md",
+      "hash": "903d142e2ab8b6fa6ef6a9b0aa7ac3556d67aca1d6771a469acf0d93c2bc078d"
+    },
+    "FACT-0054": {
+      "status": "active",
+      "document": "docs/architecture.md",
+      "hash": "9aa157f01354a4902545be32ac480aa004448b357b78351748ab07e3dec5b687"
+    },
     "FACT-1000": {
       "status": "active",
       "document": "docs/data-model.md",

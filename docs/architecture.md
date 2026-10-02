@@ -113,6 +113,7 @@ Three properties follow from that picture, and every one of them is checked by a
 | `FACT-0031` | Test fixture mirroring the seed    | `e2e/fixtures/seed.ts`                                      | `ADR-0007` |
 | `FACT-0032` | Executable convention (meta-tests) | `suite-integrity`, `ledger`, `process`, `architecture`      | `ADR-0010` |
 | `FACT-0033` | Decision log + orientation gate    | `docs/CHANGELOG.md`, `docs/BACKLOG.md`, `check-orientation` | `ADR-0011` |
+| `FACT-0052` | Component library + utility CSS    | HeroUI v3 on Tailwind v4 in `apps/web`                      | `ADR-0023` |
 
 > **Rationale — not a fact.** Why each pattern is here, in one line apiece. This is a reading aid;
 > the record that governs is the ADR in the row, and where the two differ the ADR is right.
@@ -127,7 +128,9 @@ Three properties follow from that picture, and every one of them is checked by a
 > tests can assert on. The fixture mirroring the seed lets the suite depend on data rather than on a
 > running order. Meta-tests beat a style guide because a convention nobody can break silently beats
 > one that asks nicely. The decision log and the orientation gate stop the same thing being built —
-> or rejected — twice.
+> or rejected — twice. A component library gives the accessible markup and the focus handling for
+> free, which is what the functional cases address elements by; utility CSS is what it needs, not a
+> second preference.
 
 ## Patterns deliberately refused
 
@@ -143,6 +146,8 @@ Three properties follow from that picture, and every one of them is checked by a
 | `FACT-0039` | Client-side calls to Nest           | `ADR-0002`              |
 | `FACT-0040` | React component tests in jsdom      | `BACKLOG.md`, Rejected  |
 | `FACT-0041` | Parallel agents separated by ports  | `ADR-0012`              |
+| `FACT-0053` | HeroUI's `Form` and `FieldError`    | `ADR-0023`              |
+| `FACT-0054` | `ListBox` for the meeting list      | `ADR-0023`              |
 
 > **Rationale — not a fact.** Each of these looks like an obvious addition, so the reason it was
 > turned down is summarized here; proposing it again costs a review cycle. The governing text is the
@@ -156,7 +161,10 @@ Three properties follow from that picture, and every one of them is checked by a
 > Client-side calls to Nest would put the token in the browser and end the BFF. React component tests
 > in jsdom would be a second, less trustworthy copy of what the functional suite already checks. Next
 > 16 registers its dev server per project directory, so ports do not separate parallel agents and
-> only a worktree does.
+> only a worktree does. HeroUI's `Form` owns submission, which belongs to the Server Action, and its
+> `FieldError` owns validation, which belongs to Nest — adopting either would put invariant 15 in
+> the library's hands. `ListBox` renders `role="listbox"`/`role="option"`, a different
+> accessibility contract from the `list`/`listitem` the meeting-list cases assert.
 
 ## Where a change goes
 

@@ -285,10 +285,18 @@ them **before** writing code rather than re-deriving them from documents.
 15. Form fields carry no `required`, and email is `type="text"`: with either, the browser blocks
     submission, the server validation branch never runs, and the test checks browser behaviour
     rather than our code. The password is **never trimmed** (`trim` applies to email only) —
-    trimming silently alters what was typed.
+    trimming silently alters what was typed. **HeroUI's own form documentation breaks this rule in
+    three places** — `isRequired`, `type="email"` and a client-side `validate` on `TextField` — so a
+    form copied from it is wrong here before it is written (`ADR-0023`, `heroui-react` adapter). The
+    form carries `noValidate`; validation lives in Nest and surfaces through `useActionState`.
 
 Date display is pinned to `timeZone: 'UTC'`, or both the units and the e2e depend on the machine's
-time zone.
+time zone. The theme is pinned to light for the same reason (`ADR-0023`).
+
+`apps/web` is styled with **HeroUI v3 on Tailwind v4** (`FT-004`, `ADR-0023`) — no CSS Modules. The
+`<form>` element stays native wherever a Server Action is bound to it, submit is
+`<Button type="submit">` rather than `onPress`, and lists stay `ul`/`li` rather than `ListBox`. The
+reasons, and what HeroUI's docs get wrong here, are in the `heroui-react` skill.
 
 **Security**
 

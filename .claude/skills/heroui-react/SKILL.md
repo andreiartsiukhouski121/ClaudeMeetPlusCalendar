@@ -1,57 +1,98 @@
 ---
 name: heroui-react
-description: HeroUI v3 (React + Tailwind v4 + React Aria) in this repository — the set is installed for future work and nothing uses it yet. Use when asked to build UI with HeroUI, to install @heroui/react, or to decide whether to adopt it here; and read it before applying any HeroUI pattern to apps/web, whose styling stack is different.
+description: HeroUI v3 (React + Tailwind v4 + React Aria) in this repository — the stack apps/web actually uses since FT-004. Use when writing or reviewing any UI under apps/web, when reaching for a HeroUI component, when a form or a list is involved, and before applying any pattern from HeroUI's own documentation, four of which conflict with this repository's invariants.
 ---
 
 Adapter for the external `heroui-react` skill. The original is in
 `.agents/skills/heroui-react/` — a gitignored directory — and carries the component guide, the
-v2-versus-v3 table and six `scripts/*.mjs` that fetch live documentation. **This file is self-contained:**
-everything this repository needs to know about the set is here, so it keeps working when `.agents/`
-is absent.
+v2-versus-v3 table and six `scripts/*.mjs` that fetch live documentation. **This file is
+self-contained:** everything this repository needs to know about the set is here, so it keeps
+working when `.agents/` is absent.
 
-## Status here: installed, not adopted
+## Status here: adopted
 
-**No code in this repository uses HeroUI.** `apps/web` depends on `next`, `react` and `react-dom`
-and nothing else; its styling is plain CSS Modules (`globals.css` plus `*.module.css` next to each
-component). There is no Tailwind, no `@heroui/react`, no `@heroui/styles`.
+`apps/web` is built on HeroUI v3 and Tailwind v4 (`FT-004`, `ADR-0023`). There is no
+`*.module.css` file left; `globals.css` holds two imports and the app shell, and every component
+styles itself with HeroUI components plus Tailwind utilities.
 
-The set was installed deliberately, for work that is expected rather than done. It was briefly
-removed during the skill audit (`CH-012`, task S8) precisely because an unused set without an
-adapter cannot be loaded and looks like debris; it is back with this adapter and that reason
-recorded, so the next audit does not delete it again.
+| Where                | What                                                                           |
+| -------------------- | ------------------------------------------------------------------------------ |
+| `globals.css`        | `@import 'tailwindcss'` then `@import '@heroui/styles'` — **in that order**    |
+| `postcss.config.mjs` | `@tailwindcss/postcss`, the only plugin; v4 needs no `tailwind.config.js`      |
+| `layout.tsx`         | `class="light" data-theme="light"` on `<html>`, semantic utilities on `<body>` |
+| components           | `Button`, `TextField`, `Label`, `Input` from `@heroui/react`                   |
 
-## Adopting it is an architecture decision, not an install
+Import order is load-bearing. Reversed, HeroUI's layer declarations land before the ones they
+override and the components render unstyled.
 
-HeroUI v3 is built on **Tailwind CSS v4** and **React Aria Components**. Bringing it in means
-replacing the styling approach of `apps/web`, not adding a library beside it:
+**There is no provider.** That was v2. Model knowledge of HeroUI is mostly v2 and will be wrong
+here: the provider is gone, `framer-motion` is gone, components are compound, the packages changed.
 
-| Today                                         | HeroUI v3 needs                                    |
-| --------------------------------------------- | -------------------------------------------------- |
-| CSS Modules, one `*.module.css` per component | Tailwind v4 plus `@heroui/styles`                  |
-| No design-token layer                         | CSS variables in the `oklch` colour space          |
-| Hand-written form and list markup             | React Aria compound components (`<Card.Header>` …) |
+## The four house rules, each bought with a real decision
 
-That is exactly the kind of choice `ADR-0015` says gets an **ADR before the code**. It also touches
-the functional suite directly: those cases address controls by accessible name (`getByRole`), so
-swapping the markup for React Aria components changes what the locators see — the tester roles move
-in the same change or the suite goes red for the wrong reason. `BL-023` tracks the decision.
+These are what the set does not know about this repository. All four are in `ADR-0023`.
 
-## What the set is right about, and what to ignore
+1. **The `<form>` element stays native wherever a Server Action is bound to it.** HeroUI's `Form` is
+   a React Aria component that owns submission; `action={formAction}` is a Next.js binding, and the
+   two do not compose. HeroUI supplies the controls _inside_ the form — which is where its styling
+   and its label wiring actually live (`FACT-3510`).
+2. **A submit control is `<Button type="submit">`, never an `onPress` handler.** HeroUI's docs show
+   only `onPress`. `onPress` would force `'use client'` onto a server component and break the no-JS
+   path a Server Action form otherwise keeps. That `type="submit"` submits a native form was proven
+   by running the suite, not assumed (`FACT-3511`).
+3. **Lists stay `ul`/`li`; `ListBox` is not used for them.** `ListBox` is React Aria's _selection_
+   widget and renders `role="listbox"`/`role="option"` — a different accessibility contract from
+   the `list`/`listitem` that `HD-FN-04` and `HD-FN-05` assert. Styling is never a reason to change
+   what a screen reader is told the thing is (`FACT-3512`).
+4. **The theme is pinned to light**, not following `prefers-color-scheme`: a theme that follows the
+   machine makes the functional cases depend on the machine, which is the class of defect the
+   `timeZone: 'UTC'` pin exists to prevent (`FACT-3513`).
 
-- **Follow it on v3 versus v2.** The guide is emphatic that the provider is gone, `framer-motion` is
-  gone, components are compound, and the packages changed. Model knowledge of HeroUI is mostly v2 and
-  will be wrong here.
-- **Use its scripts instead of recalling APIs.** `node scripts/list_components.mjs`,
-  `get_component_docs.mjs <Component>`, `get_source.mjs`, `get_styles.mjs`, `get_theme.mjs` fetch
-  live documentation. They live in `.agents/skills/heroui-react/scripts/` and need the network.
-- **Ignore its install line** (`curl -fsSL https://heroui.com/install | bash -s heroui-react`): this
-  is a pnpm workspace, so a dependency is added with
-  `pnpm --filter @purpleschool/web add @heroui/react`, and piping a remote script into a shell is not
-  how anything gets installed here.
-- **The invariants in `CLAUDE.md` outrank it.** Rules 9–15 and 19 still hold whatever the component
-  library is: no `required` on form fields and email as `type="text"` (or the server branch never
-  runs), the password is never trimmed, dates stay pinned to `timeZone: 'UTC'`, and no token reaches
-  a client component.
+## Where HeroUI's documentation is wrong for this repository
+
+**Its form examples violate invariant 15 directly.** The `Form` and `TextField` docs show
+`isRequired`, `type="email"` and a client-side `validate` on the same field. Each one, on its own,
+makes the browser or React Aria refuse the submission — so the Server Action never runs, the Nest
+validation branch never runs, and `AL-FN-05`/`AL-FN-14` end up testing the library instead of our
+code.
+
+Write every form here as: **no `isRequired`, no `required`, email as `type="text"`, `noValidate` on
+the form, no `validate` prop.** Validation belongs to Nest and surfaces through `useActionState`.
+Nothing mechanical catches a violation — that is why invariant 15 is in `CLAUDE.md` and read by
+`implementer-web` and `tester-functional`.
+
+The other invariants are untouched by the library and still hold: 9–14 and 19. The token never
+reaches a client component, the password is never trimmed, dates stay pinned to `timeZone: 'UTC'`.
+
+## Using the set's scripts
+
+Fetch live documentation rather than recalling an API — model knowledge here is v2:
+
+```bash
+cd .agents/skills/heroui-react
+node scripts/list_components.mjs                    # 40 components in v3.2.6
+node scripts/get_component_docs.mjs Button
+MSYS_NO_PATHCONV=1 node scripts/get_docs.mjs /docs/react/getting-started/theming
+```
+
+`MSYS_NO_PATHCONV=1` is not optional in Git Bash for any argument starting with `/`: without it the
+shell rewrites `/docs/...` into a Windows path and the script answers `HTTP 404`.
+
+**Ignore its install line** (`curl -fsSL https://heroui.com/install | bash -s heroui-react`): this
+is a pnpm workspace, so a dependency is added with
+`pnpm --filter @purpleschool/web add @heroui/react`, and piping a remote script into a shell is not
+how anything gets installed here.
+
+## What the adoption cost, so the next audit does not undo it
+
+Six runtime dependencies and their transitive tree, watched by `pnpm audit --audit-level high`
+inside `pnpm verify`. One ongoing cost that no check can see: every future form has to be written
+against invariant 15 rather than against the library's documentation.
+
+One thing it did **not** cost: no test changed. All 28 functional cases passed unmodified, which is
+what proves the accessible names survived the migration (`FACT-3515`). A future HeroUI change that
+needs the suite edited to stay green is the signal that the accessibility contract moved — treat it
+as a defect to investigate, not a test to fix.
 
 ## Restoring the set
 

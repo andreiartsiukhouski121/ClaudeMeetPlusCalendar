@@ -19,10 +19,30 @@ render, meeting creation, session end — in [`docs/data-model.md`](../../docs/d
 | `src/proxy.ts`                  | the gate for unauthenticated visitors (Next 16's `middleware.ts`), narrow matcher |
 | `src/app/`                      | pages: `/`, `/auth/login`, the `/auth/register` placeholder                       |
 | `src/app/auth/session-expired/` | the Route Handler that erases a broken cookie (root rule 17)                      |
-| `src/components/`               | client form and list components plus CSS modules                                  |
+| `src/components/`               | form and list components, styled with HeroUI v3 and Tailwind utilities            |
 | `src/lib/actions/`              | Server Actions: login, sign-out, meeting creation                                 |
 | `src/lib/dal.ts`, `session.ts`  | `server-only`: reading the session and checking access                            |
 | `src/lib/api-client.ts`         | the server-side `fetch` to Nest — the only door into the API                      |
+
+## Styling: HeroUI v3 on Tailwind v4
+
+`FT-004`/`ADR-0023`. No `*.module.css` anywhere; `src/app/globals.css` holds
+`@import 'tailwindcss'` then `@import '@heroui/styles'` — **that order**, or HeroUI's layers land
+before the ones they override — plus the app-shell rules that have no component to hang on.
+`postcss.config.mjs` carries `@tailwindcss/postcss` and nothing else: Tailwind v4 needs no
+`tailwind.config.js`.
+
+Four rules that are not negotiable, each bought with a decision and all four in the `heroui-react`
+skill with their reasons:
+
+1. the `<form>` element stays **native** wherever a Server Action is bound — HeroUI's `Form` owns
+   submission and does not compose with `action={formAction}`;
+2. submit is `<Button type="submit">`, never `onPress` — `onPress` forces `'use client'` onto a
+   server component and breaks the no-JS path;
+3. lists stay `ul`/`li` — `ListBox` renders `role="listbox"`/`role="option"`, which is not what
+   `HD-FN-04`/`HD-FN-05` assert;
+4. no `isRequired`, no `required`, email as `type="text"`, `noValidate` on the form — HeroUI's own
+   form examples break root invariant 15 in three places.
 
 ## The BFF layout: three layers, not one
 

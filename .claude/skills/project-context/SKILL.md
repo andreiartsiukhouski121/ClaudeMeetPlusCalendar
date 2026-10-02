@@ -44,18 +44,18 @@ exists elsewhere, link instead.
 
 ## What each role reads
 
-| Role                | Opens first                                                                    |
-| ------------------- | ------------------------------------------------------------------------------ |
-| `researcher`        | the four, to know what already has a home; plus the code                       |
-| `designer`          | the change's `research/` in full, then the four to check it fits               |
-| `planner`           | the change's `research/` and `design.md`, plus `CHANGELOG.md`/`BACKLOG.md`     |
-| `implementer-api`   | `api-contract.md`, `data-model.md`, `architecture.md` (layers), invariants 1–8 |
-| `implementer-web`   | `data-model.md` (flows), `architecture.md` (BFF), invariants 9–15, 19          |
-| `plan-reviewer`     | all four — its third question is conformance to them                           |
-| `code-reviewer`     | all four, plus the plan section that was implemented                           |
-| `tester-api`        | `api-contract.md`, `data-model.md`, `e2e/README.md`                            |
-| `tester-functional` | `data-model.md` (flows), `e2e/README.md`, `playwright-verify`                  |
-| `tester-security`   | `security.md`, `architecture.md`, `ADR-0002`/`0003`/`0004`/`0009`              |
+| Role                | Opens first                                                                                                    |
+| ------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `researcher`        | the four, to know what already has a home; plus the code                                                       |
+| `designer`          | the change's `research/` in full, then the four to check it fits                                               |
+| `planner`           | the change's `research/` and `design.md`, plus `CHANGELOG.md`/`BACKLOG.md`                                     |
+| `implementer-api`   | `api-contract.md`, `data-model.md`, `architecture.md` (layers), invariants 1–8                                 |
+| `implementer-web`   | `data-model.md` (flows), `architecture.md` (BFF), invariants 9–15, 19, and `heroui-react` before any UI markup |
+| `plan-reviewer`     | all four — its third question is conformance to them                                                           |
+| `code-reviewer`     | all four, plus the plan section that was implemented                                                           |
+| `tester-api`        | `api-contract.md`, `data-model.md`, `e2e/README.md`                                                            |
+| `tester-functional` | `data-model.md` (flows), `e2e/README.md`, `playwright-verify`, `heroui-react`                                  |
+| `tester-security`   | `security.md`, `architecture.md`, `ADR-0002`/`0003`/`0004`/`0009`                                              |
 
 ## Recording a decision
 
