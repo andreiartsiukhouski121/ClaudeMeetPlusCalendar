@@ -14,11 +14,17 @@ export const metadata: Metadata = {
 export default function RegisterPage() {
   return (
     <>
-      <h1>Sign up</h1>
-      <p>Sign-up is coming later</p>
-      <p>
-        <Link href="/auth/login">Back to sign in</Link>
-      </p>
+      <div className="flex flex-col gap-1">
+        <h1 className="text-2xl font-semibold tracking-tight">Sign up</h1>
+        <p className="text-foreground-500 text-sm">Sign-up is coming later</p>
+      </div>
+
+      <Link
+        href="/auth/login"
+        className="text-accent text-sm font-medium underline-offset-4 hover:underline"
+      >
+        Back to sign in
+      </Link>
     </>
   );
 }
