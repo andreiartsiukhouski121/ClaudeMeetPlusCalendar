@@ -298,6 +298,12 @@ time zone. The theme is pinned to light for the same reason (`ADR-0023`).
 `<Button type="submit">` rather than `onPress`, and lists stay `ul`/`li` rather than `ListBox`. The
 reasons, and what HeroUI's docs get wrong here, are in the `heroui-react` skill.
 
+**What the product looks like is `ADR-0026` and the `design-system` skill**, not a per-component
+choice: the accent, the canvas, the `--muted` override, the five category tints, `--radius`, the type
+scale and the page shell are tokens with measured contrast ratios, and a component carries the
+utility rather than the value. Three skills, no overlap — `heroui-react` is how the library works,
+`ui-ux-pro-max` is what good UI is in general, `design-system` is the actual numbers of this product.
+
 **Security**
 
 16. Every new protected endpoint is added to `PROTECTED_ROUTES`
@@ -367,9 +373,9 @@ the hook runs the units against different content — exactly what will go into 
 
 ## Skills: our own and external
 
-There are fifteen in `.claude/skills/`. Nine are ours — `feature-pipeline`, `bugfix-pipeline`,
+There are sixteen in `.claude/skills/`. Ten are ours — `feature-pipeline`, `bugfix-pipeline`,
 `pipeline-tuning`, `team-roles`, `project-context`, `research-protocol`, `design-protocol`,
-`playwright-verify`, `regression-verify`. The other six are **adapters** to external sets: `git-commit`,
+`design-system`, `playwright-verify`, `regression-verify`. The other six are **adapters** to external sets: `git-commit`,
 `heroui-react`, `nestjs-best-practices`, `requesting-code-review`, `ui-ux-pro-max`,
 `vercel-react-best-practices`.
 

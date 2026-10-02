@@ -32,7 +32,12 @@ to talk to), `e2e/README.md` (the convention), `CLAUDE.md` invariants 9–15 and
   (`FX-039`).
 - **For anything visual, query `ui-ux-pro-max` rather than recalling a rule.** It is searchable, it
   ranks accessibility first, and it is a reference — it fails nothing, so what it tells you becomes
-  either a case or a finding.
+  either a case or a finding. For this product's own values — the palette, the type scale, the radii,
+  the shell — the answer is the `design-system` skill (`ADR-0026`), which carries measured contrast
+  ratios rather than guidance.
+- **A restyle that makes you edit a functional case is a finding, not a fix.** All 28 cases survived
+  the HeroUI migration unmodified (`FACT-3559`); if one stops passing after a visual change, the
+  accessible name moved and that is the defect.
 - A UI label is part of the contract: if a label changed, the locator changes in the same commit, and
   that is a finding to report, not a silent edit.
 - Sessions come from the `authUser` option and the `authedPage` fixture — a real login through the

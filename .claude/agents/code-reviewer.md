@@ -51,6 +51,12 @@ eye. What it does **not** cover, and you therefore do: whether a new page was ad
 flow makes sense for someone using a keyboard. `ui-ux-pro-max` is searchable and is the reference
 for the last of those.
 
+It also does not cover the design language, and **nothing mechanical does** (`FACT-3561`). Press
+every new class name against the `design-system` skill: a literal colour or radius in markup, a
+Tailwind palette colour, a bordered card that also casts a shadow, a category tint carrying meaning
+without the text that says it, or a HeroUI v2 token name that compiles to nothing — which is a class
+producing no CSS, no violation and no failing case, and is what `FACT-3544` is.
+
 ## Report
 
 - **Strengths** — specific, with `file:line`.

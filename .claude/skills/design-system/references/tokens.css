@@ -1,0 +1,97 @@
+/*
+ * The design language of `apps/web` as HeroUI v3 tokens (`ADR-0026`).
+ *
+ * This is the block that goes into `apps/web/src/app/globals.css`, after the two imports and before
+ * the app-shell rules. Copy it; do not paraphrase it — the values are measured, not chosen
+ * (`.claude/skills/design-system/SKILL.md`, "Colour: the measured table").
+ *
+ * Why it sits outside every `@layer`: HeroUI declares its theme inside `@layer base`, and an
+ * unlayered rule beats a layered one regardless of order. The same reason the `FX-039` accent fix
+ * is written this way today.
+ */
+
+/* ---------------------------------------------------------------------------------------------
+ * 1. Overrides of HeroUI's own tokens. Three values. Everything not listed here stays the
+ *    library's default on purpose — the palette is not a fork of the theme.
+ * ------------------------------------------------------------------------------------------- */
+
+:root {
+  /* Brand violet. 5.15:1 against `--accent-foreground`, 5.28:1 as text on a white card. */
+  --accent: oklch(0.55 0.21 285);
+
+  /* The page canvas: a cool grey a step below white, so a card is raised by lightness, not shadow. */
+  --background: oklch(0.969 0.004 286);
+
+  /*
+   * Secondary text. HeroUI's own `--muted` (`oklch(0.5517 0.0138 285.94)`) measures 4.41:1 on the
+   * canvas above and fails WCAG AA. This value measures 5.05:1 on the canvas and 5.53:1 on a card.
+   */
+  --muted: oklch(0.52 0.014 286);
+
+  /*
+   * One declaration moves HeroUI's whole derived scale: md 9px, lg 12px, xl 18px, 2xl 24px,
+   * 3xl 36px, and a form field `calc(--radius * 1.5)` = 18px.
+   */
+  --radius: 0.75rem;
+
+  /* ---------------------------------------------------------------------------------------------
+   * 2. Category tints. HeroUI has no equivalent, so these are ours. Each pair is measured; a tint
+   *    labels a category and never carries meaning alone.
+   * ------------------------------------------------------------------------------------------- */
+
+  --category-violet: oklch(0.955 0.022 285); /* #EEEEFF */
+  --category-violet-foreground: oklch(0.45 0.16 285); /* #5040A8 — 6.93:1 */
+
+  --category-blue: oklch(0.955 0.022 245); /* #E4F2FE */
+  --category-blue-foreground: oklch(0.47 0.11 245); /* #125F94 — 5.96:1 */
+
+  --category-pink: oklch(0.955 0.022 350); /* #FDEAF2 */
+  --category-pink-foreground: oklch(0.48 0.15 350); /* #973069 — 6.19:1 */
+
+  --category-green: oklch(0.955 0.025 155); /* #E4F5E9 */
+  --category-green-foreground: oklch(0.47 0.1 155); /* #1F6B41 — 5.75:1 */
+
+  --category-amber: oklch(0.955 0.03 85); /* #F9EFDA */
+  --category-amber-foreground: oklch(0.5 0.1 75); /* #845A0F — 5.36:1 */
+}
+
+/* ---------------------------------------------------------------------------------------------
+ * 3. Exposing the additions to Tailwind. HeroUI's own tokens already arrive through its
+ *    `@theme inline` block; only ours need this, and without it `bg-category-violet` compiles to
+ *    nothing — silently, which is exactly how `FACT-3544` happened.
+ * ------------------------------------------------------------------------------------------- */
+
+@theme inline {
+  --font-sans: var(--font-plus-jakarta), ui-sans-serif, system-ui, sans-serif;
+
+  --color-category-violet: var(--category-violet);
+  --color-category-violet-foreground: var(--category-violet-foreground);
+
+  --color-category-blue: var(--category-blue);
+  --color-category-blue-foreground: var(--category-blue-foreground);
+
+  --color-category-pink: var(--category-pink);
+  --color-category-pink-foreground: var(--category-pink-foreground);
+
+  --color-category-green: var(--category-green);
+  --color-category-green-foreground: var(--category-green-foreground);
+
+  --color-category-amber: var(--category-amber);
+  --color-category-amber-foreground: var(--category-amber-foreground);
+}
+
+/* ---------------------------------------------------------------------------------------------
+ * 4. The font, in `apps/web/src/app/layout.tsx` — not here. `next/font/google` owns the loading and
+ *    hands back the variable name this file reads:
+ *
+ *      import { Plus_Jakarta_Sans } from 'next/font/google';
+ *
+ *      const sans = Plus_Jakarta_Sans({
+ *        variable: '--font-plus-jakarta',
+ *        subsets: ['latin'],
+ *      });
+ *
+ *      <html lang="en" className={`light ${sans.variable}`} data-theme="light">
+ *
+ * The `light` class and `data-theme="light"` stay: the theme is pinned, not detected (`FACT-3513`).
+ * ------------------------------------------------------------------------------------------- */

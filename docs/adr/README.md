@@ -61,6 +61,7 @@ What does not: how a function is written, which name reads better, anything a co
 | [ADR-0023](ADR-0023-heroui-adoption.md)               | HeroUI v3 replaces CSS Modules in `apps/web`                                   | accepted |
 | [ADR-0024](ADR-0024-external-skill-adapters.md)       | An external skill set is wired in through an adapter and pinned by a lock file | accepted |
 | [ADR-0025](ADR-0025-accessibility-is-checked.md)      | Accessibility is checked by a scanner in the suite, not by reading a guideline | accepted |
+| [ADR-0026](ADR-0026-design-language.md)               | One design language for `apps/web`, declared as tokens                         | accepted |
 
 The table is checked against the directory in both directions (`AR-API-03`): a file missing from the
 table, or a row without a file, fails the run.

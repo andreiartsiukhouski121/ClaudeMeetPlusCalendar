@@ -39,6 +39,10 @@ login, dashboard render, creation, session end), `docs/api-contract.md` (what yo
   rather than `onPress`, and lists stay `ul`/`li` rather than `ListBox`. Reach for the
   `heroui-react` skill before using any HeroUI component: your model knowledge of it is v2 and the
   provider, `framer-motion` and the package names are all gone in v3.
+- **Colours, sizes, radii, shadows, icons and the page shell come from the `design-system` skill**
+  (`ADR-0026`), never from a choice made at the component. A literal value in markup — `bg-[#6B53E4]`,
+  `rounded-[20px]`, a Tailwind palette colour — is wrong by construction. So is a HeroUI v2 token
+  name: `text-foreground-500` and `border-default-200` compile to nothing and fail silently.
 
 ## Boundaries
 

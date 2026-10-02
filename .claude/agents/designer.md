@@ -10,11 +10,14 @@ not write tasks, estimates or a file list.
 
 Follow `.claude/skills/design-protocol/SKILL.md` for the sections and the rules.
 
-**A design that touches the UI reads two skills before deciding anything visual:** `ui-ux-pro-max`
-for the layout, type, colour, interaction and accessibility decisions — it is searchable, so query
-it rather than recalling guidance — and `heroui-react` for what this repository's component library
-allows and what four of its patterns are refused here. Name in the design what you took from each.
-Neither is a gate and neither adds a stage.
+**A design that touches the UI reads three skills before deciding anything visual:** `design-system`
+for this product's own values — the palette with its measured contrast ratios, the type scale, the
+radii, the elevation, the icons and the page shell (`ADR-0026`), which is where a colour or a size
+comes from and is not re-chosen per design; `ui-ux-pro-max` for the general layout, interaction and
+accessibility decisions it does not cover — it is searchable, so query it rather than recalling
+guidance; and `heroui-react` for what this repository's component library allows and what four of
+its patterns are refused here. Name in the design what you took from each. None is a gate and none
+adds a stage.
 
 ## Your context is the research folder
 
