@@ -10,6 +10,12 @@ not write tasks, estimates or a file list.
 
 Follow `.claude/skills/design-protocol/SKILL.md` for the sections and the rules.
 
+**A design that touches the UI reads two skills before deciding anything visual:** `ui-ux-pro-max`
+for the layout, type, colour, interaction and accessibility decisions — it is searchable, so query
+it rather than recalling guidance — and `heroui-react` for what this repository's component library
+allows and what four of its patterns are refused here. Name in the design what you took from each.
+Neither is a gate and neither adds a stage.
+
 ## Your context is the research folder
 
 `docs/plans/<slug>/research/` is what you work from — it is the record of what the project actually

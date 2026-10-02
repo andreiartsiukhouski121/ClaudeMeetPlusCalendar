@@ -2816,6 +2816,66 @@
       "status": "active",
       "document": "docs/adr",
       "hash": "fff9e7318b62c6d747105733a9241b23c2622247d029297db0a869fb98f1976b"
+    },
+    "FACT-3518": {
+      "status": "active",
+      "document": "docs/adr",
+      "hash": "c61993898537381c782142073f76f02d382a8751f6dc8fb77331de6741b29469"
+    },
+    "FACT-3519": {
+      "status": "active",
+      "document": "docs/adr",
+      "hash": "510d657347b608a370bb92c08a81016938f7e4100475f5ee71bc3e98656cf3b2"
+    },
+    "FACT-3520": {
+      "status": "active",
+      "document": "docs/adr",
+      "hash": "81d719c855fe2e65fdfa9bde38ee7c1111304599a88d6657b1cbc843308320ad"
+    },
+    "FACT-3521": {
+      "status": "active",
+      "document": "docs/adr",
+      "hash": "dc38d5aeee44fbd1f4d11880bbd36366d16d2778ae5252a8cc7f56bac771ad77"
+    },
+    "FACT-3522": {
+      "status": "active",
+      "document": "docs/adr",
+      "hash": "9475e48e125e851aaf8e30c808dfefc61be11597cd5e14c202796145599f7556"
+    },
+    "FACT-3523": {
+      "status": "active",
+      "document": "docs/adr",
+      "hash": "16f207a9bf03fbc3efcac4c75796bd4acec4b830644924c04b59f27a4ce0bd13"
+    },
+    "FACT-3524": {
+      "status": "active",
+      "document": "docs/adr",
+      "hash": "a8f909f21c4322ae5f389c4f0857b6c8f2de57146b7901a42e6060f3b340ea21"
+    },
+    "FACT-3525": {
+      "status": "active",
+      "document": "docs/adr",
+      "hash": "4a16210feca5fef51afb112622fc6851d9f0e35c1fef46c8f2ba121c8ccf9ace"
+    },
+    "FACT-3526": {
+      "status": "active",
+      "document": "docs/adr",
+      "hash": "4de6871bbac41b8e833368813d37d27ab3ca5e2d64e3ead827c8e682136aa22c"
+    },
+    "FACT-3527": {
+      "status": "active",
+      "document": "docs/adr",
+      "hash": "d34e74eb1e7461426ed134ea8bbd2c0a207abcda5913d432a73e7b35bb8b984b"
+    },
+    "FACT-3528": {
+      "status": "active",
+      "document": "docs/adr",
+      "hash": "932862cde95ac2bcfa19ee8efc89475d934e4f31a2ecc46cccfae4eb586e4ab7"
+    },
+    "FACT-3529": {
+      "status": "active",
+      "document": "docs/adr",
+      "hash": "8359ac7de25228b77f39df0876f16318e2a8689c2bd03140200023a419b5da24"
     }
   }
 }

@@ -367,12 +367,13 @@ the hook runs the units against different content — exactly what will go into 
 
 ## Skills: our own and external
 
-There are fourteen in `.claude/skills/`. Nine are ours — `feature-pipeline`, `bugfix-pipeline`,
+There are fifteen in `.claude/skills/`. Nine are ours — `feature-pipeline`, `bugfix-pipeline`,
 `pipeline-tuning`, `team-roles`, `project-context`, `research-protocol`, `design-protocol`,
-`playwright-verify`, `regression-verify`. The other five are **adapters** to external sets: `git-commit`,
-`heroui-react`, `nestjs-best-practices`, `requesting-code-review`, `vercel-react-best-practices`.
+`playwright-verify`, `regression-verify`. The other six are **adapters** to external sets: `git-commit`,
+`heroui-react`, `nestjs-best-practices`, `requesting-code-review`, `ui-ux-pro-max`,
+`vercel-react-best-practices`.
 
-**An external skill is wired in through an adapter, never a copy.** A copied rule drifts from the
+**An external skill is wired in through an adapter, never a copy** (`ADR-0024`). A copied rule drifts from the
 original silently (`FX-023`), and an external set is updated without us besides. An adapter holds
 only the local part: what is wrong here, what the set does not know about this repository, and when
 to call it at all. **An adapter must keep working without `.agents/`** — anything it would lose its
@@ -396,10 +397,17 @@ no commit of `heroui-inc/heroui`, so its entry carries an `install` command inst
 `skills:sync` prints it rather than trying to check it out. `skills:check` still pins its contents by
 `treeHash`, so drift is caught the same way.
 
+**An installer is not to be trusted with the layout.** `npx skills add` symlinks the set it fetched
+into `.claude/skills/` and writes a lock entry with no `ref` or `commit`. The symlink points into a
+gitignored directory, so committing it hands a fresh clone a dangling link, and it lands exactly
+where the adapter has to live. After any `npx skills add`: remove the symlink, complete the lock
+entry, write the adapter (`ADR-0024`, `FACT-3529`).
+
 **The invariants of this file outrank any rule of an external skill.** Four rules of
 `nestjs-best-practices` directly contradict the code here and are listed by name in its adapter;
 the reviewer call policy in `requesting-code-review` is replaced with "one review per feature,
-reviewer read-only".
+reviewer read-only"; `ui-ux-pro-max` has no HeroUI stack, so its component code is translated rather
+than copied and its form guidance is checked against invariant 15.
 
 ## Tests: what lives where
 
