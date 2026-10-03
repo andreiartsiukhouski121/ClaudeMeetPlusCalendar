@@ -119,6 +119,11 @@ One row per scenario declared in a Summary table, across every level and module 
 | functional | regression/home-dashboard | `HD-FN-11` | the browser never calls the API directly |
 | functional | regression/home-dashboard | `HD-FN-14` | accessibility of the controls |
 | functional | regression/home-dashboard | `HD-FN-16` | an authenticated visitor on /auth/login goes to / |
+| functional | regression/home-dashboard | `HD-FN-17` | the navigation rail names its one destination |
+| functional | regression/home-dashboard | `HD-FN-18` | the rail adds no second list and no second counter |
+| functional | regression/home-dashboard | `HD-FN-19` | the hero banner's two lines, and no new control |
+| functional | regression/home-dashboard | `HD-FN-20` | the overview tile counts items against total |
+| functional | regression/home-dashboard | `HD-FN-21` | the overview tile on an empty dashboard |
 | unit | regression/home-dashboard | `HD-UT-01` | P0 |
 | unit | regression/home-dashboard | `HD-UT-02` | P0 |
 | unit | regression/home-dashboard | `HD-UT-03` | P0 |

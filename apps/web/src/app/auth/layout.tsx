@@ -18,11 +18,11 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
   return (
     <main className="flex flex-1 items-center justify-center px-4 py-12">
       <div className="flex w-full max-w-sm flex-col gap-6">
-        <p className="text-foreground-500 text-center text-sm font-medium tracking-wide uppercase">
+        <p className="text-muted text-center text-sm font-medium tracking-wide uppercase">
           PurpleSchool
         </p>
 
-        <section className="bg-surface border-default-200 flex flex-col gap-6 rounded-2xl border p-8 shadow-sm">
+        <section className="bg-surface shadow-surface flex flex-col gap-6 rounded-2xl p-8">
           {children}
         </section>
       </div>

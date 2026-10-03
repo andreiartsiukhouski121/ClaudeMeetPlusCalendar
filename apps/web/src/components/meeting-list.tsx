@@ -1,4 +1,5 @@
 import { Card, Chip } from '@heroui/react';
+import { ClockIcon } from '@phosphor-icons/react/ssr';
 
 import { formatMeetingDateTime } from '@/lib/format-date';
 import type { Meeting } from '@/lib/types';
@@ -28,26 +29,27 @@ import type { Meeting } from '@/lib/types';
 export function MeetingList({ meetings }: { meetings: Meeting[] }) {
   return (
     <section className="flex flex-col gap-4">
-      <h2 className="text-base font-semibold tracking-tight">Recent meetings</h2>
+      <h2 className="text-lg font-semibold tracking-tight">Recent meetings</h2>
 
       {meetings.length === 0 ? (
-        <p className="border-default-200 text-foreground-500 rounded-xl border border-dashed px-4 py-8 text-center text-sm">
+        <p className="border-border text-muted rounded-xl border border-dashed px-4 py-8 text-center text-sm">
           No meetings yet
         </p>
       ) : (
         <ul className="flex flex-col gap-3" aria-label="Recent meetings">
           {meetings.map((meeting) => (
             <li key={meeting.id}>
-              <Card.Root className="px-4 py-3">
+              <Card.Root className="rounded-2xl px-4 py-3">
                 <Card.Content className="flex flex-row items-center justify-between gap-4 p-0">
                   <div className="flex min-w-0 flex-col gap-1">
                     <span className="truncate font-medium">{meeting.title}</span>
-                    <span className="text-foreground-500 text-sm">
+                    <span className="text-muted flex items-center gap-1.5 text-sm">
+                      <ClockIcon size={20} weight="regular" aria-hidden="true" />
                       {formatMeetingDateTime(meeting.startsAt)}
                     </span>
                   </div>
 
-                  <Chip.Root size="sm" variant="secondary" className="shrink-0">
+                  <Chip.Root size="sm" variant="secondary" className="shrink-0 rounded-md">
                     <Chip.Label>{meeting.durationMinutes} min</Chip.Label>
                   </Chip.Root>
                 </Card.Content>

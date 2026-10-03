@@ -15,7 +15,7 @@
   - Mutating cases run as `organizer`, reserved for this file (`*.api.spec.ts` mutates `planner`).
     Counter assertions are relative, the title is unique and the date is the 2030 constant.
 
-13 cases. Numbers `12`, `13`, `15` are **never reused**.
+18 cases. Numbers `12`, `13`, `15` are **never reused**.
 
 ## Summary
 
@@ -34,6 +34,11 @@
 | HD-FN-11 | the browser never calls the API directly            | P1       | `@regression @home-dashboard`               |
 | HD-FN-14 | accessibility of the controls                       | P1       | `@regression @home-dashboard`               |
 | HD-FN-16 | an authenticated visitor on /auth/login goes to /   | P1       | `@regression @home-dashboard`               |
+| HD-FN-17 | the navigation rail names its one destination       | P1       | `@regression @home-dashboard`               |
+| HD-FN-18 | the rail adds no second list and no second counter  | P0       | `@regression @home-dashboard @p0`           |
+| HD-FN-19 | the hero banner's two lines, and no new control     | P1       | `@regression @home-dashboard`               |
+| HD-FN-20 | the overview tile counts items against total        | P1       | `@regression @home-dashboard`               |
+| HD-FN-21 | the overview tile on an empty dashboard             | P1       | `@regression @home-dashboard`               |
 
 ## Cases
 
@@ -132,3 +137,58 @@
 - **Steps:** open `/auth/login` with a session.
 - **Expected:** the URL becomes `/`, the sign-in button is gone and the heading carries the email.
   The bounce is done by `proxy.ts`.
+
+### HD-FN-17 — the navigation rail names its one destination
+
+- **Priority:** P1
+- **Steps:** open `/` as `teacher` and query the navigation landmark.
+- **Expected:** a `navigation` landmark named `Main` is visible — the `web` project runs Desktop
+  Chrome at 1280×720, above `lg`, so the rail is rendered on every run; it shows the text
+  `PurpleSchool`, which is not a control, and holds exactly one link, named `Dashboard`, pointing
+  at `/` and carrying `aria-current="page"`. That link is the only one on the page, so an invented
+  second destination fails here.
+
+### HD-FN-18 — the rail adds no second list and no second counter
+
+- **Priority:** P0
+- **Steps:** open `/` as `teacher`; count the elements with role `list` and the ones matching the
+  counter's text pattern.
+- **Expected:** exactly one element on `/` has role `list` — the `Recent meetings` one — the
+  navigation landmark holds zero list items, and exactly one element matches
+  `/^Meetings total: \d+$/`. A rail or tile built from `ul`/`li`, or a second text in the counter's
+  format, makes the unscoped list and counter locators of `HD-FN-04`, `HD-FN-05`, `HD-FN-07`,
+  `HD-FN-09` and `HD-FN-14` ambiguous — a defect to investigate under `FACT-3559`, not a case to
+  edit.
+
+### HD-FN-19 — the hero banner's two lines, and no new control
+
+- **Priority:** P1
+- **Steps:** open `/` as `teacher`.
+- **Expected:** the text `Your schedule` is visible and `Everything you have planned, in one place.`
+  is visible as a **level 2** heading, so the page still has exactly one level 1 heading; the page's
+  only link is `Dashboard` and its only buttons are `Create meeting` and `Sign out`. A banner call
+  to action would be a second primary action and would surface here as an extra button or link. The
+  button count is taken over the union of the page's own landmarks — `navigation`, `banner`, `main`
+  and `complementary` — rather than over the whole document, because `next dev` is Playwright's
+  `webServer` and injects an `Open Next.js Dev Tools` control outside the application's markup on
+  every page. That scoping leaves a hole: a button added outside all four landmarks — in the outer
+  shell `div`, or beside `<header>` — goes uncounted, and `banner` resolves only while `<header>`
+  stays out of sectioning content.
+
+### HD-FN-20 — the overview tile counts items against total
+
+- **Priority:** P1
+- **Steps:** fetch the baseline page from Nest, open `/` as `teacher`, scope to the complementary
+  landmark.
+- **Expected:** a `complementary` landmark named `Overview` is visible and holds the texts
+  `<items.length> of <total> shown` and `Meetings`. Both numbers come from the API response rather
+  than a literal — for the seed, `3 of 5 shown` — and `total` differs from `items.length`, the
+  distinction invariant 4 and `FACT-1013` exist for; neither line matches the counter's pattern.
+
+### HD-FN-21 — the overview tile on an empty dashboard
+
+- **Priority:** P1
+- **Steps:** open `/` as `student`.
+- **Expected:** the `Overview` landmark is still present and reads `0 of 0 shown` with `Meetings`,
+  while `Meetings total: 0` and `No meetings yet` stay visible. The tile ships with the empty state
+  rather than disappearing along with the data.

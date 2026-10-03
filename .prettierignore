@@ -19,3 +19,11 @@ playwright/.cache
 # not a bug in the generator, a genuine conflict between two formatters wanting the same bytes. Do
 # not remove this line without also changing PR-API-07 to tolerate Prettier's formatting.
 e2e/scenarios-index.md
+
+# A research probe file quotes a command and its literal output as the citation research-protocol
+# requires. Prettier's default embeddedLanguageFormatting reformats the contents of tagged code
+# fences — rewriting quotes, exploding single-line CSS, re-indenting a package.json exports map —
+# so the fenced block stops being the verbatim bytes the run produced. A rewritten quote is no
+# longer evidence, it is a paraphrase that happens to look like one. Every change folder has one of
+# these.
+docs/plans/*/research/probes.md

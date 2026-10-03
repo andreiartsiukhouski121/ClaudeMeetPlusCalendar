@@ -7,21 +7,10 @@
 
 ## Context
 
-- `FACT-3542` Before this record `apps/web` had no visual language of its own. `globals.css` holds
-  the two imports, the app-shell rules and exactly one project-owned value — the `--accent`
-  override from `FX-039`; everything else is HeroUI's untouched default theme plus utilities chosen
-  per component. — `apps/web/src/app/globals.css`, `apps/web/src/app/page.tsx`,
-  `apps/web/src/components/meeting-list.tsx`
 - `FACT-3543` HeroUI v3 declares its whole visual surface as CSS custom properties on `:root` and
   maps them into Tailwind through `@theme inline`, so changing the look of every component is a
   variable declaration rather than a component edit. — `@heroui/styles@3.2.6`
   `dist/themes/default/variables.css`, `dist/themes/shared/theme.css`
-- `FACT-3544` Two utility classes in use across `apps/web` generate no CSS at all:
-  `text-foreground-500` (seven occurrences) and `border-default-200` (two) name tokens HeroUI v3
-  does not define, so the secondary text renders at the full foreground colour and the borders fall
-  back to `currentColor`. Verified by compiling `@import 'tailwindcss'` plus `@import '@heroui/styles'`
-  through `@tailwindcss/postcss` and searching the output for the two selectors. —
-  `apps/web/src/app/page.tsx:40`, `apps/web/src/components/meeting-list.tsx:34`, `BL-032`
 - `FACT-3545` A palette value here is settled by the suite, not by taste: HeroUI's default accent
   put its own foreground on it at 3.58:1, below the 4.5:1 of WCAG AA, and was darkened until
   `ACC-FN-01` passed. — `FX-039`, `apps/web/src/app/globals.css`
@@ -107,10 +96,6 @@ Rejected, each in one line:
   edited is a defect to investigate, not a test to update. — `FACT-3515`,
   `e2e/regression/auth-login/auth-login.functional.spec.ts`,
   `e2e/regression/home-dashboard/home-dashboard.functional.spec.ts`
-- `FACT-3560` The language is not free to apply: it needs Plus Jakarta Sans through `next/font`,
-  `@phosphor-icons/react` as a new runtime dependency watched by `pnpm audit --audit-level high`,
-  and a rework of the four existing pages. That work is `BL-031`, not this record. —
-  `docs/BACKLOG.md`
 - `FACT-3561` Nothing mechanical catches a component that hard-codes a colour or spells a token the
   way HeroUI v2 did. `FACT-3544` is what that failure looks like, and it survived a code review, an
   accessibility scan and 28 functional cases, because a class that generates no CSS produces no
@@ -122,3 +107,26 @@ Rejected, each in one line:
 > surface has to be written against this record rather than against what a HeroUI example looks
 > like. The cheapest lesson is the dead class names — invisible to every automated check this
 > repository owns, and found only by compiling the stylesheet and looking.
+
+## Retired facts
+
+Facts this record no longer states, each naming the key that replaced it (`ADR-0022`). The
+statement is quoted exactly as it last stood in the body above; the citation path that followed it
+is not part of the statement and is not repeated here.
+
+| Key         | Stated                                                                                                                                                                                                                                                                                                                                                                                                                                                     | Status                 | Recorded in |
+| ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------- | ----------- |
+| `FACT-3542` | Before this record `apps/web` had no visual language of its own. `globals.css` holds the two imports, the app-shell rules and exactly one project-owned value — the `--accent` override from `FX-039`; everything else is HeroUI's untouched default theme plus utilities chosen per component.                                                                                                                                                            | `retired by FACT-0055` | `BL-031`    |
+| `FACT-3544` | Two utility classes in use across `apps/web` generate no CSS at all: `text-foreground-500` (seven occurrences) and `border-default-200` (two) name tokens HeroUI v3 does not define, so the secondary text renders at the full foreground colour and the borders fall back to `currentColor`. Verified by compiling `@import 'tailwindcss'` plus `@import '@heroui/styles'` through `@tailwindcss/postcss` and searching the output for the two selectors. | `retired by FACT-0057` | `BL-032`    |
+| `FACT-3560` | The language is not free to apply: it needs Plus Jakarta Sans through `next/font`, `@phosphor-icons/react` as a new runtime dependency watched by `pnpm audit --audit-level high`, and a rework of the four existing pages. That work is `BL-031`, not this record.                                                                                                                                                                                        | `retired by FACT-0056` | `BL-031`    |
+
+> **Rationale — not a fact.** `FACT-3542` retires whole rather than being partly edited: only its
+> second clause went false (`globals.css` now holds the whole token block from
+> `.claude/skills/design-system/references/tokens.css`), but a fact retires as the statement it was,
+> not clause by clause. `FACT-3544`'s count is zero once `BL-031`/`BL-032` land, and its successor
+> lives in **Patterns deliberately refused** rather than **Patterns in use** because the thing worth
+> keeping citable is the failure class, not the fix. `FACT-3560` named work that is now done and
+> miscounted the pages besides (three `page.tsx`, two layouts, three components — never four). The
+> `FT-`/`FX-` entries for this rollout are minted after this record lands (`docs/process.md`
+> `FEAT-S7`/`FEAT-S8`); `BL-031` and `BL-032` are the stable reference available at the time of
+> retirement and are closed, never deleted, once those entries exist.

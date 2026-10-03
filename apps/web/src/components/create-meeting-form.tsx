@@ -32,10 +32,10 @@ export function CreateMeetingForm() {
   const [state, formAction, pending] = useActionState(createMeetingAction, INITIAL_STATE);
 
   return (
-    <section className="flex flex-col gap-4">
-      <h2 className="text-base font-semibold tracking-tight">New meeting</h2>
+    <section className="flex w-full max-w-xl flex-col gap-4">
+      <h2 className="text-lg font-semibold tracking-tight">New meeting</h2>
 
-      <Card.Root className="p-5">
+      <Card.Root className="rounded-2xl p-5">
         <Card.Content className="p-0">
           <form action={formAction} className="flex flex-col gap-5" noValidate>
             <TextField name="title" type="text">

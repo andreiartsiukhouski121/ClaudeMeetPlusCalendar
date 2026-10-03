@@ -15,8 +15,8 @@ export default function RegisterPage() {
   return (
     <>
       <div className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold tracking-tight">Sign up</h1>
-        <p className="text-foreground-500 text-sm">Sign-up is coming later</p>
+        <h1 className="text-2xl font-bold tracking-tight">Sign up</h1>
+        <p className="text-muted text-sm">Sign-up is coming later</p>
       </div>
 
       <Link

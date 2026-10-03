@@ -55,7 +55,7 @@ It also does not cover the design language, and **nothing mechanical does** (`FA
 every new class name against the `design-system` skill: a literal colour or radius in markup, a
 Tailwind palette colour, a bordered card that also casts a shadow, a category tint carrying meaning
 without the text that says it, or a HeroUI v2 token name that compiles to nothing — which is a class
-producing no CSS, no violation and no failing case, and is what `FACT-3544` is.
+producing no CSS, no violation and no failing case, and is what `FACT-0057` is.
 
 ## Report
 

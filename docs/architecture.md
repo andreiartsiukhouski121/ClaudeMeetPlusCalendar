@@ -100,20 +100,22 @@ Three properties follow from that picture, and every one of them is checked by a
 
 **Source:** the ADR named in each row; the path in "Where" is where the pattern is applied.
 
-| Key         | Pattern                            | Where                                                       | ADR        |
-| ----------- | ---------------------------------- | ----------------------------------------------------------- | ---------- |
-| `FACT-0023` | Backend for Frontend               | `apps/web` in front of `apps/api`                           | `ADR-0002` |
-| `FACT-0024` | Stateless session in a cookie      | `ps_session`, httpOnly, holding the JWT Nest signed         | `ADR-0003` |
-| `FACT-0025` | Defence in depth                   | `proxy.ts` → `dal.ts` → every Server Action                 | `ADR-0004` |
-| `FACT-0026` | Layered modules                    | controller → service → store, per Nest module               | `ADR-0006` |
-| `FACT-0027` | DTO + mapper at the edge           | `*.mapper.ts`, `toMeetingDto`                               | `ADR-0006` |
-| `FACT-0028` | Guard + parameter decorator        | `JwtAuthGuard` + `@CurrentUser()`                           | `ADR-0009` |
-| `FACT-0029` | Global pipe as a provider          | `APP_PIPE` in `AppModule`                                   | `ADR-0006` |
-| `FACT-0030` | In-memory repository + seed        | `*.seed.ts`; services own their arrays                      | `ADR-0007` |
-| `FACT-0031` | Test fixture mirroring the seed    | `e2e/fixtures/seed.ts`                                      | `ADR-0007` |
-| `FACT-0032` | Executable convention (meta-tests) | `suite-integrity`, `ledger`, `process`, `architecture`      | `ADR-0010` |
-| `FACT-0033` | Decision log + orientation gate    | `docs/CHANGELOG.md`, `docs/BACKLOG.md`, `check-orientation` | `ADR-0011` |
-| `FACT-0052` | Component library + utility CSS    | HeroUI v3 on Tailwind v4 in `apps/web`                      | `ADR-0023` |
+| Key         | Pattern                                                           | Where                                                               | ADR        |
+| ----------- | ----------------------------------------------------------------- | ------------------------------------------------------------------- | ---------- |
+| `FACT-0023` | Backend for Frontend                                              | `apps/web` in front of `apps/api`                                   | `ADR-0002` |
+| `FACT-0024` | Stateless session in a cookie                                     | `ps_session`, httpOnly, holding the JWT Nest signed                 | `ADR-0003` |
+| `FACT-0025` | Defence in depth                                                  | `proxy.ts` → `dal.ts` → every Server Action                         | `ADR-0004` |
+| `FACT-0026` | Layered modules                                                   | controller → service → store, per Nest module                       | `ADR-0006` |
+| `FACT-0027` | DTO + mapper at the edge                                          | `*.mapper.ts`, `toMeetingDto`                                       | `ADR-0006` |
+| `FACT-0028` | Guard + parameter decorator                                       | `JwtAuthGuard` + `@CurrentUser()`                                   | `ADR-0009` |
+| `FACT-0029` | Global pipe as a provider                                         | `APP_PIPE` in `AppModule`                                           | `ADR-0006` |
+| `FACT-0030` | In-memory repository + seed                                       | `*.seed.ts`; services own their arrays                              | `ADR-0007` |
+| `FACT-0031` | Test fixture mirroring the seed                                   | `e2e/fixtures/seed.ts`                                              | `ADR-0007` |
+| `FACT-0032` | Executable convention (meta-tests)                                | `suite-integrity`, `ledger`, `process`, `architecture`              | `ADR-0010` |
+| `FACT-0033` | Decision log + orientation gate                                   | `docs/CHANGELOG.md`, `docs/BACKLOG.md`, `check-orientation`         | `ADR-0011` |
+| `FACT-0052` | Component library + utility CSS                                   | HeroUI v3 on Tailwind v4 in `apps/web`                              | `ADR-0023` |
+| `FACT-0055` | Design language declared as tokens                                | `apps/web/src/app/globals.css`                                      | `ADR-0026` |
+| `FACT-0056` | Plus Jakarta Sans; icons only through `@phosphor-icons/react/ssr` | `apps/web/src/app/layout.tsx`, every component that imports an icon | `ADR-0026` |
 
 > **Rationale — not a fact.** Why each pattern is here, in one line apiece. This is a reading aid;
 > the record that governs is the ADR in the row, and where the two differ the ADR is right.
@@ -130,28 +132,34 @@ Three properties follow from that picture, and every one of them is checked by a
 > one that asks nicely. The decision log and the orientation gate stop the same thing being built —
 > or rejected — twice. A component library gives the accessible markup and the focus handling for
 > free, which is what the functional cases address elements by; utility CSS is what it needs, not a
-> second preference.
+> second preference. The design language as tokens means a palette, radius or font change is one
+> declaration rather than a sweep of components; Plus Jakarta Sans and the `/ssr` icon import are
+> the two facts that constrain every future surface — the barrel and `dist/csr/*` both fail
+> `next build` in a Server Component, which is why only the `/ssr` specifier is a pattern here.
 
 ## Patterns deliberately refused
 
 **Source:** the record named in each row.
 
-| Key         | Refused                             | Recorded in             |
-| ----------- | ----------------------------------- | ----------------------- |
-| `FACT-0034` | CORS, a global API prefix           | `ADR-0005`              |
-| `FACT-0035` | `@nestjs/passport` + `passport-jwt` | `ADR-0009`              |
-| `FACT-0036` | `bcrypt`                            | `ADR-0009`              |
-| `FACT-0037` | A database                          | `ADR-0007`              |
-| `FACT-0038` | `middleware.ts`                     | `ADR-0002`, invariant 9 |
-| `FACT-0039` | Client-side calls to Nest           | `ADR-0002`              |
-| `FACT-0040` | React component tests in jsdom      | `BACKLOG.md`, Rejected  |
-| `FACT-0041` | Parallel agents separated by ports  | `ADR-0012`              |
-| `FACT-0053` | HeroUI's `Form` and `FieldError`    | `ADR-0023`              |
-| `FACT-0054` | `ListBox` for the meeting list      | `ADR-0023`              |
+| Key         | Refused                                                                     | Recorded in             |
+| ----------- | --------------------------------------------------------------------------- | ----------------------- |
+| `FACT-0034` | CORS, a global API prefix                                                   | `ADR-0005`              |
+| `FACT-0035` | `@nestjs/passport` + `passport-jwt`                                         | `ADR-0009`              |
+| `FACT-0036` | `bcrypt`                                                                    | `ADR-0009`              |
+| `FACT-0037` | A database                                                                  | `ADR-0007`              |
+| `FACT-0038` | `middleware.ts`                                                             | `ADR-0002`, invariant 9 |
+| `FACT-0039` | Client-side calls to Nest                                                   | `ADR-0002`              |
+| `FACT-0040` | React component tests in jsdom                                              | `BACKLOG.md`, Rejected  |
+| `FACT-0041` | Parallel agents separated by ports                                          | `ADR-0012`              |
+| `FACT-0053` | HeroUI's `Form` and `FieldError`                                            | `ADR-0023`              |
+| `FACT-0054` | `ListBox` for the meeting list                                              | `ADR-0023`              |
+| `FACT-0057` | HeroUI v2 numeric token names (`text-foreground-500`, `border-default-200`) | `ADR-0026`              |
 
 > **Rationale — not a fact.** Each of these looks like an obvious addition, so the reason it was
 > turned down is summarized here; proposing it again costs a review cycle. The governing text is the
-> record in the row.
+> record in the row. The numeric token names are v2; v3 defines `--muted` and `--border` with no
+> numeric scale, and a name it does not define compiles to no CSS at all rather than failing loudly —
+> which is what made the failure class worth naming here rather than only in the dead class itself.
 >
 > No browser origin ever calls Nest, so `enableCors()` would open it to every site for nothing. A
 > ~25-line guard covers the whole need, and `@nestjs/passport` adds indirection rather than safety.

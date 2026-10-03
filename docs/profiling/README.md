@@ -85,9 +85,14 @@ paragraph costs.
 
 ## The records
 
-| Run                                                           | Change                                    | Flow   | Total tokens | Agent-time | Rework share |
-| ------------------------------------------------------------- | ----------------------------------------- | ------ | ------------ | ---------- | ------------ |
-| [2026-09-28](runs/2026-09-28-meetings-detail-participants.md) | `meetings-detail-participants` (`FT-003`) | `FEAT` | 3,478,421    | 190 min    | **29.3%**    |
+| Run                                                           | Change                                    | Flow   | Total tokens | Agent-time  | Rework share |
+| ------------------------------------------------------------- | ----------------------------------------- | ------ | ------------ | ----------- | ------------ |
+| [2026-09-28](runs/2026-09-28-meetings-detail-participants.md) | `meetings-detail-participants` (`FT-003`) | `FEAT` | 3,478,421    | 190 min     | **29.3%**    |
+| [2026-10-03](runs/2026-10-03-design-language-rollout.md)      | `design-language-rollout` (`FT-006`)      | `FEAT` | 1,584,001\*  | 115.7 min\* | 31.8%\*      |
+
+\* Interrupted and resumed across two days; `FEAT-S1`, `FEAT-G1`, the first `FEAT-S2` pass and
+`lead`'s own orchestration/`FEAT-S6` cost are unmeasured (hand-backs lost or never produced) and are
+**not** in this total. Read the record before comparing this row with the one above it.
 
 ## What the records have shown so far
 

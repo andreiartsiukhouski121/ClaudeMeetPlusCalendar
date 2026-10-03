@@ -71,8 +71,9 @@ SaaS"), both single-family. No second family. No mono face until something needs
 
 - **12px is the floor and it is for labels only.** `ui-ux-pro-max` calls body text under 12px an
   anti-pattern; a chip or an uppercase eyebrow is not body text.
-- **Prose is capped at `max-w-[65ch]`.** Two of the existing components already carry a width cap
-  for exactly this reason, in `apps/web/src/app/auth/layout.tsx` and `apps/web/src/app/page.tsx`.
+- **Prose is capped at `max-w-[65ch]`.** Two components carry a measure cap for exactly this reason,
+  in `apps/web/src/components/create-meeting-form.tsx` (`max-w-xl`) and
+  `apps/web/src/components/hero-banner.tsx` (`max-w-[28ch]`).
 - **Line height stays unitless** so a user's text-spacing override still reflows.
 
 ## Shape and density
@@ -118,8 +119,9 @@ primary, with Heroicons as its fallback. One family per surface; never mix.
 - Decorative icon beside text → `aria-hidden="true"`. Icon-only control → an accessible name on the
   **control**, which is what the functional cases address it by.
 - **No emoji as icons.** That is a named anti-pattern and an `axe`-invisible one.
-- The dependency is not installed yet (`BL-031`). Until it is, a surface ships without icons rather
-  than with inline SVG pasted per component.
+- The dependency was not installed when `BL-031` opened this line. It is installed now
+  (`apps/web/package.json`, `FACT-0056`), and the navigation rail, the meeting list and the stat
+  tile carry icons through it.
 
 ## Motion
 
@@ -147,15 +149,15 @@ None of the following bends for a visual reason. All of them have already been b
 
 - **`text-foreground-500` and `border-default-200` generate no CSS.** They are HeroUI v2 token
   names; v3 has `--muted` and `--border` and no numeric scale. Seven and two occurrences of them
-  are live in `apps/web` right now, rendering secondary text at full foreground and borders at
-  `currentColor` (`FACT-3544`, `BL-032`). A class that compiles to nothing produces no violation, no
-  failed case and no diff — grep for `-500`, `-200`, `-700` in `apps/web/src` before believing a
-  colour utility exists.
+  were live in `apps/web` before this rollout, rendering secondary text at full foreground and
+  borders at `currentColor` (`FACT-0057`, `BL-032`). A class that compiles to nothing produces no
+  violation, no failed case and no diff — grep for `-500`, `-200`, `-700` in `apps/web/src` before
+  believing a colour utility exists.
 - **Model recall of HeroUI is v2.** `HeroUIProvider`, `framer-motion`, flat component names and
   `color="primary"` are all v2. Read `heroui-react` first; fetch live docs rather than recalling.
-- **A colour that looks right can be outside sRGB.** `oklch(0.50 0.195 253.83)` — the current
-  `--accent` from `FX-039` — clips on conversion, so the rendered colour is not the declared one.
-  Every value in the table above was checked in-gamut.
+- **A colour that looks right can be outside sRGB.** `oklch(0.50 0.195 253.83)` — `FX-039`'s
+  `--accent`, since replaced by the value in the table above — clipped on conversion, so the
+  rendered colour was not the declared one. Every value in the table above was checked in-gamut.
 
 ## The gate
 
@@ -187,4 +189,5 @@ read; making it a step is the shape `CH-004` is the ledger entry for.
 | `references/patterns.md` | the shell grid and the recurring components, written against HeroUI |
 
 `ADR-0026` is the decision itself and carries the facts; this file is how to apply it. Applying it
-to the four existing pages is `BL-031`.
+to the existing pages was `BL-031`; `globals.css`, `layout.tsx` and the components under
+`src/components/` now carry the tokens this file names.

@@ -271,6 +271,21 @@
       "document": "docs/architecture.md",
       "hash": "9aa157f01354a4902545be32ac480aa004448b357b78351748ab07e3dec5b687"
     },
+    "FACT-0055": {
+      "status": "active",
+      "document": "docs/architecture.md",
+      "hash": "8a9bafb614b91231f8cb7e28707f5a4c07e180fd59910b982897fc07e143240f"
+    },
+    "FACT-0056": {
+      "status": "active",
+      "document": "docs/architecture.md",
+      "hash": "202be310e6abbf473dcbecf27115adc3cd9e1b935078196842b572c52eb4344e"
+    },
+    "FACT-0057": {
+      "status": "active",
+      "document": "docs/architecture.md",
+      "hash": "5a4e1452661b32741ddae3f7ed7ce8383686867b0e34d41cde63493b20e250b8"
+    },
     "FACT-1000": {
       "status": "active",
       "document": "docs/data-model.md",
@@ -2938,9 +2953,11 @@
       "hash": "ead93157b9b2755ec87dbdc4e2a2aad160e2f4019107683e997340bd8503b0f3"
     },
     "FACT-3542": {
-      "status": "active",
+      "status": "retired",
       "document": "docs/adr",
-      "hash": "f399c77b14e841b30c233cf2500bd75083b795c442a7d6230ad22b35d467e33a"
+      "hash": "3f74e517ea2630448ec3852e350e2e1ce246dec855e350d8351a98183e4611f1",
+      "supersededBy": "FACT-0055",
+      "recordedIn": "`BL-031`"
     },
     "FACT-3543": {
       "status": "active",
@@ -2948,9 +2965,11 @@
       "hash": "f63c81910372316f0ba1aaa1ea616b603bfaeeecfbff8fd441558a77d9985b89"
     },
     "FACT-3544": {
-      "status": "active",
+      "status": "retired",
       "document": "docs/adr",
-      "hash": "02c563496fc7dc8e7b22964a4e13eaf8493577efcc2c59b73f2d6017d01eb973"
+      "hash": "66be6d56b2d3abffaceed04c807d81fc4150c7ac3768f0bde18dfa29b7db0602",
+      "supersededBy": "FACT-0057",
+      "recordedIn": "`BL-032`"
     },
     "FACT-3545": {
       "status": "active",
@@ -3028,9 +3047,11 @@
       "hash": "5c82801aa33e0af21f070c43cfa256b6143723f1556a8e56959857edbb3d974b"
     },
     "FACT-3560": {
-      "status": "active",
+      "status": "retired",
       "document": "docs/adr",
-      "hash": "e4b98833023c7ef7694e29af17d0fda9eafb648ad05e59f102f673ea45589665"
+      "hash": "8f008a054c07c6e4fac53224f70a66d1f0f60735195566ca3fb2f4da9292cdcd",
+      "supersededBy": "FACT-0056",
+      "recordedIn": "`BL-031`"
     },
     "FACT-3561": {
       "status": "active",

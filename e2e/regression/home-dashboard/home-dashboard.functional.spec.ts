@@ -241,6 +241,99 @@ test.describe('Dashboard: UI', { tag: ['@regression', '@home-dashboard'] }, () =
     await expect(authedPage.getByRole('heading', { level: 1 })).toContainText(TEACHER.email);
   });
 
+  test('HD-FN-17 — the navigation rail names its one destination', async ({ authedPage }) => {
+    await authedPage.goto('/');
+
+    const nav = authedPage.getByRole('navigation', { name: 'Main' });
+    await expect(nav).toBeVisible();
+    await expect(nav.getByText('PurpleSchool')).toBeVisible();
+
+    // That link is the only one on the page — an invented second destination fails here.
+    await expect(authedPage.getByRole('link')).toHaveCount(1);
+
+    const dashboardLink = authedPage.getByRole('link', { name: 'Dashboard' });
+    await expect(dashboardLink).toBeVisible();
+    await expect(dashboardLink).toHaveAttribute('href', '/');
+    await expect(dashboardLink).toHaveAttribute('aria-current', 'page');
+  });
+
+  test(
+    'HD-FN-18 — the rail adds no second list and no second counter',
+    { tag: '@p0' },
+    async ({ authedPage }) => {
+      await authedPage.goto('/');
+
+      // Exactly one element has role `list` on the whole page — the "Recent meetings" one.
+      await expect(authedPage.getByRole('list')).toHaveCount(1);
+
+      const nav = authedPage.getByRole('navigation', { name: 'Main' });
+      await expect(nav.getByRole('listitem')).toHaveCount(0);
+
+      // Exactly one element matches the counter's format.
+      await expect(authedPage.getByText(COUNTER_PATTERN)).toHaveCount(1);
+    },
+  );
+
+  test("HD-FN-19 — the hero banner's two lines, and no new control", async ({ authedPage }) => {
+    await authedPage.goto('/');
+
+    await expect(authedPage.getByText('Your schedule')).toBeVisible();
+    await expect(
+      authedPage.getByRole('heading', {
+        level: 2,
+        name: 'Everything you have planned, in one place.',
+      }),
+    ).toBeVisible();
+
+    // Still exactly one level 1 heading on the page.
+    await expect(authedPage.getByRole('heading', { level: 1 })).toHaveCount(1);
+
+    // The page's only link is Dashboard, and its only buttons are Create meeting and Sign out — a
+    // banner call to action would surface here as an extra button or link. The button count is
+    // scoped to the page's own landmarks rather than taken unscoped over the document: `next dev`
+    // (`playwright.config.ts`'s `webServer`) injects its own dev-mode indicator button ("Open
+    // Next.js Dev Tools") outside the application's rendered tree on every page of every Next 16
+    // app — framework chrome, absent from `grep -r` over this repository, and never present in a
+    // production build.
+    await expect(authedPage.getByRole('link')).toHaveCount(1);
+    await expect(authedPage.getByRole('link', { name: 'Dashboard' })).toBeVisible();
+
+    const nav = authedPage.getByRole('navigation', { name: 'Main' });
+    const banner = authedPage.getByRole('banner');
+    const main = authedPage.getByRole('main');
+    const aside = authedPage.getByRole('complementary', { name: 'Overview' });
+    const pageButtons = nav
+      .getByRole('button')
+      .or(banner.getByRole('button'))
+      .or(main.getByRole('button'))
+      .or(aside.getByRole('button'));
+
+    await expect(pageButtons).toHaveCount(2);
+    await expect(authedPage.getByRole('button', { name: 'Create meeting' })).toBeVisible();
+    await expect(authedPage.getByRole('button', { name: 'Sign out' })).toBeVisible();
+  });
+
+  test('HD-FN-20 — the overview tile counts items against total', async ({
+    authedPage,
+    apiRequest,
+  }) => {
+    const reference = await fetchMeetingsPage(apiRequest, TEACHER_MEETINGS.latestLimit);
+
+    await authedPage.goto('/');
+
+    const overview = authedPage.getByRole('complementary', { name: 'Overview' });
+    await expect(overview).toBeVisible();
+
+    // Both numbers come from the API response rather than a literal — for the seed, 3 of 5 shown.
+    await expect(
+      overview.getByText(`${String(reference.items.length)} of ${String(reference.total)} shown`),
+    ).toBeVisible();
+    await expect(overview.getByText('Meetings', { exact: true })).toBeVisible();
+
+    // Neither line matches the counter's pattern.
+    await expect(overview.getByText(COUNTER_PATTERN)).toHaveCount(0);
+  });
+
   test.describe('user without meetings', () => {
     test.use({ authUser: 'student' });
 
@@ -259,6 +352,18 @@ test.describe('Dashboard: UI', { tag: ['@regression', '@home-dashboard'] }, () =
       await expect(button).toBeEnabled();
 
       expect(problems).toEqual([]);
+    });
+
+    test('HD-FN-21 — the overview tile on an empty dashboard', async ({ authedPage }) => {
+      await authedPage.goto('/');
+
+      const overview = authedPage.getByRole('complementary', { name: 'Overview' });
+      await expect(overview).toBeVisible();
+      await expect(overview.getByText('0 of 0 shown')).toBeVisible();
+      await expect(overview.getByText('Meetings', { exact: true })).toBeVisible();
+
+      await expect(authedPage.getByText('Meetings total: 0')).toBeVisible();
+      await expect(authedPage.getByText('No meetings yet')).toBeVisible();
     });
   });
 

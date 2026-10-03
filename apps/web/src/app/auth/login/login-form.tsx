@@ -53,7 +53,7 @@ export function LoginForm() {
         Sign in
       </Button>
 
-      <p className="text-foreground-500 text-center text-sm">
+      <p className="text-muted text-center text-sm">
         No account?{' '}
         <Link
           href="/auth/register"

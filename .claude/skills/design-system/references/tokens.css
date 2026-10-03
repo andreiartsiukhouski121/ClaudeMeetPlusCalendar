@@ -58,7 +58,7 @@
 /* ---------------------------------------------------------------------------------------------
  * 3. Exposing the additions to Tailwind. HeroUI's own tokens already arrive through its
  *    `@theme inline` block; only ours need this, and without it `bg-category-violet` compiles to
- *    nothing — silently, which is exactly how `FACT-3544` happened.
+ *    nothing — silently, which is exactly how `FACT-0057` happened.
  * ------------------------------------------------------------------------------------------- */
 
 @theme inline {
