@@ -88,3 +88,18 @@ task of its own rather than a forgotten line.
   added with it; on a dev server, checking them would test Next's config rather than our code.
 - **Rotating `JWT_SECRET` signs everyone out** — and that now happens correctly: an invalid cookie
   is erased through `/auth/session-expired` rather than locking the user in a redirect.
+
+## Accepted dependency advisories
+
+Unlike the gaps above, these are not a choice about our own threat model — they are upstream CVEs
+with no fix available, accepted explicitly rather than left to silently block `pnpm verify`.
+
+- **`GHSA-vfj7-8cjw-p6xm`, `braces` (high), closing `BL-033`.** Reached only through
+  `packages/eslint-config → eslint-config-next → @next/eslint-plugin-next → fast-glob → micromatch`
+  — the lint toolchain, never shipped runtime code. **Patched versions: `<0.0.0`**: no release of
+  `braces` exists above the vulnerable `3.0.3`, which is also `latest` on the npm registry, so there
+  is no version to pin to with `overrides` (unlike the `multer` entry in `pnpm-workspace.yaml`,
+  which has one). Confirmed unrelated to any change that found it: reproduces identically on
+  unmodified `main`. Ignored by GHSA ID in `package.json`'s `pnpm.auditConfig.ignoreGhsas`, which is
+  the only way to keep `pnpm audit --audit-level high` green until `braces` ships a patched version
+  — remove the entry then, not before.
