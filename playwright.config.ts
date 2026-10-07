@@ -11,6 +11,11 @@ import type { ApiOptions } from './e2e/fixtures/api.js';
  * production server that never picks up edits, and the run would go falsely green on broken code.
  * On a dedicated port the only thing to reuse is a dev server from a previous Playwright run,
  * which does have hot reload.
+ *
+ * The api entry is the exception: it no longer reuses anything (see `reuseExistingServer: false`
+ * below). `pnpm start:e2e` resets and reseeds `purpleschool_e2e` on every invocation, and reuse
+ * would make Playwright skip that command whenever something already answers on 3101 — a leftover
+ * server from a previous run would make `pnpm e2e` pass against a stale schema and a stale seed.
  */
 const WEB_PORT = process.env.E2E_WEB_PORT ?? '3100';
 const API_PORT = process.env.E2E_API_PORT ?? '3101';
@@ -82,16 +87,30 @@ export default defineConfig<ApiOptions>({
       stderr: 'pipe',
     },
     {
-      // Nest reads the port from process.env.PORT (see apps/api/src/main.ts).
-      command: 'pnpm dev',
+      // Nest reads the port from process.env.PORT (see apps/api/src/main.ts). `start:e2e` chains
+      // `prisma:generate` -> `db:reset` -> `nest start`; `db:reset` itself is assert-URL -> `db:up`
+      // -> SQL schema drop -> `prisma db push` -> seed.
+      command: 'pnpm start:e2e',
       cwd: 'apps/api',
       // JWT_SECRET is pinned to a constant: the code has a dev default, but relying on it would
       // make the run depend on the shell environment. A random secret is impossible too:
       // `nest start --watch` restarts on every edit and every token issued mid-run would die.
-      env: { PORT: API_PORT, JWT_SECRET: 'e2e-secret' },
+      // DATABASE_URL points at the dedicated e2e database, never at `purpleschool`:
+      // `scripts/assert-database-url.mjs` refuses to run without it set explicitly, since it is the
+      // only thing standing between `db:reset`'s destructive SQL reset and the development database.
+      env: {
+        PORT: API_PORT,
+        JWT_SECRET: 'e2e-secret',
+        DATABASE_URL: 'postgres://purpleschool:purpleschool@127.0.0.1:5433/purpleschool_e2e',
+      },
       url: API_URL,
-      reuseExistingServer: !isCI,
-      timeout: 120_000,
+      // Deliberately NOT `!isCI`: with reuse, a leftover server on 3101 makes Playwright skip this
+      // command entirely, so `db:reset` never runs and a local `pnpm e2e` can pass against the
+      // previous schema and the previous seed — exactly what the dedicated-port rule above forbids.
+      reuseExistingServer: false,
+      // 120s -> 180s: a cold image pull plus initdb plus healthcheck plus push plus seed plus Nest
+      // start no longer fits the old budget.
+      timeout: 180_000,
       stdout: 'pipe',
       stderr: 'pipe',
     },

@@ -8,7 +8,7 @@ One row per scenario declared in a Summary table, across every level and module 
 | Level | Module | ID | Title |
 | ----- | ------ | -- | ----- |
 | functional | accessibility | `ACC-FN-01` | every public page passes WCAG 2.1 AA |
-| functional | accessibility | `ACC-FN-02` | the dashboard passes WCAG 2.1 AA for a signed-in user |
+| functional | accessibility | `ACC-FN-02` | every page behind a session passes WCAG 2.1 AA |
 | functional | accessibility | `ACC-FN-03` | the login form in its error state passes WCAG 2.1 AA |
 | functional | accessibility | `ACC-FN-04` | every audited page has exactly one `h1` and a `main` landmark |
 | api | architecture | `AR-API-01` | ADR files are named `ADR-NNNN-slug.md` and numbers are unique |
@@ -52,6 +52,7 @@ One row per scenario declared in a Summary table, across every level and module 
 | api | regression/auth-login | `AL-API-13` | GET /auth/me with a valid token returns the profile |
 | api | regression/auth-login | `AL-API-14` | GET /auth/me without a token gives 401 |
 | api | regression/auth-login | `AL-API-15` | an invalid token on /auth/me gives 401, not 500 |
+| api | regression/auth-login | `AL-API-20` | an unseeded email never authenticates, valid password |
 | functional | regression/auth-login | `AL-FN-01` | the login form renders |
 | functional | regression/auth-login | `AL-FN-02` | a successful login leaves the form for / |
 | functional | regression/auth-login | `AL-FN-03` | a wrong password shows an error and keeps the user on login |
@@ -106,6 +107,8 @@ One row per scenario declared in a Summary table, across every level and module 
 | api | regression/home-dashboard | `HD-API-16` | POST /meetings with an extra field gives 400 |
 | api | regression/home-dashboard | `HD-API-17` | the created meeting belongs to the token owner |
 | api | regression/home-dashboard | `HD-API-20` | POST /meetings without durationMinutes gives 201 and 60 |
+| api | regression/home-dashboard | `HD-API-21` | the created id is a randomUUID, not a seeded `mtg-` id |
+| api | regression/home-dashboard | `HD-API-22` | equal startsAt still orders by id ascending |
 | functional | regression/home-dashboard | `HD-FN-01` | an unauthenticated visitor on / goes to login |
 | functional | regression/home-dashboard | `HD-FN-02` | the greeting contains the user email |
 | functional | regression/home-dashboard | `HD-FN-03` | the meeting count matches the API data |
@@ -124,19 +127,54 @@ One row per scenario declared in a Summary table, across every level and module 
 | functional | regression/home-dashboard | `HD-FN-19` | the hero banner's two lines, and no new control |
 | functional | regression/home-dashboard | `HD-FN-20` | the overview tile counts items against total |
 | functional | regression/home-dashboard | `HD-FN-21` | the overview tile on an empty dashboard |
-| unit | regression/home-dashboard | `HD-UT-01` | P0 |
-| unit | regression/home-dashboard | `HD-UT-02` | P0 |
-| unit | regression/home-dashboard | `HD-UT-03` | P0 |
-| unit | regression/home-dashboard | `HD-UT-04` | P0 |
-| unit | regression/home-dashboard | `HD-UT-05` | P1 |
-| unit | regression/home-dashboard | `HD-UT-06` | P1 |
-| unit | regression/home-dashboard | `HD-UT-07` | P0 |
-| unit | regression/home-dashboard | `HD-UT-08` | P1 |
-| unit | regression/home-dashboard | `HD-UT-09` | P2 |
 | unit | regression/home-dashboard | `HD-UT-10` | P1 |
 | unit | regression/home-dashboard | `HD-UT-11` | P1 |
 | unit | regression/home-dashboard | `HD-UT-15` | P0 |
 | unit | regression/home-dashboard | `HD-UT-16` | P1 |
+| api | regression/meeting-files | `MF-API-01` | POST uploads a file and returns 201 with the five DTO keys |
+| api | regression/meeting-files | `MF-API-02` | all three file routes without a token give 401 |
+| api | regression/meeting-files | `MF-API-03` | an unknown meeting and another owner's meeting give the same 404 |
+| api | regression/meeting-files | `MF-API-04` | GET lists the seeded files as `{ items }`, newest first, no bytes |
+| api | regression/meeting-files | `MF-API-05` | a meeting with no files lists an empty `items`, not a 404 |
+| api | regression/meeting-files | `MF-API-06` | the download carries the four documented headers |
+| api | regression/meeting-files | `MF-API-07` | upload → list → download round-trips the bytes unchanged |
+| api | regression/meeting-files | `MF-API-08` | an unknown file id and another meeting's file id give 404 |
+| api | regression/meeting-files | `MF-API-09` | an upload with no `file` part gives 400 |
+| api | regression/meeting-files | `MF-API-10` | the filename rule: what the parser already changed, and the 400 |
+| api | regression/meeting-files | `MF-API-11` | an extra text part gives 400 `property … should not exist` |
+| api | regression/meeting-files | `MF-API-12` | a file part under another field name gives a **string** 400 |
+| api | regression/meeting-files | `MF-API-13` | a file over 1 048 576 bytes gives 413 |
+| api | regression/meeting-files | `MF-API-14` | the allow-list after normalization: accepted and refused types |
+| api | regression/meeting-files | `MF-API-15` | the eleventh file on a meeting is refused with 400 |
+| api | regression/meeting-files | `MF-API-16` | evaluation order: a stranger with an oversized file gets 413 |
+| api | regression/meeting-files | `MF-API-17` | the stored content type is normalized, never the client's header |
+| api | regression/meeting-files | `MF-API-18` | no `filename` and `application/octet-stream`: file is required |
+| api | regression/meeting-files | `MF-API-19` | no `filename` and any other type: the part arrives as a field |
+| functional | regression/meeting-files | `MF-FN-01` | a dashboard meeting title links to its detail page |
+| functional | regression/meeting-files | `MF-FN-02` | the detail page has one `h1` with the title and one `main` |
+| functional | regression/meeting-files | `MF-FN-03` | the attachment list names both seeded files, newest first |
+| functional | regression/meeting-files | `MF-FN-04` | a meeting with no files shows an empty state, not a blank |
+| functional | regression/meeting-files | `MF-FN-05` | uploading through the form adds a row for the file |
+| functional | regression/meeting-files | `MF-FN-06` | a refused upload shows one `role="alert"` and adds no row |
+| functional | regression/meeting-files | `MF-FN-07` | the download link serves the bytes from this origin |
+| functional | regression/meeting-files | `MF-FN-08` | an unauthenticated visitor on the page goes to login |
+| functional | regression/meeting-files | `MF-FN-09` | a broken session on the download lands on session-expired |
+| functional | regression/meeting-files | `MF-FN-10` | the upload form's accessible contract |
+| functional | regression/meeting-files | `MF-FN-11` | an unknown meeting id renders the not-found page |
+| functional | regression/meeting-files | `MF-FN-12` | a stale file id answers 404 without a page error |
+| functional | regression/meeting-files | `MF-FN-13` | "Back to dashboard" returns to `/` |
+| functional | regression/meeting-files | `MF-FN-14` | the detail page logs nothing to the console |
+| functional | regression/meeting-files | `MF-FN-15` | an empty file selection reaches the server, not a block |
+| unit | regression/meeting-files | `MF-UT-01` | P0 |
+| unit | regression/meeting-files | `MF-UT-02` | P0 |
+| unit | regression/meeting-files | `MF-UT-03` | P0 |
+| unit | regression/meeting-files | `MF-UT-04` | P1 |
+| unit | regression/meeting-files | `MF-UT-05` | P1 |
+| unit | regression/meeting-files | `MF-UT-06` | P1 |
+| unit | regression/meeting-files | `MF-UT-07` | P1 |
+| unit | regression/meeting-files | `MF-UT-08` | P0 |
+| unit | regression/meeting-files | `MF-UT-09` | P0 |
+| unit | regression/meeting-files | `MF-UT-10` | P0 |
 | api | regression/meetings-detail | `MD-API-01` | GET /meetings/:id returns the full meeting for its owner |
 | api | regression/meetings-detail | `MD-API-02` | GET /meetings/:id without a token gives 401 |
 | api | regression/meetings-detail | `MD-API-03` | a non-existent id and another owner's id give byte-identical 404 |
@@ -144,15 +182,7 @@ One row per scenario declared in a Summary table, across every level and module 
 | api | regression/meetings-detail | `MD-API-05` | POST /meetings stores participants verbatim, order preserved |
 | api | regression/meetings-detail | `MD-API-06` | POST /meetings normalizes an absent, empty or null participants to [] |
 | api | regression/meetings-detail | `MD-API-07` | POST /meetings rejects invalid participants shapes with 400, no meeting created |
-| unit | regression/meetings-detail | `MD-UT-01` | P0 |
-| unit | regression/meetings-detail | `MD-UT-02` | P0 |
-| unit | regression/meetings-detail | `MD-UT-03` | P0 |
-| unit | regression/meetings-detail | `MD-UT-04` | P0 |
-| unit | regression/meetings-detail | `MD-UT-05` | P1 |
-| unit | regression/meetings-detail | `MD-UT-06` | P0 |
-| unit | regression/meetings-detail | `MD-UT-07` | P0 |
-| unit | regression/meetings-detail | `MD-UT-08` | P0 |
-| unit | regression/meetings-detail | `MD-UT-09` | P0 |
+| api | regression/meetings-detail | `MD-API-08` | padded and duplicated participants are neither trimmed nor deduplicated |
 | api | security | `SEC-API-01` | every protected endpoint requires a token |
 | api | security | `SEC-API-02` | a forged signature and a junk token give 401, not 500 |
 | api | security | `SEC-API-03` | a token signed with a different secret is rejected |
@@ -163,6 +193,7 @@ One row per scenario declared in a Summary table, across every level and module 
 | api | security | `SEC-API-08` | responses do not disclose the server stack (`X-Powered-By`) |
 | api | security | `SEC-API-09` | one user's data is unreachable with another user's token |
 | api | security | `SEC-API-10` | the repository holds no committed secrets and no `.env` |
+| api | security | `SEC-API-11` | a stored filename cannot break out of a response header |
 | functional | security | `SEC-FN-01` | the session cookie is httpOnly, sameSite=lax, path=/, JS-invisible |
 | functional | security | `SEC-FN-02` | the token never reaches the HTML, the markup or client scripts |
 | functional | security | `SEC-FN-03` | the browser never calls the API directly nor exposes the token |
@@ -170,4 +201,4 @@ One row per scenario declared in a Summary table, across every level and module 
 | functional | security | `SEC-FN-05` | a forged session cookie grants no access |
 | api | smoke | `SM-API-01` | `GET /` answers with a greeting |
 | api | smoke | `SM-API-02` | seeded users are in place |
-| api | smoke | `SM-API-03` | seeded meetings are in place |
+| api | smoke | `SM-API-03` | seeded meetings and their files are in place |

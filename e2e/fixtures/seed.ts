@@ -5,7 +5,7 @@
  *
  * This file deliberately imports nothing from `apps/api`: the suite treats the server as a black
  * box over HTTP, and an import would make the assertion a tautology. Drift against
- * `users.seed.ts`/`meetings.seed.ts` is caught by `e2e/smoke/seed.api.spec.ts`.
+ * `users.seed.ts`/`meetings.seed.ts`/`meeting-files.seed.ts` is caught by `e2e/smoke/seed.api.spec.ts`.
  */
 
 export type SeedUserKey = 'teacher' | 'student' | 'planner' | 'organizer';
@@ -41,12 +41,13 @@ export const SEED_USERS: Record<SeedUserKey, SeedUser> = {
     name: 'Ivan Student',
     meetingsCount: 0,
   },
-  // Mutation sandbox for *.api.spec.ts only.
+  // Mutation sandbox for *.api.spec.ts only. Two meetings: `mtg-planner-1`, the sandbox itself,
+  // and `mtg-planner-2` (`HEADER_SAFETY_MEETING` below), a never-mutated `SEC-API-11` fixture.
   planner: {
     email: 'planner@purpleschool.test',
     password: SEED_PASSWORD,
     name: 'Maria Planner',
-    meetingsCount: 1,
+    meetingsCount: 2,
   },
   // Mutation sandbox for *.functional.spec.ts only.
   organizer: {
@@ -104,6 +105,62 @@ export const TEACHER_MEETINGS = {
  */
 export const PLANNER_MEETING_PARTICIPANTS = ['Ruth Delgado', 'guest.coach@purpleschool.test'];
 export const ORGANIZER_MEETING_PARTICIPANTS = ['Ruth Delgado', 'Omar Vance'];
+
+/**
+ * Mirror of `apps/api/src/meeting-files/meeting-files.seed.ts` — the two files seeded on
+ * `teacher`'s "Geometry workshop" (`mtg-teacher-3`). `teacher` is read-only, so `MF-API-04`
+ * and `MF-API-06` assert against these exact values rather than deriving them.
+ */
+export const GEOMETRY_WORKSHOP_TITLE = 'Geometry workshop';
+
+/** The seeded id of "Geometry workshop" — what `AUDITED_PAGES` needs for a session-gated page that
+ * exists only once a meeting id is known. Exported rather than written as a literal in a spec. */
+export const GEOMETRY_WORKSHOP_MEETING_ID = 'mtg-teacher-3';
+
+/** A seeded `teacher` meeting other than "Geometry workshop" — holds no files (`MF-API-05`). */
+export const EMPTY_FILES_MEETING_TITLE = 'Pre-exam consultation';
+
+export const TEACHER_MEETING_FILES = {
+  meetingTitle: GEOMETRY_WORKSHOP_TITLE,
+  /** `uploadedAt` descending, `id` ascending as the tiebreak (invariant 7): `notes.txt` lists first. */
+  items: [
+    {
+      filename: 'notes.txt',
+      contentType: 'text/plain',
+      sizeBytes: 48,
+      uploadedAt: '2026-01-15T15:31:00.000Z',
+    },
+    {
+      filename: 'syllabus.pdf',
+      contentType: 'application/pdf',
+      sizeBytes: 1024,
+      uploadedAt: '2026-01-15T15:30:00.000Z',
+    },
+  ],
+  /** The first bytes of the seeded `syllabus.pdf`, asserted by `MF-API-06`. */
+  pdfHeader: '%PDF-1.7\n',
+} as const;
+
+/**
+ * Mirror of the five `fil-planner-2-*` rows `apps/api/src/meeting-files/meeting-files.seed.ts`
+ * seeds onto `mtg-planner-2` — `planner`'s second, never-mutated meeting, titled below. Those rows
+ * are written straight through Prisma and bypass the upload controller, so the filenames are
+ * deliberately hostile and stored verbatim, with no sanitisation: a stray quote, a header-injection
+ * attempt, a path traversal attempt and a non-ASCII name. `SEC-API-11` asserts that none of this can
+ * break out of a response header; `SM-API-03` asserts this exact file list. **Mirror every name
+ * byte-for-byte** — tidying one up here would leave `SEC-API-11` green against a fixture with
+ * nothing hostile left in it, which is the exact drift this mirror exists to catch.
+ */
+export const HEADER_SAFETY_MEETING = {
+  title: 'Archive intake session',
+  filenames: [
+    'report".txt',
+    'evidence.log\r\nX-Injected: 1',
+    'minutes.txt\nSet-Cookie: a=b',
+    '../../etc/passwd',
+    'déjà-vu.png',
+  ],
+} as const;
 
 /**
  * Every meeting created by a test is dated 2030. DESC sorting plus the top-three slice mean the

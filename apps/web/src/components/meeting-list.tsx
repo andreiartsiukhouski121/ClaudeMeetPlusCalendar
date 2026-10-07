@@ -1,5 +1,6 @@
 import { Card, Chip } from '@heroui/react';
 import { ClockIcon } from '@phosphor-icons/react/ssr';
+import Link from 'next/link';
 
 import { formatMeetingDateTime } from '@/lib/format-date';
 import type { Meeting } from '@/lib/types';
@@ -18,6 +19,10 @@ import type { Meeting } from '@/lib/types';
  * `ListBox` is React Aria's selection widget and renders `role="listbox"`/`role="option"`, which is
  * a different accessibility contract from the one these cases assert. `Card.Root` expects a `div`,
  * so the `li` stays and the card sits in it — one extra element, and the roles are untouched.
+ *
+ * The title is a `Link` to `/meetings/<id>` (`MF-FN-01`): a restyling, not a renaming — the
+ * accessible name of the row stays the title text (`FACT-3559`), so `HD-FN-04`, `HD-FN-05`,
+ * `HD-FN-14`, `HD-FN-18` and `HD-FN-20` stay green unedited.
  *
  * The duration is a `Chip` rather than text after a separator: it is the one scannable value in the
  * row, and a run of "22 Jan 2026, 16:15 · 60 min" buries it in the timestamp.
@@ -42,7 +47,12 @@ export function MeetingList({ meetings }: { meetings: Meeting[] }) {
               <Card.Root className="rounded-2xl px-4 py-3">
                 <Card.Content className="flex flex-row items-center justify-between gap-4 p-0">
                   <div className="flex min-w-0 flex-col gap-1">
-                    <span className="truncate font-medium">{meeting.title}</span>
+                    <Link
+                      href={`/meetings/${meeting.id}`}
+                      className="hover:text-accent truncate font-medium"
+                    >
+                      {meeting.title}
+                    </Link>
                     <span className="text-muted flex items-center gap-1.5 text-sm">
                       <ClockIcon size={20} weight="regular" aria-hidden="true" />
                       {formatMeetingDateTime(meeting.startsAt)}

@@ -14,6 +14,13 @@
     the next build.
   - Mutating cases run as `organizer`, reserved for this file (`*.api.spec.ts` mutates `planner`).
     Counter assertions are relative, the title is unique and the date is the 2030 constant.
+  - **An assertion's scope matches its subject.** A case about a landmark asserts inside that
+    landmark; a case whose subject is the whole document says so and means it. The failure this rule
+    exists for is **scope wider than subject** — `HD-FN-17` is about the navigation rail and counted
+    links over the entire page — and it is not ignorance of scoping: `HD-FN-19` unioned four
+    landmarks for its button count and stayed page-wide for its link count **in the same case**. It
+    was inconsistency, not a missing idea. Each meeting title is now a link to its detail page, so
+    any page-wide count of what one landmark contains is either already false or waiting to be.
 
 18 cases. Numbers `12`, `13`, `15` are **never reused**.
 
@@ -68,7 +75,9 @@
 
 - **Priority:** P0
 - **Steps:** open `/`.
-- **Expected:** the list is visible and holds exactly three list items.
+- **Expected:** the list is visible and holds exactly three list items. The locator is unscoped and
+  stays correct only because `HD-FN-18` pins `/` to exactly one element with role `list`; a second
+  list anywhere on the dashboard makes this case ambiguous rather than red.
 
 ### HD-FN-05 — ordering and cutting of older meetings
 
@@ -114,7 +123,9 @@
 
 - **Priority:** P1
 - **Steps:** subscribe to console and page errors **before** navigating, then open `/`.
-- **Expected:** the problem list is empty.
+- **Expected:** the problem list is empty. The blanket form is assertable here because `/` answers
+  2xx; on a page whose own response is a 404, Chromium logs a resource error of its own and the
+  assertion has to narrow to page errors instead (`MF-FN-11`).
 
 ### HD-FN-11 — the browser never calls the API directly
 
@@ -144,9 +155,14 @@
 - **Steps:** open `/` as `teacher` and query the navigation landmark.
 - **Expected:** a `navigation` landmark named `Main` is visible — the `web` project runs Desktop
   Chrome at 1280×720, above `lg`, so the rail is rendered on every run; it shows the text
-  `PurpleSchool`, which is not a control, and holds exactly one link, named `Dashboard`, pointing
-  at `/` and carrying `aria-current="page"`. That link is the only one on the page, so an invented
-  second destination fails here.
+  `PurpleSchool`, which is not a control, and holds **exactly one link**, named `Dashboard`,
+  pointing at `/` and carrying `aria-current="page"`. **The count is scoped to that landmark**, so
+  an invented second destination in the rail fails here.
+- **Why it is not "the only link on the page" any more:** it used to be, and that was a coincidence
+  of a smaller page rather than a stronger assertion — `nav` was simply the one landmark that
+  contained a link. Each meeting title in the list is now a link to its detail page, so the
+  page-wide form is false and restoring it breaks the dashboard instead of protecting it. The case
+  was always a statement about the rail; it now says so.
 
 ### HD-FN-18 — the rail adds no second list and no second counter
 
@@ -158,22 +174,33 @@
   `/^Meetings total: \d+$/`. A rail or tile built from `ul`/`li`, or a second text in the counter's
   format, makes the unscoped list and counter locators of `HD-FN-04`, `HD-FN-05`, `HD-FN-07`,
   `HD-FN-09` and `HD-FN-14` ambiguous — a defect to investigate under `FACT-3559`, not a case to
-  edit.
+  edit. This one is **deliberately page-wide**: its subject _is_ what else the document contains,
+  so here scope and subject agree, which is why it survived the list rows becoming links while the
+  counts phrased as shortcuts did not.
 
 ### HD-FN-19 — the hero banner's two lines, and no new control
 
 - **Priority:** P1
 - **Steps:** open `/` as `teacher`.
 - **Expected:** the text `Your schedule` is visible and `Everything you have planned, in one place.`
-  is visible as a **level 2** heading, so the page still has exactly one level 1 heading; the page's
-  only link is `Dashboard` and its only buttons are `Create meeting` and `Sign out`. A banner call
-  to action would be a second primary action and would surface here as an extra button or link. The
-  button count is taken over the union of the page's own landmarks — `navigation`, `banner`, `main`
-  and `complementary` — rather than over the whole document, because `next dev` is Playwright's
-  `webServer` and injects an `Open Next.js Dev Tools` control outside the application's markup on
-  every page. That scoping leaves a hole: a button added outside all four landmarks — in the outer
-  shell `div`, or beside `<header>` — goes uncounted, and `banner` resolves only while `<header>`
-  stays out of sectioning content.
+  is visible as a **level 2** heading, so the page still has exactly one level 1 heading; and the
+  `banner` landmark holds **zero links and zero buttons**.
+- **Zero is the assertion, and it is not vacuous.** A hero call to action is the only defect this
+  half exists to catch, and it would make the count one. Two translations of the old wording would
+  both be wrong, and both are available to anyone rewriting this: scoping "the page's only link is
+  `Dashboard`" **into `banner`** checks for a link that has never been there and proves nothing,
+  because `Dashboard` lives in `nav`; and scoping it **to `nav`** instead makes this case
+  `HD-FN-17` verbatim and leaves it saying nothing about the hero at all. The hero's claim is that
+  it contains no control — not that some other landmark contains one.
+- **The button half stays page-wide, and deliberately:** the page's only buttons are
+  `Create meeting` and `Sign out`, counted over the union of the page's own landmarks —
+  `navigation`, `banner`, `main` and `complementary` — rather than over the whole document, because
+  `next dev` is Playwright's `webServer` and injects an `Open Next.js Dev Tools` control outside the
+  application's markup on every page. Its subject is the page's whole interactive surface, so the
+  scope is right; it is also the only assertion in the suite that would notice an unexpected button
+  arriving anywhere on the dashboard. That scoping leaves a hole: a button added outside all four
+  landmarks — in the outer shell `div`, or beside `<header>` — goes uncounted, and `banner` resolves
+  only while `<header>` stays out of sectioning content.
 
 ### HD-FN-20 — the overview tile counts items against total
 

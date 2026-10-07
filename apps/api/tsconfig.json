@@ -2,8 +2,8 @@
   "extends": "@purpleschool/tsconfig/nestjs.json",
   "compilerOptions": {
     "outDir": "./dist",
-    "types": ["vitest/globals", "node"]
+    "types": ["vitest/globals", "node", "multer"]
   },
-  "include": ["src/**/*", "test/**/*", "*.ts"],
+  "include": ["src/**/*", "test/**/*", "prisma/**/*", "*.ts"],
   "exclude": ["node_modules", "dist"]
 }

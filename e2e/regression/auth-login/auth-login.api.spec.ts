@@ -234,4 +234,39 @@ test.describe('Login: API contract', { tag: ['@regression', '@auth-login'] }, ()
 
     expect(body).toEqual({ message: UNAUTHORIZED, error: 'Unauthorized', statusCode: 401 });
   });
+
+  test('AL-API-20 — an unseeded email never authenticates, even with a valid password', async ({
+    request,
+  }) => {
+    const [localPart, domain] = TEACHER.email.split('@');
+
+    // One plainly foreign address, plus two near misses of a seeded one: the lookup this case
+    // guards against is a `where` that resolves by a partial match rather than an equality — a
+    // `contains`, a prefix, or a fallback to the first row. The password is the seeded one
+    // (every seeded user shares it), so a lookup that resolves anybody at all would succeed.
+    const candidates = [
+      'nobody-at-all@unrelated.test',
+      `${localPart}@another-domain.test`,
+      `${localPart}1@${domain}`,
+    ];
+
+    for (const email of candidates) {
+      const response = await request.post('/auth/login', {
+        data: { email, password: TEACHER.password },
+      });
+
+      expect(response.status(), email).toBe(401);
+
+      const text = await response.text();
+      expect(text, email).not.toContain('accessToken');
+      expect(text, email).not.toContain('"user"');
+
+      const body = (await response.json()) as ErrorBody & LoginBody;
+      expect(body, email).toEqual({
+        message: INVALID_CREDENTIALS,
+        error: 'Unauthorized',
+        statusCode: 401,
+      });
+    }
+  });
 });

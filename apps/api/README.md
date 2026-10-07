@@ -4,9 +4,11 @@ Nest.js 12, pure ESM (`"type": "module"`, imports carry the `.js` extension). Th
 `PORT`, defaulting to 3001. Playwright starts its own instance on 3101.
 
 ```bash
-pnpm dev:api                              # from the root, watch mode
-pnpm --filter @purpleschool/api test      # units
+pnpm dev:api                              # from the root, watch mode (starts the container first)
+pnpm --filter @purpleschool/api test      # units — no database needed
 pnpm --filter @purpleschool/api test:e2e  # supertest: AppModule boots in a test module
+pnpm --filter @purpleschool/api db:up     # the Postgres container alone
+pnpm --filter @purpleschool/api db:reset  # drop + db push + seed; refuses without DATABASE_URL
 ```
 
 ## Endpoints
@@ -23,27 +25,37 @@ Three things that are easy to break unnoticed:
   limit.
 - **`ownerId` comes from the token, never from the request body.** `CreateMeetingDto` has no owner
   field, and `forbidNonWhitelisted` rejects any attempt to send one.
+- **The file download builds its `Content-Disposition` header, never interpolates it.** The
+  `filename` column has more than one writer, so the read path validates its own output
+  (`ADR-0029`, `SEC-API-11`).
 
 ## Storage and the seed
 
-There is no database — the repositories are in-memory and the seed is applied when the services
-initialize. The consequence: `nest start --watch` restarts on every edit and wipes whatever the
-tests created, so no test may depend on data created by another.
+PostgreSQL through Prisma, run by the repository's `docker-compose.yml` (`ADR-0027`). Two databases
+live on that one server: `purpleschool` for `pnpm dev` and `purpleschool_e2e` for the suite, so a
+development session and a Playwright run never share rows. The suite's database is dropped,
+re-pushed and re-seeded once per run by `start:e2e`, before Nest starts — so no test may depend on
+data created by another, and each mutating spec file has its own owner.
 
-User passwords sit in `users.seed.ts` as plaintext and are hashed with `scrypt` at startup — a
-deliberate concession of a demo without a database: the store itself holds no plaintext. In a real
-project the seed file would be replaced by a migration with pre-computed hashes.
+The seed is **not** applied at startup: no service constructor and no lifecycle hook touches the
+database. `pnpm db:seed` runs the standalone `prisma/seed.ts`, which applies the rows declared in
+`src/users/users.seed.ts`, `src/meetings/meetings.seed.ts` and
+`src/meeting-files/meeting-files.seed.ts`.
 
-| User                          | Password    | Meetings | Role in the tests                                  |
-| ----------------------------- | ----------- | -------- | -------------------------------------------------- |
-| `teacher@purpleschool.test`   | `Passw0rd!` | 5        | read-only; exact numbers and the "last 3" ordering |
-| `student@purpleschool.test`   | `Passw0rd!` | 0        | read-only; the "no meetings" edge case             |
-| `planner@purpleschool.test`   | `Passw0rd!` | 1        | mutation sandbox for the API tests                 |
-| `organizer@purpleschool.test` | `Passw0rd!` | 1        | mutation sandbox for the functional tests          |
+User passwords sit in `users.seed.ts` as plaintext and the seed script hashes them with `scrypt`
+before the row is written, so the database never holds a plaintext password. In a real project the
+seed file would be replaced by a migration with pre-computed hashes (`BL-004`).
+
+| User                          | Password    | Meetings | Files | Role in the tests                                                                     |
+| ----------------------------- | ----------- | -------- | ----- | ------------------------------------------------------------------------------------- |
+| `teacher@purpleschool.test`   | `Passw0rd!` | 5        | 2     | read-only; exact numbers and the "last 3" ordering                                    |
+| `student@purpleschool.test`   | `Passw0rd!` | 0        | 0     | read-only; the "no meetings" edge case                                                |
+| `planner@purpleschool.test`   | `Passw0rd!` | 2        | 5     | mutation sandbox for the API tests, plus `SEC-API-11`'s never-mutated fixture meeting |
+| `organizer@purpleschool.test` | `Passw0rd!` | 1        | 0     | mutation sandbox for the functional tests                                             |
 
 `teacher` and `student` **must never be mutated**: absolute assertions depend on them. Separate
 owners for the API and UI tests are needed because Playwright runs the projects in parallel against
-a shared store.
+one database.
 
 The test-side mirror of the seed is `e2e/fixtures/seed.ts`; drift is caught by
 `e2e/smoke/seed.api.spec.ts`.
@@ -53,11 +65,12 @@ The test-side mirror of the seed is `e2e/fixtures/seed.ts`; drift is caught by
 `.env` is **not read** — neither dotenv nor `@nestjs/config` is wired in. Variables come from the
 process environment; `.env.example` documents the contract.
 
-| Variable         | Default                   | Note                                         |
-| ---------------- | ------------------------- | -------------------------------------------- |
-| `PORT`           | `3001`                    | Playwright passes `3101`                     |
-| `JWT_SECRET`     | `purpleschool-dev-secret` | a `Logger.warn` is emitted when it is absent |
-| `JWT_EXPIRES_IN` | `1h`                      | must match the cookie lifetime in `apps/web` |
+| Variable         | Default                   | Note                                              |
+| ---------------- | ------------------------- | ------------------------------------------------- |
+| `PORT`           | `3001`                    | Playwright passes `3101`                          |
+| `JWT_SECRET`     | `purpleschool-dev-secret` | a `Logger.warn` is emitted when it is absent      |
+| `JWT_EXPIRES_IN` | `1h`                      | must match the cookie lifetime in `apps/web`      |
+| `DATABASE_URL`   | the compose dev URL       | same shape; Playwright passes the `_e2e` database |
 
 The secret is a stable constant rather than a random string at startup: with `--watch`, a random
 secret would invalidate issued tokens on every edit.

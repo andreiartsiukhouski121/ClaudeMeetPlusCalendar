@@ -27,6 +27,20 @@ export interface MeetingsPage {
   total: number;
 }
 
+/** A meeting's attachment, as `GET /meetings/:id/files` and the upload response hand it back. */
+export interface MeetingFile {
+  id: string;
+  filename: string;
+  contentType: string;
+  sizeBytes: number;
+  /** ISO 8601 UTC — exactly what Nest sent, with no local conversion. */
+  uploadedAt: string;
+}
+
+export interface MeetingFilesPage {
+  items: MeetingFile[];
+}
+
 /**
  * Login form state for `useActionState`. The `email` comes back with the error so the user does
  * not have to retype it after a failed attempt.
@@ -37,6 +51,11 @@ export interface LoginFormState {
 }
 
 export interface CreateMeetingFormState {
+  error?: string;
+}
+
+/** Upload form state for `useActionState` — one `role="alert"` paragraph on failure. */
+export interface UploadFileFormState {
   error?: string;
 }
 

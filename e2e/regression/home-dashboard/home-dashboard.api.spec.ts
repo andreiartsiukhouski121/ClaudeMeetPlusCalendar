@@ -424,5 +424,76 @@ test.describe(
         expect(Object.keys(body).sort()).toEqual(MEETING_KEYS);
       },
     );
+
+    test(
+      'HD-API-21 — the created id is a randomUUID, not a seeded `mtg-` id',
+      { tag: ['@p0', '@mutating'] },
+      async ({ request }) => {
+        const headers = await authHeadersFor(request, 'planner');
+        const title = uniqueTitle('E2E uuid shape');
+
+        const created = await request.post('/meetings', {
+          headers,
+          data: { title, startsAt: FUTURE_STARTS_AT_ISO },
+        });
+
+        expect(created.status()).toBe(201);
+
+        const createdBody = (await created.json()) as MeetingItem;
+
+        // `FACT-2060` promises `randomUUID()`: the id shape, not merely "has an id".
+        expect(createdBody.id).toMatch(
+          /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
+        );
+        // And not the seeded `mtg-<owner>-<n>` shape.
+        expect(createdBody.id).not.toMatch(/^mtg-/);
+
+        // The follow-up GET proves the id was stored, not only echoed back on the POST response.
+        const byId = await request.get(`/meetings/${createdBody.id}`, { headers });
+        expect(byId.status()).toBe(200);
+
+        const byIdBody = (await byId.json()) as MeetingItem;
+        expect(byIdBody.id).toBe(createdBody.id);
+        expect(byIdBody.title).toBe(title);
+      },
+    );
+
+    test(
+      'HD-API-22 — equal startsAt still orders by id ascending',
+      { tag: '@mutating' },
+      async ({ request }) => {
+        const headers = await authHeadersFor(request, 'planner');
+        const createdIds: string[] = [];
+
+        // Three, not two: detection rests on three random UUIDs arriving out of ascending order,
+        // five chances in six against one in two for just two ids.
+        for (let index = 0; index < 3; index += 1) {
+          const title = uniqueTitle(`E2E equal startsAt ${String(index)}`);
+          const created = await request.post('/meetings', {
+            headers,
+            data: { title, startsAt: FUTURE_STARTS_AT_ISO },
+          });
+
+          expect(created.status()).toBe(201);
+
+          const createdBody = (await created.json()) as MeetingItem;
+          createdIds.push(createdBody.id);
+        }
+
+        // One read, at the contract's ceiling. A second read adds no detection power: an in-memory
+        // sort can depend on insertion order, but a database returns the same wrong order as often
+        // as it is asked.
+        const after = await readPage(request, headers, '?limit=100');
+
+        // The filter is what makes this race-safe: other mutating cases create `planner` meetings
+        // at this same `FUTURE_STARTS_AT_ISO`, and this assertion must not care how they interleave
+        // with the three created here.
+        const orderedCreatedIds = (after.items ?? [])
+          .map((item) => item.id)
+          .filter((id) => createdIds.includes(id));
+
+        expect(orderedCreatedIds).toEqual([...createdIds].sort());
+      },
+    );
   },
 );

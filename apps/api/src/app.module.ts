@@ -4,10 +4,12 @@ import { APP_PIPE } from '@nestjs/core';
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
 import { AuthModule } from './auth/auth.module.js';
+import { MeetingFilesModule } from './meeting-files/meeting-files.module.js';
 import { MeetingsModule } from './meetings/meetings.module.js';
+import { PrismaModule } from './prisma/prisma.module.js';
 
 @Module({
-  imports: [AuthModule, MeetingsModule],
+  imports: [PrismaModule, AuthModule, MeetingsModule, MeetingFilesModule],
   controllers: [AppController],
   providers: [
     AppService,

@@ -1,0 +1,52 @@
+// Prisma 7 rejects a `url` inside this `datasource` block (P1012); the connection string is
+// supplied by `prisma.config.ts` instead, and the running client gets it through a
+// `@prisma/adapter-pg` driver adapter. See ADR-0027 and ADR-0028.
+//
+// The legacy `prisma-client-js` generator is deliberate, not the modern `prisma-client`: the
+// modern one emits `.ts` import specifiers that fail this repository's `TS5097` check. See
+// ADR-0028.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id           String @id
+  email        String @unique
+  name         String
+  passwordHash String
+
+  meetings Meeting[]
+}
+
+model Meeting {
+  id              String   @id
+  ownerId         String
+  title           String
+  startsAt        String
+  durationMinutes Int
+  participants    String[]
+
+  owner User          @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  files MeetingFile[]
+
+  @@index([ownerId, startsAt])
+}
+
+model MeetingFile {
+  id          String @id
+  meetingId   String
+  filename    String
+  contentType String
+  sizeBytes   Int
+  content     Bytes
+  uploadedAt  String
+
+  meeting Meeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+
+  @@index([meetingId])
+}

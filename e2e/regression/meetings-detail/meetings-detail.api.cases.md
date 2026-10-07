@@ -17,7 +17,11 @@ api.spec.ts` also mutates `planner`, and a `total`-based check here would race i
     id is derived from a real one (`${realId}-does-not-exist`), never invented from scratch.
   - `GET /meetings/:id` has no `400`: this file adds none.
 
-7 cases.
+8 cases. **There is no `meetings-detail.unit.cases.md`:** `MD-UT-01`…`04` were already covered over
+HTTP by the cases below, `MD-UT-06`…`09` are **withdrawn** — they guarded the in-memory store's
+copy semantics, which cease to exist when every query builds a fresh object (`ADR-0027`) — and
+`MD-UT-05` is relocated here as `MD-API-08`, landed before the store moved so that it guards the
+migration rather than confirming it.
 
 ## Summary
 
@@ -30,6 +34,7 @@ api.spec.ts` also mutates `planner`, and a `total`-based check here would race i
 | MD-API-05 | POST /meetings stores participants verbatim, order preserved                    | P1       | `@regression @meetings-detail @mutating` |
 | MD-API-06 | POST /meetings normalizes an absent, empty or null participants to []           | P1       | `@regression @meetings-detail @mutating` |
 | MD-API-07 | POST /meetings rejects invalid participants shapes with 400, no meeting created | P1       | `@regression @meetings-detail @mutating` |
+| MD-API-08 | padded and duplicated participants are neither trimmed nor deduplicated         | P1       | `@regression @meetings-detail @mutating` |
 
 ## Cases
 
@@ -102,3 +107,17 @@ api.spec.ts` also mutates `planner`, and a `total`-based check here would race i
   or order — a string instead of an array and an array of numbers each produce **two** messages,
   the other two produce one. Afterwards, `GET /meetings` as `planner` contains none of the four
   unique titles: no meeting was created by any of the four rejected requests.
+
+### MD-API-08 — padded and duplicated participants are neither trimmed nor deduplicated
+
+- **Priority:** P1
+- **Steps:** as `planner`, `POST /meetings` with a unique title, the 2030 date and exactly
+  `participants: ['  Nina Cole ', 'Nina Cole', 'Nina Cole', 'guest@purpleschool.test']` — the
+  payload of the retired `MD-UT-05`, carried over verbatim. Read the created `id`, then
+  `GET /meetings/{id}`.
+- **Expected:** both the `POST` response and the follow-up `GET` return that array **exactly** as
+  sent: four entries, the padded one with its leading and trailing spaces intact, the repeated one
+  present three times, order preserved. This is the only case that proves `FACT-1024` — participants
+  are never trimmed and never deduplicated. `MD-API-05` sends two distinct clean strings and
+  proves nothing about it, and the payload matters more once `participants` is a `text[]` column
+  rather than a JS array.

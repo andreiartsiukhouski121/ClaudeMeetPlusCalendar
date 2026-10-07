@@ -21,10 +21,13 @@ the contract document fails `AR-API-05`; a guarded one missing from `PROTECTED_R
 | `src/main.ts`          | bootstrap; `x-powered-by` off, no CORS and no prefix — see the file head    |
 | `src/app.module.ts`    | module wiring and **`ValidationPipe` as an `APP_PIPE` provider**            |
 | `src/auth/`            | controller, `AuthService`, `TokenService`, `JwtAuthGuard`, `@CurrentUser()` |
-| `src/meetings/`        | controller, the in-memory service, DTOs, mapper, seed                       |
-| `src/users/`           | user service and seed (plaintext passwords → `scrypt` at startup)           |
+| `src/meetings/`        | controller, service over Prisma, DTOs, mapper, seed rows                    |
+| `src/users/`           | user service and seed rows (plaintext → `scrypt` **in the seed script**)    |
+| `src/meeting-files/`   | controller, service, mapper, pure rules, DTO, seed rows for attachments     |
+| `src/prisma/`          | `PrismaModule` + `PrismaService` on a `@prisma/adapter-pg` driver adapter   |
+| `prisma/`              | `schema.prisma` and the standalone `seed.ts` that `db:seed` runs            |
 | `src/common/crypto/`   | `scrypt` hashing and constant-time comparison                               |
-| `src/config/`          | reads `JWT_SECRET` / `JWT_EXPIRES_IN` from the environment                  |
+| `src/config/`          | reads `JWT_SECRET` / `JWT_EXPIRES_IN` / `DATABASE_URL` from the environment |
 | `test/app.e2e-spec.ts` | supertest, for exactly one thing: `AppModule` boots in a test module        |
 
 ## How this package differs from ordinary Nest
@@ -32,11 +35,21 @@ the contract document fails `AR-API-05`; a guarded one missing from `PROTECTED_R
 - **Pure ESM.** `"type": "module"`, so every relative import carries a `.js` extension —
   `import { AppService } from './app.service.js'` — even though the file next to it is `.ts`. An
   import without the extension type-checks and fails at runtime.
-- **No database, in-memory repositories.** `nest start --watch` restarts on every edit and wipes
-  anything the tests created. Hence the suite rule: no test relies on data created by another, and
-  each mutating spec file has its own owner.
-- **`.env` is not read** — neither `dotenv` nor `@nestjs/config` is wired in. Variables come from
-  the process environment, and `.env.example` documents the contract.
+- **PostgreSQL through Prisma, in a container** (`ADR-0027`). `docker compose up -d --wait` is the
+  first step of `dev`, and `start:e2e` runs `db:reset` — drop, `db push`, seed — before Nest starts,
+  so every Playwright run gets a known database. Rows now outlive the process, so the suite rule has
+  a different reason but the same shape: no test relies on data created by another, and each
+  mutating spec file has its own owner.
+- **`prisma generate` must run before lint, typecheck, build or start** (`ADR-0028`). The client's
+  types do not exist until it does; it is a prefix on those seven scripts rather than an install
+  hook, so it depends on no package manager's lifecycle policy. The client is **never connected
+  eagerly** — no `$connect()`, no `OnModuleInit` — so `pnpm lint`, `pnpm typecheck` and `pnpm test`
+  all work with the container stopped.
+- **`.env` is not read** — neither `dotenv` nor `@nestjs/config` is wired in, and that is now
+  load-bearing rather than incidental: `src/config/database.config.ts` reads `DATABASE_URL` from the
+  process environment and falls back to the compose service's development URL with a `Logger.warn`,
+  exactly as `auth.config.ts` does for `JWT_SECRET`. A committed `.env` fails `SEC-API-10`, and
+  `.env.example` documents the contract.
 - **The JWT secret has a stable constant default** rather than a random string at startup: with
   `--watch`, a random secret would invalidate issued tokens on every edit.
 
@@ -52,9 +65,11 @@ the contract document fails `AR-API-05`; a guarded one missing from `PROTECTED_R
 ## Commands
 
 ```bash
-pnpm dev:api                              # from the root, watch mode on 3001
-pnpm --filter @purpleschool/api test      # this package's units
+pnpm dev:api                              # from the root, watch mode on 3001 (starts the container)
+pnpm --filter @purpleschool/api test      # this package's units — no database needed
 pnpm --filter @purpleschool/api test:e2e  # the supertest module-boot check
+pnpm --filter @purpleschool/api db:up     # the Postgres container alone
+pnpm --filter @purpleschool/api db:reset  # drop + db push + seed; refuses without DATABASE_URL
 ```
 
 The units usually need no manual run: they are part of `pnpm verify` and of the `pre-commit` hook —

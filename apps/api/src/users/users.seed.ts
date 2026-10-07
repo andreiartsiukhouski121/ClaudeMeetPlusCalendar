@@ -2,10 +2,11 @@
  * User seed. `e2e/fixtures/seed.ts` mirrors these values for the tests; any drift is caught by
  * SM-API-02.
  *
- * Plaintext passwords live here and are hashed with `scrypt` when `UsersService` initializes.
- * Hard-coded hash literals would be unreproducible, impossible to change without rewriting by
- * hand, and a change of scrypt parameters would break login silently. A deliberate concession of
- * a demo without a database.
+ * Plaintext passwords live here. `apps/api/prisma/seed.ts` hashes each one with `scrypt` once, at
+ * seed time, before the row ever reaches the database (ADR-0027); `UsersService` independently
+ * hashes the same plaintexts again in its own constructor, for its in-memory copy, until it moves
+ * onto Prisma. Hard-coded hash literals would be unreproducible, impossible to change without
+ * rewriting by hand, and a change of scrypt parameters would break login silently.
  */
 
 export interface SeedUser {

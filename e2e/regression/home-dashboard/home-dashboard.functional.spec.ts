@@ -248,8 +248,10 @@ test.describe('Dashboard: UI', { tag: ['@regression', '@home-dashboard'] }, () =
     await expect(nav).toBeVisible();
     await expect(nav.getByText('PurpleSchool')).toBeVisible();
 
-    // That link is the only one on the page — an invented second destination fails here.
-    await expect(authedPage.getByRole('link')).toHaveCount(1);
+    // That link is the only one in the rail — an invented second destination fails here. Scoped
+    // to `nav` rather than taken page-wide: since `MF-FN-01` the dashboard's own meeting rows are
+    // links too (`FACT-3559`), so a page-wide count is no longer 1 on an unmodified, working page.
+    await expect(nav.getByRole('link')).toHaveCount(1);
 
     const dashboardLink = authedPage.getByRole('link', { name: 'Dashboard' });
     await expect(dashboardLink).toBeVisible();
@@ -288,18 +290,23 @@ test.describe('Dashboard: UI', { tag: ['@regression', '@home-dashboard'] }, () =
     // Still exactly one level 1 heading on the page.
     await expect(authedPage.getByRole('heading', { level: 1 })).toHaveCount(1);
 
-    // The page's only link is Dashboard, and its only buttons are Create meeting and Sign out — a
-    // banner call to action would surface here as an extra button or link. The button count is
-    // scoped to the page's own landmarks rather than taken unscoped over the document: `next dev`
-    // (`playwright.config.ts`'s `webServer`) injects its own dev-mode indicator button ("Open
-    // Next.js Dev Tools") outside the application's rendered tree on every page of every Next 16
-    // app — framework chrome, absent from `grep -r` over this repository, and never present in a
-    // production build.
-    await expect(authedPage.getByRole('link')).toHaveCount(1);
-    await expect(authedPage.getByRole('link', { name: 'Dashboard' })).toBeVisible();
-
-    const nav = authedPage.getByRole('navigation', { name: 'Main' });
+    // The hero banner holds two lines of text and nothing to click: zero is the claim, falsifiable
+    // by exactly the defect this case names (a banner call-to-action). Page-wide was vacuous-proof
+    // against nothing once the dashboard rows became links (`Received: 4`, `MF-FN-01`); `banner`
+    // scoped to `toHaveCount(1)` was vacuous the other way — `banner` has never held a link, so it
+    // passes by finding none; `nav` is `HD-FN-17` verbatim and asserts nothing about the hero. Zero
+    // links inside `banner` is the only translation that is both non-vacuous and about the hero.
     const banner = authedPage.getByRole('banner');
+    await expect(banner.getByRole('link')).toHaveCount(0);
+
+    // The button count stays page-wide over the four-landmark union, deliberately: it is the one
+    // assertion in the suite that notices an unexpected button appearing ANYWHERE on the
+    // dashboard, and `next dev` (`playwright.config.ts`'s `webServer`) injects its own dev-mode
+    // indicator button ("Open Next.js Dev Tools") outside the application's rendered tree on every
+    // page of every Next 16 app — framework chrome, absent from `grep -r` over this repository,
+    // and never present in a production build — which is why the count is scoped to these four
+    // landmarks rather than to the whole page.
+    const nav = authedPage.getByRole('navigation', { name: 'Main' });
     const main = authedPage.getByRole('main');
     const aside = authedPage.getByRole('complementary', { name: 'Overview' });
     const pageButtons = nav

@@ -3,7 +3,8 @@ import { randomBytes } from 'node:crypto';
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 
 import { hashPassword } from '../common/crypto/password.js';
-import { normalizeEmail, UsersService } from '../users/users.service.js';
+import { normalizeEmail } from '../users/normalize-email.js';
+import { UsersService } from '../users/users.service.js';
 import { toPublicUser } from '../users/users.mapper.js';
 import type { LoginResult } from './auth.types.js';
 import type { LoginDto } from './dto/login.dto.js';
@@ -35,7 +36,7 @@ export class AuthService {
   ) {}
 
   async login(dto: LoginDto): Promise<LoginResult> {
-    const user = this.usersService.findByEmail(normalizeEmail(dto.email));
+    const user = await this.usersService.findByEmail(normalizeEmail(dto.email));
 
     /*
      * Invariant 18: the password is always verified, even when the user does not exist. Otherwise

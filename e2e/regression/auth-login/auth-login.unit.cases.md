@@ -13,6 +13,39 @@
 fix task after accepting feature 1 (password trimming), not by the original plan; `31` came from
 the timing fix. Numbers `12`, `16` and `18` are **never reused**.
 
+**`AL-UT-17` and `AL-UT-19` were re-pointed when the store moved, and one assertion did not
+survive.** They used to build `UsersService` over an in-memory map. From `ADR-0027` the service
+reads through Prisma, so there is no in-process store to build it around and no way to run it in
+Vitest without a database; a Prisma mock was weighed and **rejected**, because the assertions would
+become "the service called `findUnique` with this `where`" — the restatement-of-the-implementation
+shape the backlog already rejects for `dal.ts` and for jsdom component tests. Both cases now
+exercise the pure functions the service delegates to, which is where the rules they guard actually
+live.
+
+**Where the dropped half went** — named rather than quietly deleted, because coverage described as
+relocated when it has in fact vanished is the failure this document exists to prevent. The old
+`AL-UT-17` also asserted that `findByEmail` returns `undefined` for an unknown email. That hole was
+opened by this change, so it was closed in the same one: `AL-API-20` was written for it, and sends
+a **valid seeded password** with addresses belonging to nobody — including two near misses of a
+seeded address, since a partial match is the likely shape of the fault. A lookup that resolved an
+address it should not would then sign in and fail the case. `AL-API-03` alone could not do that: it
+sends an unknown email with a junk password, so a wrongly resolved user still fails the hash check
+and still answers 401, for the wrong reason.
+
+The sibling fault — a lookup returning the **wrong** user for a **known** address — is caught by
+`AL-API-13` and `AL-API-10`, which read the profile back and compare its email against the seed. It
+is **not** caught by the password check: the seed shares one password across all four users, so
+another user's hash verifies happily and the login succeeds; the email in the profile is the only
+thing that disagrees.
+
+**What is asserted nowhere is still the lookup's return value itself.** Every net above is
+behavioural, and each works only because the credentials are arranged to make a wrong answer
+visible — a valid password in `AL-API-20`, a profile read-back in `AL-API-13` and `AL-API-10`. A
+fault that returned the right user with a wrong non-email field would pass all of them. That is
+thinner than the gap this paragraph described before `AL-API-20` existed, and it is deliberately
+written as the thinner thing: a case document that overstates its own coverage is worse than one
+that admits a hole. `SEC-API-05` keeps the timing branch honest independently of all of this.
+
 ## Summary
 
 | ID       | Priority | What it checks                                               | Where automated     |
@@ -32,8 +65,8 @@ the timing fix. Numbers `12`, `16` and `18` are **never reused**.
 | AL-UT-13 | P0       | round trip `verify(sign(payload))`                           | `TokenService`      |
 | AL-UT-14 | P0       | a tampered signature is rejected                             | `TokenService`      |
 | AL-UT-15 | P1       | an expired token is rejected                                 | `TokenService`      |
-| AL-UT-17 | P0       | `findByEmail` ignores case and edge whitespace               | `UsersService`      |
-| AL-UT-19 | P0       | the public mapping carries no `passwordHash`                 | `UsersService`      |
+| AL-UT-17 | P0       | the lookup key ignores case and edge whitespace              | `normalize-email`   |
+| AL-UT-19 | P0       | the public mapping carries no `passwordHash`                 | `users.mapper`      |
 | AL-UT-20 | P0       | session cookie options in development                        | `session-cookie`    |
 | AL-UT-21 | P0       | `secure: true` in production                                 | `session-cookie`    |
 | AL-UT-22 | P1       | the cookie lifetime matches `JWT_EXPIRES_IN`                 | `session-cookie`    |
@@ -78,7 +111,9 @@ process variable shared by every test in the file.
 ## `apps/api/src/auth/auth.service.spec.ts`
 
 Dependencies are passed as mocks through the constructor, without `Test.createTestingModule`: a
-unit needs mocks, not a container.
+unit needs mocks, not a container. That is also why this file was untouched by the storage move —
+the `UsersService` it injects has always been a cast fake, so whether the real one holds a map or a
+Prisma client is invisible here.
 
 - `AL-UT-01` P0 — `login` with a valid email and password returns `{ accessToken, user }` where
   `user` has no `passwordHash` (and the serialized response has no `scrypt`).
@@ -95,7 +130,8 @@ unit needs mocks, not a container.
   has no spec of its own.
 - `AL-UT-07` P1 — the token payload holds exactly `sub` and `email` and no password hash.
 - `AL-UT-08` P2 — a storage failure propagates as is rather than becoming a 401: otherwise an
-  outage looks like a wrong password.
+  outage looks like a wrong password. The failing lookup is a rejected promise from the mock, which
+  is now also what a database being down looks like.
 - `AL-UT-31` P0 — an unknown email still runs a password verification against a real-format dummy
   hash, so the response time stays flat (invariant 18).
 
@@ -123,10 +159,22 @@ configuration.
 
 ## `apps/api/src/users/users.service.spec.ts`
 
-- `AL-UT-17` P0 — `findByEmail` ignores case and edge whitespace; an unknown email gives
-  `undefined`, and a found user carries the canonical seeded email.
-- `AL-UT-19` P0 — the public mapping (`toPublic`) holds exactly `id`, `email`, `name` and no
-  `passwordHash`.
+**The filename is historical: this spec no longer builds `UsersService`.** It tests the two pure
+modules the service delegates to, neither of which touches Prisma, a seed or the network — which is
+what keeps both cases inside the pre-commit floor. The file keeps its name because a unit spec is
+paired to this document by path, and renaming it is a change to the suite's wiring rather than to
+its coverage. The assertion that went with the store, and where that behaviour is now checked, are
+in the header above.
+
+- `AL-UT-17` P0 — `normalizeEmail` (`apps/api/src/users/normalize-email.ts`) returns the canonical
+  email: unchanged for an already-canonical address, lower-cased for an upper-case one, trimmed for
+  a padded one, and both at once for a padded upper-case one — mixed, not one variation at a time.
+  This is the key `findByEmail` looks up by, so case and edge whitespace cannot make a user
+  unreachable.
+- `AL-UT-19` P0 — `toPublicUser` (`apps/api/src/users/users.mapper.ts`) on a **hand-built** `User`
+  returns exactly `email`, `id` and `name`, has no `passwordHash` property, and its serialized form
+  contains no `scrypt`. Hand-built rather than fetched: the rule is about the mapper's output shape,
+  and reading a real row would make the case depend on a database for nothing.
 
 ## `apps/api/src/auth/jwt-auth.guard.spec.ts`
 

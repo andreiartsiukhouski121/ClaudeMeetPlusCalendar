@@ -54,7 +54,7 @@
   `new NotFoundException('Meeting not found')`. — `FACT-2065`, probe B1
 - `FACT-3383` The argument form is mandatory: the no-argument form drops the `error` key and would
   break the three-key rule `SEC-API-06` states. — `FACT-2066`, probe B2
-- `FACT-3384` `message` is a string on a 404, as it is on a 401 and unlike a 400. — `FACT-2017`
+- `FACT-3384` `message` is a string on a 404, as it is on a 401 and unlike a 400. — `FACT-2086`
 - `FACT-3385` `docs/api-contract.md`'s error-shapes table carries the 404 row. — `FACT-2016`
 - `FACT-3386` The controller throws and the service returns `undefined`: translating absence into
   HTTP is the controller's job. — `FACT-0013`, `ADR-0006`

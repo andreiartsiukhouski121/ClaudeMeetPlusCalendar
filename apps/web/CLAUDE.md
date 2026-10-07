@@ -17,12 +17,14 @@ render, meeting creation, session end — in [`docs/data-model.md`](../../docs/d
 | Path                            | What is there                                                                     |
 | ------------------------------- | --------------------------------------------------------------------------------- |
 | `src/proxy.ts`                  | the gate for unauthenticated visitors (Next 16's `middleware.ts`), narrow matcher |
-| `src/app/`                      | pages: `/`, `/auth/login`, the `/auth/register` placeholder                       |
+| `src/app/`                      | pages: `/`, `/meetings/[id]`, `/auth/login`, the `/auth/register` placeholder     |
 | `src/app/auth/session-expired/` | the Route Handler that erases a broken cookie (root rule 17)                      |
+| `src/app/meetings/[id]/`        | the meeting detail page: the meeting, its attachments and the upload form         |
+| `.../[id]/files/[fileId]/`      | the Route Handler that streams a download, attaching the token server-side        |
 | `src/components/`               | form and list components, styled with HeroUI v3 and Tailwind utilities            |
-| `src/lib/actions/`              | Server Actions: login, sign-out, meeting creation                                 |
+| `src/lib/actions/`              | Server Actions: login, sign-out, meeting creation, file upload                    |
 | `src/lib/dal.ts`, `session.ts`  | `server-only`: reading the session and checking access                            |
-| `src/lib/api-client.ts`         | the server-side `fetch` to Nest — the only door into the API                      |
+| `src/lib/api-client.ts`         | the server-side `fetch` to Nest: `apiFetch` (JSON) and `apiFetchMultipart`        |
 
 ## Styling: HeroUI v3 on Tailwind v4
 
@@ -56,7 +58,7 @@ security, and the third is what actually protects a mutation.
 Vitest **cannot resolve** `import 'server-only'`, so exactly two files import it — `dal.ts` and
 `session.ts` — and they have no units (their behaviour is checked by functional e2e cases).
 Everything testable must live in a module without that import: `api-client.ts`,
-`session-cookie.ts`, `format-date.ts`, `login-credentials.ts`. If logic appears in `session.ts`,
+`session-cookie.ts`, `format-date.ts`, `login-credentials.ts`, `format-file-size.ts`. If logic appears in `session.ts`,
 move it into a neighbouring pure module rather than dragging `server-only` into a test.
 
 A unit test title starts with its case ID (`AL-UT-20 — …`). Globals are **off** here, unlike
@@ -69,7 +71,15 @@ A unit test title starts with its case ID (`AL-UT-20 — …`). Globals are **of
 - Date display is pinned to `timeZone: 'UTC'`, or the units and the e2e depend on the machine's
   time zone.
 - **A new protected page** — a line in `PROTECTED_PAGES`
-  (`e2e/security/security.functional.spec.ts`), or the security suite does not cover it.
+  (`e2e/security/security.functional.spec.ts`) **and** one in `AUDITED_PAGES`
+  (`accessibility.functional.spec.ts`), or neither cross-feature suite covers it.
+- `next.config.ts` → `experimental.serverActions.bodySizeLimit: '2mb'`, so an oversized upload meets
+  the API's documented 413 rather than Next's undocumented one. There is no per-action form, so it
+  raises the ceiling for the unauthenticated `loginAction` too — recorded as a deliberate gap in
+  `docs/security.md` (`ADR-0029`).
+- **The download Route Handler calls Nest with an inline `fetch`**, not through `api-client.ts`:
+  `apiFetch` always does `response.json()`, and bytes have nothing to parse. That is the one named
+  exception, written down so it is not copied as a precedent for a second JSON client.
 - A UI change is verified in the browser through the `playwright-verify` skill, and a behavioural
   one also gets a new spec in `e2e/regression/<feature>/`.
 

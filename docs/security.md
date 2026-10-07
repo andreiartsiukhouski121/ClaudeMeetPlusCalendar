@@ -6,7 +6,7 @@ purpose: everything checkable automatically lives in `e2e/security/`, not in pro
 ## Running the checks
 
 ```bash
-pnpm e2e:security                  # 15 cases: 10 API invariants + 5 browser ones
+pnpm e2e:security                  # 16 cases: 11 API invariants + 5 browser ones
 pnpm audit --audit-level high      # known CVEs in the dependencies
 pnpm verify                        # all of it: lint + types + units + the whole e2e, security included
 ```
@@ -16,16 +16,17 @@ at **changes** while the automated cases hold **invariants**; neither replaces t
 
 ## What is protected
 
-The application is a learning project with no database and no production deployment, so the threat
-model is narrow:
+The application is a learning project with no production deployment and a database that lives in a
+local container, so the threat model is narrow:
 
-| Asset              | Protected against                                                 | By what                                                                      |
-| ------------------ | ----------------------------------------------------------------- | ---------------------------------------------------------------------------- |
-| User passwords     | leaking when the store or an API response is read                 | `scrypt` with a per-user salt, `timingSafeEqual`; the mapper strips the hash |
-| The session        | token theft by a script on the page (XSS) and forgery             | httpOnly + sameSite=lax cookie, HS256 JWT, no token in the HTML or RSC       |
-| User data          | access with another user's token, owner spoofing through the body | `ownerId` from the signed token; `forbidNonWhitelisted` on every DTO         |
-| Account existence  | enumeration by response and **by response time**                  | one message plus a password verification even for an unknown email           |
-| Internal structure | hints to an attacker in headers and error bodies                  | `x-powered-by` off; error bodies without stack traces or paths               |
+| Asset              | Protected against                                                      | By what                                                                                                                   |
+| ------------------ | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| User passwords     | leaking when a row or an API response is read                          | `scrypt` with a per-user salt, `timingSafeEqual`; the mapper strips the hash                                              |
+| The session        | token theft by a script on the page (XSS) and forgery                  | httpOnly + sameSite=lax cookie, HS256 JWT, no token in the HTML or RSC                                                    |
+| User data          | access with another user's token, owner spoofing through the body      | `ownerId` from the signed token; `forbidNonWhitelisted` on every DTO                                                      |
+| Account existence  | enumeration by response and **by response time**                       | one message plus a password verification even for an unknown email                                                        |
+| Internal structure | hints to an attacker in headers and error bodies                       | `x-powered-by` off; error bodies without stack traces or paths                                                            |
+| Uploaded files     | hostile bytes served back, response-header injection, unbounded growth | an allow-list, a size ceiling, a per-meeting cap, `attachment` + `nosniff`, and a built `Content-Disposition` — see below |
 
 ## Invariants held by tests
 
@@ -37,7 +38,7 @@ acceptance checklist.
 
 ## What this suite found in live code
 
-Three defects, none of which was visible in a diff or in a plan review:
+Four defects, none of which was visible in a diff or in a plan review:
 
 1. **An endless redirect on an invalid cookie** (`SEC-FN-05`). `proxy.ts` by design only sees that a
    cookie **exists** and let the request through to `/`; the page got a 401 from Nest and redirected
@@ -53,6 +54,17 @@ Three defects, none of which was visible in a diff or in a plan review:
    against a dummy hash computed once at module load from a random string when the user is unknown.
 3. **`X-Powered-By: Express`** on every response (`SEC-API-08`) — a free hint about which stack and
    which CVEs to try.
+4. **A stored filename interpolated into a response header** (`SEC-API-11`). The download controller
+   built `Content-Disposition` by interpolating the stored `filename`, and two seeded rows holding
+   a CR LF pair in that column answered **500** instead of streaming their bytes. No injected header ever reached the
+   wire — but only because Node's own `setHeader` validator throws on a forged value, which is a
+   defence this code does not own: a different adapter, a raw `writeHead`, or a future sanitiser that
+   strips and continues instead of throwing would all lose it. The header is now **built** from the
+   stored value in three steps rather than interpolated, every stored value answers 200, and the
+   transferable part is the asymmetry that produced the bug: **the `filename` column has more than
+   one writer.** The upload route validates what it admits; the seed writes rows the upload route
+   would have refused. **A read path validates its own output rather than inheriting the write path's
+   guarantees** — the next read path added here is held to the same rule.
 
 ## Server layer coverage
 
@@ -67,21 +79,56 @@ instead. Those modules are `server-only` or Server Actions: Vitest cannot resolv
 session branch included. Chasing unit coverage here would mean moving logic out of those files for a
 metric rather than for readability.
 
+## File uploads
+
+`POST /meetings/:id/files` is the only route that accepts bytes and
+`GET /meetings/:id/files/:fileId/content` the only one that returns them. Five controls bound what
+that costs, and one of them is the actual security control rather than a usability guard:
+
+- **A per-file ceiling of 1 048 576 bytes**, enforced by the file interceptor's own `limits.fileSize`
+  rather than by arithmetic of ours, so the `413` is the framework's.
+- **A cap of ten files per meeting**, so a feature with no delete cannot grow the database without
+  bound. The check is a count followed by an insert rather than a transaction: the contract promises
+  the refusal, not an exact ceiling under concurrency.
+- **An allow-list of four media types** — PDF, PNG, JPEG, plain text — compared after normalization,
+  and it is the normalized value that is stored, never the client's raw header. This is a
+  **usability guard, not a security control**: the declared type comes from the client, and above the
+  multipart parser it is not merely untrusted but _not observable_ — `busboy` initialises an absent,
+  empty or unparseable part type to the literal `text/plain`, so "declared nothing" and "declared
+  text/plain" are the same string by the time any rule of ours runs.
+- **`Content-Disposition: attachment` plus `X-Content-Type-Options: nosniff` on every download**,
+  never `inline`. That pair is the security control: a stored file must not be able to execute in the
+  application's own origin, whatever it claimed to be on the way in.
+- **A built `Content-Disposition`**, for the reason the fourth defect above records: the `filename`
+  column has more than one writer, so the read path validates its own output.
+
+**There is no content scanning.** Nothing inspects the bytes for malware, archives, embedded scripts
+or a magic number that disagrees with the declared type. The allow-list is about what the UI can
+usefully show; the bytes are treated as opaque and served as an attachment because they are not
+trusted.
+
 ## Deliberate gaps
 
 Named explicitly, because a gap that is not stated is not a gap but a misreported result. Each is a
 task of its own rather than a forgotten line.
 
-- **No rate limiting.** `POST /auth/login` can be brute-forced without limit. Acceptable for a demo
-  without a database; in a real project it is the first thing to add — and it is the only gap on
-  this list I consider a production blocker.
+- **No rate limiting.** `POST /auth/login` can be brute-forced without limit, and nothing bounds how
+  often an authenticated user may upload. Acceptable for a demo; in a real project it is the first
+  thing to add — and it is the only gap on this list I consider a production blocker.
 - **No refresh tokens.** The session lives an hour, after which the user signs in again.
 - **No dedicated CSRF token.** We rely on the built-in Server Action protection against cross-origin
   POSTs and on `sameSite=lax`.
 - **`JWT_SECRET` has a default in the code** (with a `Logger.warn` when absent). Unacceptable for
   production; there is no production deployment here.
-- **Seed passwords are plaintext** in `users.seed.ts` and hashed at startup. The store itself holds
-  no plaintext. In a real project the seed file would be a migration with ready hashes.
+- **Seed passwords are plaintext** in `users.seed.ts` and hashed by the seed script before the row
+  is written. The database itself holds no plaintext. In a real project the seed file would be a
+  migration with ready hashes (`BL-004`).
+- **The Server Action body limit is raised to `2mb` for every action.**
+  `experimental.serverActions.bodySizeLimit` has no per-action form, so raising it so that an upload
+  meets the API's documented `413` rather than Next's undocumented one also raises it for
+  `loginAction`, which is reachable **unauthenticated**. The body an anonymous visitor can make Next
+  buffer therefore goes from 1 MiB to 2 MiB. Accepted rather than overlooked: it doubles a constant
+  in a demo with no rate limiting at all, and the gap above it is the one that matters.
 - **The cookie token is not additionally encrypted.** It is HS256-signed, unreadable from JS and
   carries nothing but `sub` and `email`.
 - **No security headers** (CSP, HSTS, `X-Frame-Options`). They make sense with real hosting and get

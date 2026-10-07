@@ -10,7 +10,10 @@ import type { Meeting } from './meeting.types.js';
  * The split by owner is deliberate:
  *  - `usr-teacher` — 5 meetings, read-only baseline for exact counts ("last 3", `total` = 5);
  *  - `usr-student` — 0 meetings, the empty-state edge case;
- *  - `usr-planner` — 1 meeting, mutation sandbox for `*.api.spec.ts`;
+ *  - `usr-planner` — 2 meetings: `mtg-planner-1`, the mutation sandbox for `*.api.spec.ts`, and
+ *    `mtg-planner-2`, a dedicated, never-mutated fixture for `SEC-API-11` (see
+ *    `meeting-files.seed.ts`) — nothing is ever uploaded into it, and no case asserts `planner`'s
+ *    totals, so its presence does not disturb the sandbox;
  *  - `usr-organizer` — 1 meeting, mutation sandbox for `*.functional.spec.ts`.
  */
 export const SEED_MEETINGS: readonly Meeting[] = [
@@ -61,6 +64,14 @@ export const SEED_MEETINGS: readonly Meeting[] = [
     startsAt: '2026-01-16T13:00:00.000Z',
     durationMinutes: 45,
     participants: ['Ruth Delgado', 'guest.coach@purpleschool.test'],
+  },
+  {
+    id: 'mtg-planner-2',
+    ownerId: 'usr-planner',
+    title: 'Archive intake session',
+    startsAt: '2026-01-20T10:00:00.000Z',
+    durationMinutes: 30,
+    participants: [],
   },
   {
     id: 'mtg-organizer-1',

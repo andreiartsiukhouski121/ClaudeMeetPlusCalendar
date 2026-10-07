@@ -1,7 +1,7 @@
 import AxeBuilder from '@axe-core/playwright';
 import type { Page } from '@playwright/test';
 
-import { SEED_USERS } from '../fixtures/seed';
+import { GEOMETRY_WORKSHOP_MEETING_ID, SEED_USERS } from '../fixtures/seed';
 import { expect, test } from '../fixtures/auth.fixture';
 
 /**
@@ -26,6 +26,7 @@ const AUDITED_PAGES = [
   { path: '/auth/login', needsSession: false },
   { path: '/auth/register', needsSession: false },
   { path: '/', needsSession: true },
+  { path: `/meetings/${GEOMETRY_WORKSHOP_MEETING_ID}`, needsSession: true },
 ] as const;
 
 const PUBLIC_PAGES = AUDITED_PAGES.filter((p) => !p.needsSession);
@@ -55,15 +56,20 @@ test.describe('Accessibility', { tag: '@accessibility' }, () => {
   });
 
   test(
-    'ACC-FN-02 — the dashboard passes WCAG 2.1 AA for a signed-in user',
+    'ACC-FN-02 — every page behind a session passes WCAG 2.1 AA',
     { tag: '@p0' },
     async ({ authedPage }) => {
-      await authedPage.goto('/');
+      // Every `needsSession: true` entry, not just `/`: a hardcoded path here would buy a newly
+      // added session-gated page the one-`h1`/one-`main` assertions of `ACC-FN-04` and no scan at
+      // all — exactly the gap this file's own preamble warns about.
+      for (const { path } of SESSION_PAGES) {
+        await authedPage.goto(path);
 
-      // The scan is meaningless if the page did not actually render the authenticated view.
-      await expect(authedPage.getByRole('heading', { level: 1 })).toBeVisible();
+        // The scan is meaningless if the page did not actually render the authenticated view.
+        await expect(authedPage.getByRole('heading', { level: 1 })).toBeVisible();
 
-      expect(await violationsOf(authedPage), '/ has accessibility violations').toEqual([]);
+        expect(await violationsOf(authedPage), `${path} has accessibility violations`).toEqual([]);
+      }
     },
   );
 

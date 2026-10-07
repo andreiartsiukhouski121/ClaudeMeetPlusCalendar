@@ -12,10 +12,11 @@
     `organizer`). That removes the cross-project race under `fullyParallel: true`, because
     `GET /meetings` is isolated by owner. `planner` is also mutated by
     `meetings-detail.api.spec.ts`, so no mutating case here reads `total`, which would race that
-    file's concurrent creates. Each case is instead proven by its own unique generated title, or —
-    for `HD-API-15`, whose rejected body carries no title — by the DTO's own bound on `title`.
+    file's concurrent creates. Each case is instead proven by its own unique generated title, by
+    the ids it just created, or — for `HD-API-15`, whose rejected body carries no title — by the
+    DTO's own bound on `title`.
 
-16 cases. Numbers `11`, `12`, `18`, `19` are **never reused**.
+18 cases. Numbers `11`, `12`, `18`, `19` are **never reused**.
 
 ## Summary
 
@@ -37,6 +38,8 @@
 | HD-API-16 | POST /meetings with an extra field gives 400             | P1       | `@regression @home-dashboard`               |
 | HD-API-17 | the created meeting belongs to the token owner           | P1       | `@regression @home-dashboard @mutating`     |
 | HD-API-20 | POST /meetings without durationMinutes gives 201 and 60  | P0       | `@regression @home-dashboard @p0 @mutating` |
+| HD-API-21 | the created id is a randomUUID, not a seeded `mtg-` id   | P0       | `@regression @home-dashboard @p0 @mutating` |
+| HD-API-22 | equal startsAt still orders by id ascending              | P1       | `@regression @home-dashboard @mutating`     |
 
 ## Cases
 
@@ -48,6 +51,12 @@
   **exactly** the keys `durationMinutes`, `id`, `participants`, `startsAt`, `title` — the full key
   set rather than "has an id", so an `ownerId` leak is caught too. The response text contains no
   `passwordHash`, no seeded password and no `ownerId`.
+- **Five keys, and five on purpose after meetings gained files:** a meeting's files are a separate
+  resource, reached through `/meetings/:id/files`, so `MeetingDto` gained no field and this
+  assertion survived a feature that added data to meetings. That was a decision rather than an
+  accident, and it is recorded in the design — a case this strict goes red the moment somebody
+  embeds a file count or a file list in the meeting body, which is the conversation that decision
+  wants to force.
 
 ### HD-API-02 — GET /meetings without a token gives 401
 
@@ -161,3 +170,29 @@
 - **Expected:** 201 with `durationMinutes` = 60 and the standard key set. Without `@IsOptional()`
   on the DTO field this answers 400 and the "Create meeting" button does not work at all — that is
   the point of the case.
+
+### HD-API-21 — the created id is a randomUUID, not a seeded `mtg-` id
+
+- **Priority:** P0
+- **Steps:** as `planner`, `POST /meetings` with a unique title and the 2030 date; then
+  `GET /meetings/{returned id}` as `planner`.
+- **Expected:** the returned `id` matches
+  `/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/` and does **not** match the
+  seeded `mtg-<owner>-<n>` shape; the follow-up `GET` returns that same meeting, so the id was
+  stored and not only echoed. `FACT-2060` promises a `randomUUID()` and no API case asserted the
+  shape before: this one carries the half of the retired `HD-UT-07` that `HD-API-16` and
+  `HD-API-17` do not already cover.
+
+### HD-API-22 — equal startsAt still orders by id ascending
+
+- **Priority:** P1
+- **Steps:** as `planner`, create **three** meetings with unique titles at the identical
+  `FUTURE_STARTS_AT_ISO`. Read back once with `GET /meetings?limit=100`, keep only the three ids
+  just created, and compare that subsequence with the same three ids sorted ascending.
+- **Expected:** the filtered subsequence equals the ids in ascending order — invariant 7's
+  secondary key, the only place in the suite where meetings share a `startsAt`. **Three, not two:**
+  detection rests on three random UUIDs arriving out of ascending order, which is five chances in
+  six against one in two. **The filter is what makes it race-safe** — other mutating cases create
+  `planner` meetings at the same date and may interleave by id without this assertion caring.
+  **One read, not two:** the retired `HD-UT-09` read twice because an in-memory sort can depend on
+  insertion order, whereas a database returns the same wrong order as often as it is asked.

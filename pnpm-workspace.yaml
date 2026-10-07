@@ -22,5 +22,43 @@ ignoredBuiltDependencies:
 # advisories: GHSA-qfvm-cv95-jqjf and GHSA-535w-7cp7-47q4 (DoS). Nest has not raised its range
 # yet, so we raise it here: without the override `pnpm audit --audit-level high` is red, and that
 # is an acceptance blocker. Remove once Nest moves to multer >=2.3.0 itself.
+#
+# Pinned to exactly 2.3.0, not left open as >=2.3.0: multer@2.4.0 renamed its
+# LIMIT_UNEXPECTED_FILE message from 'Unexpected field' to 'Unexpected file field'.
+# @nestjs/platform-express@12.0.1 vendors its own multer.constants.js with the old string and
+# matches it by exact equality in transformException to convert a MulterError into a
+# BadRequestException. Against 2.4.0 that match fails, the raw MulterError falls through to
+# Nest's default filter, and an unexpected field name answers 500 instead of the contracted 400
+# (MF-API-12). 2.3.0 is the patched floor the advisories above require, so pinning here keeps
+# both closed without reopening the 500. Widening this back to a range reintroduces the defect.
+#
+# prisma@7.10.0 (apps/api) bundles driver support for databases this project does not use and
+# transitively pulls two more: @prisma/config's deepmerge-ts@7.1.5 (GHSA-ggr8-5vv4-36mx, stack
+# exhaustion) and mysql2@3.15.3 (GHSA-3f6p-5ww8-9rcr, auth plugin downgrade). 7.10.0 is the latest
+# published 7.x release, so there is no patch to move to while honoring the exact pin. Remove once
+# prisma's own dependency tree clears both.
+#
+# @nestjs/platform-express@12.0.1 pulls express, which pulls proxy-addr@2.0.7
+# (GHSA-jqcg-44mw-7w3h, critical: IP spoofing via an IPv4-mapped IPv6 trust subnet). Nest has not
+# raised its express range yet, so we raise proxy-addr here rather than wait on Nest. The override
+# is a defense in depth rather than a live fix: nothing in apps/api sets `trust proxy` today, so the
+# spoofing path is not reachable yet, but it is one config line away from mattering. Remove once
+# Nest's own tree pulls express >=5.1.0 with a patched proxy-addr.
+#
+# apps/web > next > sharp@0.35.4 (GHSA-wq5f-xc86-pv6w / CVE-2026-96889, high: a librsvg
+# vulnerability). sharp is a native binary module Next uses for image optimisation, not a pure JS
+# package, so the override must be verified against an actual `pnpm build` rather than assumed
+# safe. Pinned to the patched 0.35.5 rather than left open-ended, to avoid picking up a future
+# native rebuild unverified. Remove once Next's own dependency raises sharp past 0.35.5 itself.
+#
+# apps/api > @vitest/coverage-v8 > magicast > source-map-js@1.2.1 (GHSA-68fv-2mgg-jv7q, high:
+# event-loop denial of service through indexed source-map section offsets). Dev-only (coverage
+# tooling), never ships in the running API. Remove once magicast raises its own source-map-js
+# dependency past 1.2.2.
 overrides:
-  multer: '>=2.3.0'
+  multer: '2.3.0'
+  deepmerge-ts: '>=8.0.0'
+  mysql2: '>=3.22.0'
+  proxy-addr: '>=2.0.8'
+  sharp: '0.35.5'
+  source-map-js: '>=1.2.2'

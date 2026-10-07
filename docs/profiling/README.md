@@ -85,14 +85,25 @@ paragraph costs.
 
 ## The records
 
-| Run                                                           | Change                                    | Flow   | Total tokens | Agent-time  | Rework share |
-| ------------------------------------------------------------- | ----------------------------------------- | ------ | ------------ | ----------- | ------------ |
-| [2026-09-28](runs/2026-09-28-meetings-detail-participants.md) | `meetings-detail-participants` (`FT-003`) | `FEAT` | 3,478,421    | 190 min     | **29.3%**    |
-| [2026-10-03](runs/2026-10-03-design-language-rollout.md)      | `design-language-rollout` (`FT-006`)      | `FEAT` | 1,584,001\*  | 115.7 min\* | 31.8%\*      |
+| Run                                                           | Change                                    | Flow   | Total tokens  | Agent-time        | Rework share      |
+| ------------------------------------------------------------- | ----------------------------------------- | ------ | ------------- | ----------------- | ----------------- |
+| [2026-09-28](runs/2026-09-28-meetings-detail-participants.md) | `meetings-detail-participants` (`FT-003`) | `FEAT` | 3,478,421     | 190 min           | **29.3%**         |
+| [2026-10-03](runs/2026-10-03-design-language-rollout.md)      | `design-language-rollout` (`FT-006`)      | `FEAT` | 1,584,001\*   | 115.7 min\*       | 31.8%\*           |
+| [2026-10-06](runs/2026-10-06-meeting-files.md)                | `meeting-files` (`FT-007`)                | `FEAT` | 6,477,057\*\* | not available\*\* | not separable\*\* |
 
 \* Interrupted and resumed across two days; `FEAT-S1`, `FEAT-G1`, the first `FEAT-S2` pass and
 `lead`'s own orchestration/`FEAT-S6` cost are unmeasured (hand-backs lost or never produced) and are
 **not** in this total. Read the record before comparing this row with the one above it.
+
+\*\* The 20-task cycle's final dispatch (`FEAT-S7`/`FEAT-S8`) was not handed the 36 prior dispatches'
+own figures at first — flagged as a gap in the record rather than estimated around — and `lead` then
+supplied its own cumulative per-agent totals, summed by script. The total is still a **lower bound**
+(each figure is as of an agent's last completion notice; several were resumed after), still excludes
+`FEAT-G4` (no code-review total was held) and `FEAT-S6` (`lead`'s own run), and carries **no
+agent-time** at all — only tokens were handed down. Rework share is marked "not separable" rather than
+estimated: the "fixes and corrections" bucket mixes genuine post-gate rework with a dispatch that
+found a defect while writing new tests, and splitting the two without guessing was not possible from
+what was supplied.
 
 ## What the records have shown so far
 

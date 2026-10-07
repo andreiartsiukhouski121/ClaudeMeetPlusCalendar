@@ -36,8 +36,8 @@ export class AuthController {
 
   @Get('me')
   @UseGuards(JwtAuthGuard)
-  me(@CurrentUser() current: AuthenticatedUser): PublicUser {
-    const user = this.usersService.findById(current.id);
+  async me(@CurrentUser() current: AuthenticatedUser): Promise<PublicUser> {
+    const user = await this.usersService.findById(current.id);
 
     // We signed the token, but the user is gone from the store: still a 401, not a 500.
     if (user === undefined) {

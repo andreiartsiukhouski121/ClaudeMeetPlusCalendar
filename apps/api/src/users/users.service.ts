@@ -1,54 +1,46 @@
 import { Injectable } from '@nestjs/common';
 
-import { hashPassword } from '../common/crypto/password.js';
+import { PrismaService } from '../prisma/prisma.service.js';
 import type { PublicUser, User } from './user.types.js';
 import { toPublicUser } from './users.mapper.js';
-import { SEED_USERS } from './users.seed.js';
+import { normalizeEmail } from './normalize-email.js';
 
 /**
- * Canonical email form: `trim` + `toLowerCase`. Case and stray spaces must not block a login
- * (AL-API-10, AL-UT-17), and `GET /auth/me` must return the seeded email rather than whatever the
- * client sent.
- */
-export function normalizeEmail(email: string): string {
-  return email.trim().toLowerCase();
-}
-
-/**
- * In-memory user store — the project has no database. The seed is applied in the constructor and
- * hashes are derived from the plaintexts in `users.seed.ts`.
+ * Users service, backed by Prisma (`ADR-0027`). Holds no `Map`, no array and seeds nothing itself:
+ * rows come from the database the standalone seed (`apps/api/prisma/seed.ts`) populated.
  */
 @Injectable()
 export class UsersService {
-  private readonly usersById = new Map<string, User>();
-  private readonly userIdsByEmail = new Map<string, string>();
+  constructor(private readonly prisma: PrismaService) {}
 
-  constructor() {
-    for (const seed of SEED_USERS) {
-      const email = normalizeEmail(seed.email);
-      const user: User = {
-        id: seed.id,
-        email,
-        name: seed.name,
-        passwordHash: hashPassword(seed.password),
-      };
+  async findByEmail(email: string): Promise<User | undefined> {
+    const user = await this.prisma.user.findUnique({
+      where: { email: normalizeEmail(email) },
+    });
 
-      this.usersById.set(user.id, user);
-      this.userIdsByEmail.set(email, user.id);
-    }
+    return user === null ? undefined : toDomainUser(user);
   }
 
-  findByEmail(email: string): User | undefined {
-    const id = this.userIdsByEmail.get(normalizeEmail(email));
+  async findById(id: string): Promise<User | undefined> {
+    const user = await this.prisma.user.findUnique({ where: { id } });
 
-    return id === undefined ? undefined : this.usersById.get(id);
-  }
-
-  findById(id: string): User | undefined {
-    return this.usersById.get(id);
+    return user === null ? undefined : toDomainUser(user);
   }
 
   toPublic(user: User): PublicUser {
     return toPublicUser(user);
   }
+}
+
+/**
+ * Explicit field list rather than the raw Prisma row: keeps `User` the one shape every caller
+ * depends on, independent of whatever Prisma's generated type happens to carry.
+ */
+function toDomainUser(row: {
+  id: string;
+  email: string;
+  name: string;
+  passwordHash: string;
+}): User {
+  return { id: row.id, email: row.email, name: row.name, passwordHash: row.passwordHash };
 }

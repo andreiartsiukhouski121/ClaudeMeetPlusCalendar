@@ -114,3 +114,61 @@ export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): 
 
   return (await response.json()) as T;
 }
+
+export interface ApiFetchMultipartOptions {
+  /** JWT from the session cookie. Sent as `Authorization: Bearer`, same as `apiFetch`. */
+  token: string;
+  file: File;
+}
+
+/**
+ * The exact triple Next's Server Action multipart decoder produces for an `<input type="file">`
+ * submitted with no selection (`MF-FN-15`). The browser's own request carries
+ * `filename=""` — confirmed on the wire — and Node's standards-based `Request.formData()` parses
+ * that faithfully into a `File` with `name: ''`. Next's own decoder sits between the two: it
+ * reconstructs the `File` with the WHATWG default filename for an unnamed `Blob`, `'blob'`,
+ * discarding the empty string the browser actually sent. A truthy name passes Nest's
+ * `isValidFilename` check, so the request reaches the content-type branch (415) instead of being
+ * discarded as absent (400 `file is required`).
+ */
+function isNextEmptySelectionPlaceholder(file: File): boolean {
+  return file.name === 'blob' && file.size === 0 && file.type === 'application/octet-stream';
+}
+
+/**
+ * Upload request to Nest: a **separate** function from `apiFetch`, which is JSON-only
+ * (invariant 13's neighbour, invariant 14's units `AL-UT-23…26` depend on `apiFetch` staying
+ * byte-identical). No `Content-Type` header is set here — `fetch` derives the multipart boundary
+ * itself from the `FormData` body, which is why this cannot simply reuse `apiFetch`'s `headers`
+ * object.
+ */
+export async function apiFetchMultipart<T>(
+  path: string,
+  options: ApiFetchMultipartOptions,
+): Promise<T> {
+  const { token, file } = options;
+
+  // Restores the filename Node's own `Request.formData()` would have produced for a genuinely
+  // empty selection, undoing Next's substitution above. With an empty string, `FormData.append`
+  // sends no `filename` parameter at all, and Nest's multer discards the part exactly as it does
+  // for the real, un-mangled request — the same "file is required" branch `MF-API-09` pins,
+  // reached without any client-side block (invariant 15).
+  const filename = isNextEmptySelectionPlaceholder(file) ? '' : file.name;
+
+  const body = new FormData();
+  body.append('file', file, filename);
+
+  const response = await fetch(resolveApiUrl(path), {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    cache: 'no-store',
+    body,
+  });
+
+  if (!response.ok) {
+    const errorBody: unknown = await response.json().catch(() => undefined);
+    throw ApiError.fromBody(response.status, errorBody);
+  }
+
+  return (await response.json()) as T;
+}

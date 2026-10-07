@@ -1,8 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
 
+import { PrismaService } from '../prisma/prisma.service.js';
 import type { CreateMeetingInput, Meeting } from './meeting.types.js';
-import { SEED_MEETINGS } from './meetings.seed.js';
 
 /** How many meetings the dashboard shows when `limit` is absent. */
 export const DEFAULT_MEETINGS_LIMIT = 3;
@@ -11,51 +11,35 @@ export const DEFAULT_MEETINGS_LIMIT = 3;
 export const DEFAULT_DURATION_MINUTES = 60;
 
 /**
- * Invariant 7: `startsAt` DESC, with `id` ascending as the secondary key. Without the secondary
- * key two meetings sharing a date would fall back to insertion order and `HD-FN-05` would flake.
- * Pinned by `HD-UT-09`.
- *
- * Milliseconds are compared, not strings: a client may send an ISO date with an offset (`+03:00`),
- * and comparing such strings lexicographically gives the wrong order.
- */
-function compareByStartsAtDesc(left: Meeting, right: Meeting): number {
-  const byDate = Date.parse(right.startsAt) - Date.parse(left.startsAt);
-
-  return byDate === 0 ? left.id.localeCompare(right.id) : byDate;
-}
-
-/**
- * In-memory meeting store — no database; the seed is applied in the constructor.
- *
- * Worth remembering while debugging: `nest start --watch` restarts on every edit and wipes
- * everything the tests created, so no test may depend on a meeting created by another.
+ * Meetings service, backed by Prisma (`ADR-0027`). Holds no `Map`, no array and seeds nothing
+ * itself: rows come from the database the standalone seed (`apps/api/prisma/seed.ts`) populated.
  */
 @Injectable()
 export class MeetingsService {
-  private readonly meetingsById = new Map<string, Meeting>();
-
-  constructor() {
-    for (const seed of SEED_MEETINGS) {
-      // A shallow copy would share `participants` with the module-level `SEED_MEETINGS` array.
-      this.meetingsById.set(seed.id, { ...seed, participants: [...seed.participants] });
-    }
-  }
+  constructor(private readonly prisma: PrismaService) {}
 
   /**
-   * The owner's most recent meetings: filter by `ownerId`, sort DESC, slice by `limit`. Returns
-   * domain entities; the controller strips `ownerId` via `toMeetingDto`.
+   * The owner's most recent meetings: filter by `ownerId`, sort DESC, limit at the database.
+   * Invariant 7: `startsAt` descending with `id` ascending as the secondary key — without it two
+   * meetings sharing a date come back in an undefined order (`HD-API-22`). Returns domain
+   * entities; the controller strips `ownerId` via `toMeetingDto`.
    */
-  findRecent(ownerId: string, limit: number = DEFAULT_MEETINGS_LIMIT): Meeting[] {
-    return this.byOwner(ownerId).sort(compareByStartsAtDesc).slice(0, limit);
+  async findRecent(ownerId: string, limit: number = DEFAULT_MEETINGS_LIMIT): Promise<Meeting[]> {
+    const rows = await this.prisma.meeting.findMany({
+      where: { ownerId },
+      orderBy: [{ startsAt: 'desc' }, { id: 'asc' }],
+      take: limit,
+    });
+
+    return rows.map(toDomainMeeting);
   }
 
   /**
    * Invariant 4: the owner's **full** meeting count, not the length of `findRecent`'s slice. Using
-   * `items.length` instead shows "Meetings total: 3" for five meetings (`HD-UT-03`, `HD-API-05`,
-   * `HD-FN-03`).
+   * `items.length` instead shows "Meetings total: 3" for five meetings (`HD-API-05`).
    */
-  countByOwner(ownerId: string): number {
-    return this.byOwner(ownerId).length;
+  async countByOwner(ownerId: string): Promise<number> {
+    return this.prisma.meeting.count({ where: { ownerId } });
   }
 
   /**
@@ -65,42 +49,59 @@ export class MeetingsService {
    *
    * `startsAt` is normalized to canonical UTC: a client may send an offset date while the contract
    * promises `…Z`. Without it the store would hold strings in mixed formats.
+   *
+   * Ids stay application-issued (`randomUUID()`), exactly as before the move onto Prisma
+   * (`FACT-2060`): the schema's `id` column carries no `@default`.
    */
-  create(ownerId: string, input: CreateMeetingInput): Meeting {
-    const meeting: Meeting = {
-      id: randomUUID(),
-      ownerId,
-      title: input.title,
-      startsAt: new Date(input.startsAt).toISOString(),
-      durationMinutes: input.durationMinutes ?? DEFAULT_DURATION_MINUTES,
-      // `?? []` normalizes an absent or `null` participants field, mirroring `durationMinutes`
-      // above (`ADR-0017`); the spread avoids sharing the array with the request body's own.
-      participants: [...(input.participants ?? [])],
-    };
+  async create(ownerId: string, input: CreateMeetingInput): Promise<Meeting> {
+    const row = await this.prisma.meeting.create({
+      data: {
+        id: randomUUID(),
+        ownerId,
+        title: input.title,
+        startsAt: new Date(input.startsAt).toISOString(),
+        durationMinutes: input.durationMinutes ?? DEFAULT_DURATION_MINUTES,
+        // `?? []` normalizes an absent or `null` participants field, mirroring `durationMinutes`
+        // above (`ADR-0017`). Never trimmed, never deduplicated (`FACT-1024`).
+        participants: input.participants ?? [],
+      },
+    });
 
-    this.meetingsById.set(meeting.id, meeting);
-
-    return { ...meeting, participants: [...meeting.participants] };
+    return toDomainMeeting(row);
   }
 
   /**
    * Owner-scoped lookup by id. `Meeting | undefined` with **one** return path: a missing id and an
-   * id owned by somebody else both fall through to the same `undefined` — the ownership check lives
-   * here, not in the controller, so the two 404 situations stay byte-identical by construction
-   * (`ADR-0018`). `ownerId` is always the caller's, taken by the controller from `@CurrentUser()`.
+   * id owned by somebody else both fall through to the same `undefined` — the ownership check
+   * lives here, not in the controller, so the two 404 situations stay byte-identical by
+   * construction (`ADR-0018`). `ownerId` is always the caller's, taken by the controller from
+   * `@CurrentUser()`.
    */
-  findById(ownerId: string, id: string): Meeting | undefined {
-    const meeting = this.meetingsById.get(id);
+  async findById(ownerId: string, id: string): Promise<Meeting | undefined> {
+    const row = await this.prisma.meeting.findUnique({ where: { id } });
 
-    return meeting && meeting.ownerId === ownerId
-      ? { ...meeting, participants: [...meeting.participants] }
-      : undefined;
+    return row && row.ownerId === ownerId ? toDomainMeeting(row) : undefined;
   }
+}
 
-  /** Copies, not references to stored objects: callers must not mutate the store. */
-  private byOwner(ownerId: string): Meeting[] {
-    return [...this.meetingsById.values()]
-      .filter((meeting) => meeting.ownerId === ownerId)
-      .map((meeting) => ({ ...meeting, participants: [...meeting.participants] }));
-  }
+/**
+ * Explicit field list rather than the raw Prisma row: keeps `Meeting` the one shape every caller
+ * depends on, independent of whatever Prisma's generated type happens to carry.
+ */
+function toDomainMeeting(row: {
+  id: string;
+  ownerId: string;
+  title: string;
+  startsAt: string;
+  durationMinutes: number;
+  participants: string[];
+}): Meeting {
+  return {
+    id: row.id,
+    ownerId: row.ownerId,
+    title: row.title,
+    startsAt: row.startsAt,
+    durationMinutes: row.durationMinutes,
+    participants: row.participants,
+  };
 }

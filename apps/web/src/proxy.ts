@@ -22,6 +22,16 @@ export function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL('/auth/login', request.url));
   }
 
+  // A separate branch, not merged into the one above behind a shared `request.method === 'GET'`:
+  // that would silently make the `/` gate GET-only too, which nothing in the suite would catch.
+  // GET only, for the reason the comment below already records for `/auth/login`: the upload
+  // Server Action (task 14) POSTs to `/meetings/<id>`, and redirecting it instead of running it is
+  // how "login does nothing" happened once already. This is optimistic only (invariant 10) — the
+  // real check is `lib/dal.ts`'s `getMeetingById`/`getMeetingFiles` and the action itself.
+  if (!hasSession && request.method === 'GET' && pathname.startsWith('/meetings/')) {
+    return NextResponse.redirect(new URL('/auth/login', request.url));
+  }
+
   // GET only: a POST to `/auth/login` is the `loginAction` Server Action, and redirecting instead
   // of running it would mean login stopped working.
   if (hasSession && request.method === 'GET' && pathname.startsWith('/auth/login')) {
@@ -35,4 +45,4 @@ export function proxy(request: NextRequest) {
  * The matcher is narrow and explicit. Without it the proxy fires on `_next/static`, `_next/image`
  * and the contents of `public/`, breaking CSS and image loading.
  */
-export const config = { matcher: ['/', '/auth/login'] };
+export const config = { matcher: ['/', '/auth/login', '/meetings/:path*'] };

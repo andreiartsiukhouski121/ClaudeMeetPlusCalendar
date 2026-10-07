@@ -6,13 +6,15 @@
 - **Run:** `pnpm e2e --project=api --grep @auth-login`
 - **Preconditions:**
   - Playwright starts Nest on port 3101 with `JWT_SECRET=e2e-secret`.
-  - The user seed is applied at startup — checked by `e2e/smoke/seed.api.cases.md`.
+  - The user seed is applied by `pnpm start:e2e` before the server answers — a standalone seed
+    script against a reset database, not a service constructor — and is checked by
+    `e2e/smoke/seed.api.cases.md`.
   - Logins and passwords come from `e2e/fixtures/seed.ts`, tokens through
     `e2e/fixtures/auth.api.ts`. Hard-coded data in a spec is a blocker.
   - Invariant 8: `message` is an **array of strings only for `ValidationPipe` errors**; for an
     `UnauthorizedException` we throw, it is a string.
 
-11 cases: 5 P0, 6 P1. Numbers `05`, `06`, `09` (merged into neighbours), `12`, `16`, `17`, `18` and
+12 cases: 5 P0, 7 P1. Numbers `05`, `06`, `09` (merged into neighbours), `12`, `16`, `17`, `18` and
 `19` (dropped as checks of `body-parser`, the Express router, or degenerate repeats) are **never
 reused** — a gap in the numbering is normal, while reusing a number makes the history of reports
 unreadable.
@@ -32,6 +34,7 @@ unreadable.
 | AL-API-13 | GET /auth/me with a valid token returns the profile    | P1       | `@regression @auth-login`     |
 | AL-API-14 | GET /auth/me without a token gives 401                 | P0       | `@regression @auth-login @p0` |
 | AL-API-15 | an invalid token on /auth/me gives 401, not 500        | P1       | `@regression @auth-login`     |
+| AL-API-20 | an unseeded email never authenticates, valid password  | P1       | `@regression @auth-login`     |
 
 ## Cases
 
@@ -113,3 +116,24 @@ unreadable.
 - **Steps:** call `GET /auth/me` with `Authorization: Bearer not.a.jwt`.
 - **Expected:** 401 with the same body. A 500 would mean a token parsing exception reaches the
   error handler: a broken token is a refusal, not a server fault.
+
+### AL-API-20 — an unseeded email never authenticates, even with a valid password
+
+- **Priority:** P1
+- **Steps:** `POST /auth/login` three times with the **seeded password** from `e2e/fixtures/seed.ts`
+  and an email that is syntactically valid but belongs to nobody: one plainly foreign address, and
+  two near misses of a seeded one — the same local part on another domain, and a seeded local part
+  with a digit appended on the seeded domain.
+- **Expected:** every attempt answers 401 with exactly
+  `{ message: 'Invalid email or password', error: 'Unauthorized', statusCode: 401 }`, no
+  `accessToken` and no `user` anywhere in the body.
+- **Why the password is a valid one, and why this is not `AL-API-03` twice:** this case exists to
+  catch a user lookup that resolves an address it should not — a `where` built with the wrong
+  operator, a `contains` instead of an equality, a fallback to "first row". With a junk password
+  such a lookup is invisible: the resolved user's hash would not match and the answer would be 401
+  for the wrong reason, which is exactly how `AL-API-03` can pass over a broken lookup. Supplying a
+  password that is valid **for a real seeded user** removes that cover: if the lookup resolves
+  anybody at all, the hash verifies, the login succeeds and this case fails. The near misses are
+  there because a partial match is the likely shape of the fault, not a randomly foreign address.
+  The seed deliberately shares one password across all four users (`e2e/fixtures/seed.ts`), which
+  is what makes a single literal enough here.

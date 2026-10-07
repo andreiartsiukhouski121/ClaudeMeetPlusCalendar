@@ -48,9 +48,11 @@ readable report, and an automatic pairing check. The same goes for units — `it
 | Login `/auth/login`            | `auth-login`      | `regression/auth-login/auth-login.unit.cases.md`               | `apps/api/src/auth/*.spec.ts`, `apps/api/src/common/crypto/password.spec.ts`, `apps/api/src/users/users.service.spec.ts`, `apps/web/src/lib/session.spec.ts`, `apps/web/src/lib/api-client.spec.ts` | vitest  | `pnpm test:auth-login`                           |
 | Home `/`                       | `home-dashboard`  | `regression/home-dashboard/home-dashboard.api.cases.md`        | `regression/home-dashboard/home-dashboard.api.spec.ts`                                                                                                                                              | api     | `pnpm e2e --project=api --grep @home-dashboard`  |
 | Home `/`                       | `home-dashboard`  | `regression/home-dashboard/home-dashboard.functional.cases.md` | `regression/home-dashboard/home-dashboard.functional.spec.ts`                                                                                                                                       | web     | `pnpm e2e --project=web --grep @home-dashboard`  |
-| Home `/`                       | `home-dashboard`  | `regression/home-dashboard/home-dashboard.unit.cases.md`       | `apps/api/src/meetings/*.spec.ts`, `apps/web/src/lib/format-date.spec.ts`                                                                                                                           | vitest  | `pnpm test:home-dashboard`                       |
+| Home `/`                       | `home-dashboard`  | `regression/home-dashboard/home-dashboard.unit.cases.md`       | `apps/web/src/lib/format-date.spec.ts`                                                                                                                                                              | vitest  | `pnpm test:home-dashboard`                       |
 | Meeting detail `/meetings/:id` | `meetings-detail` | `regression/meetings-detail/meetings-detail.api.cases.md`      | `regression/meetings-detail/meetings-detail.api.spec.ts`                                                                                                                                            | api     | `pnpm e2e --project=api --grep @meetings-detail` |
-| Meeting detail `/meetings/:id` | `meetings-detail` | `regression/meetings-detail/meetings-detail.unit.cases.md`     | `apps/api/src/meetings/meetings.service.spec.ts`                                                                                                                                                    | vitest  | `pnpm test:meetings-detail`                      |
+| Meeting files                  | `meeting-files`   | `regression/meeting-files/meeting-files.api.cases.md`          | `regression/meeting-files/meeting-files.api.spec.ts`                                                                                                                                                | api     | `pnpm e2e --project=api --grep @meeting-files`   |
+| Meeting files                  | `meeting-files`   | `regression/meeting-files/meeting-files.functional.cases.md`   | `regression/meeting-files/meeting-files.functional.spec.ts`                                                                                                                                         | web     | `pnpm e2e --project=web --grep @meeting-files`   |
+| Meeting files                  | `meeting-files`   | `regression/meeting-files/meeting-files.unit.cases.md`         | `apps/api/src/meeting-files/meeting-files.rules.spec.ts`, `apps/web/src/lib/format-file-size.spec.ts`                                                                                               | vitest  | `pnpm test:meeting-files`                        |
 | Infrastructure                 | `smoke`           | `smoke/health.api.cases.md`, `smoke/seed.api.cases.md`         | `smoke/health.api.spec.ts`, `smoke/seed.api.spec.ts`                                                                                                                                                | api     | `pnpm e2e e2e/smoke`                             |
 | Ledger                         | `ledger`          | `ledger/ledger.api.cases.md`                                   | `ledger/ledger.api.spec.ts`                                                                                                                                                                         | api     | `pnpm e2e e2e/ledger`                            |
 | Planning process               | `process`         | `process/process.api.cases.md`                                 | `process/process.api.spec.ts`                                                                                                                                                                       | api     | `pnpm e2e e2e/process`                           |
@@ -59,6 +61,12 @@ readable report, and an automatic pairing check. The same goes for units — `it
 | Security                       | `security`        | `security/security.api.cases.md`                               | `security/security.api.spec.ts`                                                                                                                                                                     | api     | `pnpm e2e:security`                              |
 | Security                       | `security`        | `security/security.functional.cases.md`                        | `security/security.functional.spec.ts`                                                                                                                                                              | web     | `pnpm e2e:security`                              |
 | Accessibility                  | `accessibility`   | `accessibility/accessibility.functional.cases.md`              | `accessibility/accessibility.functional.spec.ts`                                                                                                                                                    | web     | `pnpm e2e:a11y`                                  |
+
+`meetings-detail` deliberately has no `.functional.*` pair and, since `meeting-files` landed, no
+`.unit.*` one either: its nine units lived in `apps/api/src/meetings/meetings.service.spec.ts`,
+which the move to Prisma deleted (`ADR-0027`). Four of them were **withdrawn** — they guarded the
+in-memory store's copy semantics, and Prisma builds a fresh object per query — and the rest are
+covered by `MD-API-01`…`07`. There is no `pnpm test:meetings-detail` script any more.
 
 `smoke/seed.api.spec.ts` was filled in stages: `SM-API-02` (seeded user logins) arrived with
 `POST /auth/login`, `SM-API-03` (seeded meetings) with the `/meetings` controller. Earlier than
@@ -94,6 +102,12 @@ What this suite has already found in live code:
   message was not enough, and accounts were enumerable by response time. Fixed by verifying the
   password against a dummy hash when the user does not exist.
 - **`SEC-API-08`** — `X-Powered-By: Express` on every response.
+- **`SEC-API-11`** — the file download interpolated the stored filename into `Content-Disposition`,
+  and two seeded rows holding a CR LF pair answered 500. Nothing injected ever reached the wire,
+  but only because Node's own `setHeader` throws — a defence this code does not own. The header is now
+  **built** from the stored value instead. The transferable lesson is the asymmetry: the `filename`
+  column has more than one writer, so a read path validates its own output rather than inheriting
+  the write path's guarantees.
 
 The `SEC-API-05` threshold is deliberately loose: the goal is to catch a return of the early exit
 without password verification, not to measure microseconds under the load of a test run.
@@ -102,7 +116,8 @@ without password verification, not to measure microseconds under the load of a t
 
 | File                       | What it provides                                                                                                                                                                    |
 | -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `fixtures/seed.ts`         | `SEED_USERS`, `TEACHER_MEETINGS`, the dates of created meetings. The **only** source of logins, passwords and meeting titles.                                                       |
+| `fixtures/seed.ts`         | `SEED_USERS`, `TEACHER_MEETINGS`, `TEACHER_MEETING_FILES`, `HEADER_SAFETY_MEETING`, the dates of created meetings. The **only** source of logins, passwords, titles and file names. |
+| `fixtures/multipart.ts`    | builders for a multipart body: a file part, a wrong field name, an extra text field, an empty filename. For upload cases in project `api`.                                          |
 | `fixtures/auth.api.ts`     | `loginApi(request, user)` → `accessToken`, `authHeaders(token)`. For project `api`, cached per worker.                                                                              |
 | `fixtures/api.ts`          | The `apiBaseURL` option (its value comes from `playwright.config.ts`), the `apiRequest` fixture and `isNestRequest` — a Nest request context for `web` cases needing baseline data. |
 | `fixtures/auth.fixture.ts` | The `authUser` option (test), `authStateFor` (worker), `authedPage` (test) — a session for UI cases through a real UI login on `/auth/login`.                                       |
@@ -137,10 +152,15 @@ pnpm e2e e2e/suite-integrity.api.spec.ts    # the convention meta-check
 pnpm e2e e2e/architecture                   # the ADR log and the API contract against the code
 pnpm e2e:report                             # the report after a failure
 
-pnpm test                                   # units of both features
+pnpm test                                   # every package's units
 pnpm test:auth-login                        # one feature's units (filtered by case ID)
 pnpm test:home-dashboard
+pnpm test:meeting-files
 ```
+
+`pnpm e2e` needs a running Docker: the api `webServer` entry runs `start:e2e`, which drops,
+re-pushes and re-seeds the suite's database before Nest starts (`ADR-0027`). `pnpm test` does not —
+no unit touches the database and the Prisma client connects lazily.
 
 `test:auth-login` / `test:home-dashboard` filter units by case ID (`vitest run -t "AL-UT-"`), so
 they only work together with the "a unit test title starts with its ID" rule. A double `--` between
@@ -168,6 +188,32 @@ than repeating it.
 
 - **Locators** — by role, label and text only (`getByRole`, `getByLabel`, `getByText`). CSS and
   class selectors are a blocker.
+- **Scope a role locator under `main` whenever the framework injects one of its own.** Three
+  framework-injected sources live outside our markup and none of them is visible in a component, so
+  each is found by a run rather than by review:
+  1. **App Router's route announcer** — an empty `role="alert"` element outside `<main>`, so a bare
+     `getByRole('alert')` is a strict-mode violation in **every** error case. Locate a form error as
+     `getByRole('main').getByRole('alert')`.
+  2. **`next dev`'s "Open Next.js Dev Tools" control** — a button outside the application's
+     rendered tree on every page of every Next 16 app, absent from `grep -r` over this repository
+     and absent from a production build. Playwright's `webServer` is `next dev`, so it is always
+     there: a page-wide `getByRole('button')` count is never the application's own. `HD-FN-19`
+     counts over the union of `navigation`, `banner`, `main` and `complementary` instead.
+  3. **Chromium's unconditional `404` console error** on any non-2xx navigation —
+     `Failed to load resource: the server responded with a status of 404`, logged by the browser for
+     the top-level document rather than by the application. A blanket "zero console errors"
+     assertion is therefore red on every correctly working 404 page. `MF-FN-11` filters down to
+     `pageerror:` entries; the blanket check stays on pages expected to answer 200 (`HD-FN-10`,
+     `MF-FN-14`).
+
+  The rule is about the class, not the three instances: anything the framework renders outside our
+  tree is reachable by a bare role locator, and the fix is always to scope rather than to loosen the
+  assertion.
+
+- **A precondition states a count by naming the mirror constant, never a number.** "The two seeded
+  files" goes stale the moment the seed grows and nothing fails;
+  `TEACHER_MEETING_FILES` cannot. The same goes for the spec: derive the expected count from the
+  fixture rather than typing it.
 - **Waiting** — web-first assertions only (`await expect(...).toBeVisible()`). `waitForTimeout` and
   any fixed pause is a blocker; `eslint-plugin-playwright` keeps that rule at `error`.
 - **`await` on an async matcher is mandatory.** `expect(response).toBeOK()` without it passes,
@@ -176,7 +222,14 @@ than repeating it.
   a blocker.
 - **`teacher` and `student` are never mutated** — exact numbers are only checked against them.
   Mutating cases run as `planner` (project `api`) or `organizer` (project `web`), because
-  `fullyParallel: true` and Nest's store is shared.
+  `fullyParallel: true` and the two projects share one database.
+- **The owner is the sandbox; the meeting is per case.** A mutating file case creates **its own**
+  meeting under its sandbox owner and uploads into that: the case proving the ten-file refusal
+  consumes every slot of whatever meeting it uses, and every later upload into a shared one would
+  then fail for a reason that has nothing to do with what it tests. A listing over a meeting the
+  case made itself also has an exact expected count rather than a relative one. `mtg-planner-2` is
+  the one exception and the reason it exists — `SEC-API-11`'s fixture, never uploaded into, never
+  counted.
 - **Created meetings are dated 2030** (`FUTURE_STARTS_AT_ISO`). DESC sorting plus the top-three
   slice mean "the new meeting is first" only holds when the date is later than any seeded meeting of
   that owner. `Date.now()` instead of the constant is a blocker.
@@ -240,9 +293,10 @@ Signs of a case that should not exist:
   regression from one into the other. The behaviour is deterministic — pin it.
 
 What **should** be duplicated, and is not redundancy: `total` against the length of `items` is
-checked at all three levels (unit, API, UI), because each catches a substitution at its own seam;
-and the indistinguishability of a wrong password from an unknown email is a security requirement
-rather than a check.
+checked at the API and the UI level, because each catches a substitution at its own seam; and the
+indistinguishability of a wrong password from an unknown email is a security requirement rather than
+a check. (`total` used to be checked at the unit level as well. That unit went with the in-memory
+store; the two that remain are still deliberate rather than leftover.)
 
 ## Run economics
 
@@ -250,11 +304,32 @@ rather than a check.
 reference it: four diverging copies of this paragraph already produced `FX-027`. When the numbers
 change, change them here and set a new measurement date.
 
-Measured **2026-09-29**, Windows 11, warm `.next`, after `TUNE-S3`'s (second round) verify run. Suite
-composition — **112 e2e in 13 files and 51 units** (38 in `apps/api`, 13 in `apps/web`) plus one
-supertest module-boot check. The two e2e added since the previous line are `PR-API-07` (the scenario
-index staleness check, in the existing `process.api.spec.ts`) and rule 10 (the level-tag-matches-suffix
-check, in the existing `suite-integrity.api.spec.ts`); the file count does not move. Before that,
+Measured **2026-10-06**, Windows 11, Docker up on a reset-and-reseeded database, after `meeting-files`'s
+verify run. Suite composition — **167 e2e in 16 files and 43 units** (26 in `apps/api`, 17 in
+`apps/web`) plus one supertest module-boot check. Both counts moved by more than a line this time,
+independently recounted file by file rather than taken on faith (`grep -c` over every `test(`/`it(`
+in the tree, not a re-run of the suite): **+55 e2e**, from a new `e2e/regression/meeting-files/`
+directory (`meeting-files.api.spec.ts`, `meeting-files.functional.spec.ts`) plus relocated and grown
+cases inside several existing files (`home-dashboard`, `meetings-detail`, `security`, `smoke`,
+`accessibility`). The recount also caught a **pre-existing off-by-one**: the entry below stated 13
+files before this change, but `find e2e -name "*.spec.ts"` outside the new `meeting-files` directory
+gives **14** — corrected below rather than left standing, the same class of drift `FX-027`/`FX-035`
+are already the ledger entries for. The current, directly recounted total is **16 files**. **−8 units
+net**: 18 service-layer cases against the retired
+in-memory store (`meetings.service.spec.ts`, `users.service.spec.ts`'s `findByEmail` case) retired,
+relocated onto three new api cases, or withdrawn outright because the behaviour they guarded (shared
+in-memory objects) ceased to exist once Prisma builds a fresh object per query (design §7); 10 new
+pure-function units arrived for the upload filename/content-type/header rules and `formatFileSize`.
+`pnpm test:meetings-detail` lost its subject and was dropped from the script list; `pnpm test:home-dashboard`
+keeps its four `apps/web` `format-date` cases, untouched by this change, and stays.
+
+Before that, measured 2026-09-29, warm `.next`, after `TUNE-S3`'s (second round) verify run, at
+**112 e2e in 14 files** (corrected from a previously stated 13 — a pre-existing off-by-one, found by
+the recount above rather than by this measurement, and not chased further back than this) **and 51
+units** (38 in `apps/api`, 13 in `apps/web`) plus one supertest module-boot check. The two e2e added
+since the count before it were `PR-API-07` (the scenario index
+staleness check, in the existing `process.api.spec.ts`) and rule 10 (the level-tag-matches-suffix
+check, in the existing `suite-integrity.api.spec.ts`); the file count did not move. Before that,
 measured 2026-09-29 (`CH-019`'s verify run) at **110 e2e**: the one added since the count before it was
 `AR-API-10`, in the existing `architecture.api.spec.ts`; the file count did not move. Before that,
 measured 2026-09-28 at **109 e2e**: the eight added since the count before it were `meetings-detail`'s
@@ -270,15 +345,28 @@ cycle — stage by stage, in tokens and wall-clock (`ADR-0020`, closing what `BL
 figures on this page are run economics only, and the two are kept apart deliberately: one paragraph
 carrying two subjects is how `FX-027` happened.
 
-| What                                             | Time        | How measured                              |
-| ------------------------------------------------ | ----------- | ----------------------------------------- |
-| `pnpm e2e` — all 112                             | **26–45 s** | timing the whole command                  |
-| `pnpm e2e --project=api --grep @auth-login` — 11 | **13.1 s**  | the same; ~12 s of it is starting servers |
-| `pnpm verify` end to end                         | **47–66 s** | five measurements across two days         |
-| `pnpm verify` on a cold `.next`                  | ~137 s      | the first run of the day                  |
+| What                                             | Time                        | How measured                                                                            |
+| ------------------------------------------------ | --------------------------- | --------------------------------------------------------------------------------------- |
+| `pnpm e2e` — all 167                             | **47.7–51.4 s**             | timing the whole command, Docker up on a reset database; three measurements             |
+| `pnpm e2e --project=api --grep @auth-login` — 11 | **13.1 s**\*                | the same; ~12 s of it is starting servers (pre-`meeting-files` figure, not re-measured) |
+| `pnpm verify` end to end                         | **1 min 22 s – 1 min 47 s** | the acceptance run plus two confirmation re-runs this entry's own edit required         |
+| `pnpm verify` on a cold `.next`                  | ~137 s\*                    | the first run of the day (pre-`meeting-files` figure, not re-measured)                  |
 
-The spread is warm-up: `.next` and Nest's `tsc` are warm to different degrees. The order of
-magnitude is stable, and that is what the rule below rests on.
+\* Carried over from the previous measurement rather than re-taken this round; see the history below
+for what moved and what did not.
+
+The spread is warm-up **and** now the database: `.next`, Nest's `tsc` and the `prisma generate`
+prefix (~2 s per process, about five calls per `pnpm verify` — design §1, row 3) are each warm to a
+different degree between runs. The order of magnitude is stable, and that is what the rule below
+rests on.
+
+**Why `pnpm verify` grew (~66 s → ~1 min 22–47 s):** not the suite — 167 e2e still finish in well
+under a minute, same order of magnitude as 112 did. The `prisma generate` prefix on seven scripts
+plus the compose stack already being up accounts for the growth; the design predicted the generator
+alone at 71 ms and measured the full process at ~2.0 s warm, an order of magnitude apart — caught by
+a spike at planning rather than in production. Per-cycle process cost belongs in
+`docs/profiling/runs/2026-10-06-meeting-files.md`, not restated here (the two are kept apart
+deliberately, directly above).
 
 The second row is where the one-call rule comes from: **every additional `pnpm e2e …` costs about
 12 s regardless of how many tests are filtered**, because it restarts **both** servers, `next dev`

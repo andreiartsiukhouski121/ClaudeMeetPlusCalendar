@@ -52,7 +52,14 @@ disjoint.
                     │  *.controller   HTTP edge, DTO validation │
                     │  *.service      the rules; owns the data  │
                     │  *.mapper       entity → DTO (strips ids) │
-                    │  *.seed         the in-memory store       │
+                    │  prisma/        PrismaService, one client  │
+                    │  *.seed         rows for db:seed to write │
+                    └───────────────┬───────────────────────────┘
+                                    │ @prisma/adapter-pg, DATABASE_URL
+                                    ▼
+                    ┌───────────────────────────────────────────┐
+                    │ PostgreSQL — the `db` compose service     │
+                    │  User · Meeting · MeetingFile             │
                     └───────────────────────────────────────────┘
 ```
 
@@ -109,7 +116,7 @@ Three properties follow from that picture, and every one of them is checked by a
 | `FACT-0027` | DTO + mapper at the edge                                          | `*.mapper.ts`, `toMeetingDto`                                       | `ADR-0006` |
 | `FACT-0028` | Guard + parameter decorator                                       | `JwtAuthGuard` + `@CurrentUser()`                                   | `ADR-0009` |
 | `FACT-0029` | Global pipe as a provider                                         | `APP_PIPE` in `AppModule`                                           | `ADR-0006` |
-| `FACT-0030` | In-memory repository + seed                                       | `*.seed.ts`; services own their arrays                              | `ADR-0007` |
+| `FACT-0058` | Prisma client + seed script                                       | one injected client; `*.seed.ts` applied by `db:seed`               | `ADR-0027` |
 | `FACT-0031` | Test fixture mirroring the seed                                   | `e2e/fixtures/seed.ts`                                              | `ADR-0007` |
 | `FACT-0032` | Executable convention (meta-tests)                                | `suite-integrity`, `ledger`, `process`, `architecture`              | `ADR-0010` |
 | `FACT-0033` | Decision log + orientation gate                                   | `docs/CHANGELOG.md`, `docs/BACKLOG.md`, `check-orientation`         | `ADR-0011` |
@@ -126,8 +133,9 @@ Three properties follow from that picture, and every one of them is checked by a
 > make each layer testable without the one above it. The DTO and mapper stop internal fields such as
 > `ownerId` leaving by accident. The guard and parameter decorator make identity arrive from the
 > signature rather than from the payload. The global pipe as a provider gives test modules the same
-> validation as the server. The in-memory repository buys a demo with no database and fixed data the
-> tests can assert on. The fixture mirroring the seed lets the suite depend on data rather than on a
+> validation as the server. The Prisma client plus a standalone seed script gives the tests fixed
+> data that survives a restart, at the price of a container every contributor and every CI run now
+> needs. The fixture mirroring the seed lets the suite depend on data rather than on a
 > running order. Meta-tests beat a style guide because a convention nobody can break silently beats
 > one that asks nicely. The decision log and the orientation gate stop the same thing being built —
 > or rejected — twice. A component library gives the accessible markup and the focus handling for
@@ -146,7 +154,7 @@ Three properties follow from that picture, and every one of them is checked by a
 | `FACT-0034` | CORS, a global API prefix                                                   | `ADR-0005`              |
 | `FACT-0035` | `@nestjs/passport` + `passport-jwt`                                         | `ADR-0009`              |
 | `FACT-0036` | `bcrypt`                                                                    | `ADR-0009`              |
-| `FACT-0037` | A database                                                                  | `ADR-0007`              |
+| `FACT-0059` | A repository layer between a service and Prisma                             | `ADR-0027`              |
 | `FACT-0038` | `middleware.ts`                                                             | `ADR-0002`, invariant 9 |
 | `FACT-0039` | Client-side calls to Nest                                                   | `ADR-0002`              |
 | `FACT-0040` | React component tests in jsdom                                              | `BACKLOG.md`, Rejected  |
@@ -164,8 +172,9 @@ Three properties follow from that picture, and every one of them is checked by a
 > No browser origin ever calls Nest, so `enableCors()` would open it to every site for nothing. A
 > ~25-line guard covers the whole need, and `@nestjs/passport` adds indirection rather than safety.
 > `node:crypto.scrypt` needs no native build and is already in the platform, so `bcrypt` buys
-> nothing. The demo's value is the contract and the process rather than persistence, and a database's
-> cost lands on the tests. `middleware.ts` is deprecated in Next 16 — the file is `proxy.ts`.
+> nothing. A repository layer over Prisma would have exactly one second implementation — a
+> hand-written fake — which moves the unit tests from testing the code to testing the fake, and the
+> service already owns the store. `middleware.ts` is deprecated in Next 16 — the file is `proxy.ts`.
 > Client-side calls to Nest would put the token in the browser and end the BFF. React component tests
 > in jsdom would be a second, less trustworthy copy of what the functional suite already checks. Next
 > 16 registers its dev server per project directory, so ports do not separate parallel agents and
@@ -204,3 +213,13 @@ Three properties follow from that picture, and every one of them is checked by a
 - `FACT-0051` The prose in the rationale blocks is held true by the rule that an architectural change
   writes its ADR before its code, and by the plan-review gate. — `docs/adr/README.md`, "Rules";
   `docs/process.md`
+
+## Retired facts
+
+The register of the keys this document has allocated and no longer states (`ADR-0022`). A fact is
+never edited in place and never deleted; it is closed here, naming the key that replaced it.
+
+| Key         | Stated                                                                | Status                 | Recorded in |
+| ----------- | --------------------------------------------------------------------- | ---------------------- | ----------- |
+| `FACT-0030` | In-memory repository + seed — `*.seed.ts`; services own their arrays. | `retired by FACT-0058` | `ADR-0027`  |
+| `FACT-0037` | A database, refused — `ADR-0007`.                                     | `retired by FACT-0058` | `ADR-0027`  |

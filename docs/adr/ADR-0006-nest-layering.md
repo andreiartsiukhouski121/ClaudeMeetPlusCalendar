@@ -48,8 +48,19 @@ Rejected:
   `@IsOptional()` still runs through `@IsInt`/`@Min`/`@Max` and answers 400 when the field is simply
   absent. Both `limit` and `durationMinutes` broke that way. — invariant 2, `HD-API-10`,
   `HD-API-20`
-- `FACT-3111` Invariant 8 follows from the pipe: a 400 body's `message` is an array, a 401's is a
-  string. — invariant 8, `FACT-2017`
+- `FACT-3651` Invariant 8 follows from the pipe, and the pipe is no longer the only source of the
+  shape: a `400` raised by the pipe **or by a handler passing an array** carries an array `message`,
+  while a `401` and the multipart-limit `400` raised by `@nestjs/platform-express` carry a string. —
+  invariant 8, `FACT-2086`
 - `FACT-3112` Every response shape is checked by key set, so adding a field to an entity without
   adding it to the mapper and the contract fails a case rather than shipping. — `HD-API-01`,
   `AL-API-11`
+
+## Retired facts
+
+The register of the keys this record has allocated and no longer states (`ADR-0022`). The decision
+itself stands; the fact below is one this project's first non-JSON endpoint made too narrow.
+
+| Key         | Stated                                                                                      | Status                 | Recorded in |
+| ----------- | ------------------------------------------------------------------------------------------- | ---------------------- | ----------- |
+| `FACT-3111` | Invariant 8 follows from the pipe: a 400 body's `message` is an array, a 401's is a string. | `retired by FACT-3651` | `ADR-0029`  |

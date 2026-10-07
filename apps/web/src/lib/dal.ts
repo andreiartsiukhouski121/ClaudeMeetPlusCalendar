@@ -1,10 +1,10 @@
 import 'server-only';
-import { redirect } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { cache } from 'react';
 
 import { ApiError, apiFetch } from './api-client';
 import { readSessionToken } from './session';
-import type { MeetingsPage, PublicUser } from './types';
+import type { Meeting, MeetingFilesPage, MeetingsPage, PublicUser } from './types';
 
 /**
  * Data access layer for server components: the only place a page gets data from.
@@ -80,6 +80,84 @@ export async function getMeetings(limit: number = DEFAULT_MEETINGS_LIMIT): Promi
         throw error;
       }
     }
+  }
+
+  if (page === undefined) {
+    redirect(SESSION_RESET_PATH);
+  }
+
+  return page;
+}
+
+/**
+ * A single meeting by id, for the detail page.
+ *
+ * Invariant 10/17: the session check is repeated here too, exactly like `getMeetings`. A 404 from
+ * Nest — unknown id, or a meeting owned by somebody else (`ADR-0018`, one code path) — becomes
+ * Next's `notFound()`, so the two situations stay indistinguishable at this layer too.
+ *
+ * `redirect()` and `notFound()` both work by throwing a Next-internal signal (`NEXT_REDIRECT` /
+ * the 404 fallback), so both are called strictly OUTSIDE the `try/catch` (invariant 11): a `catch`
+ * in this block narrows and rethrows, it never classifies by calling either of them.
+ */
+export async function getMeetingById(id: string): Promise<Meeting> {
+  const token = await readSessionToken();
+  let meeting: Meeting | undefined;
+  let missing = false;
+
+  if (token !== undefined) {
+    try {
+      meeting = await apiFetch<Meeting>(`/meetings/${id}`, { token });
+    } catch (error) {
+      if (!(error instanceof ApiError)) {
+        throw error;
+      }
+      if (error.status === 404) {
+        missing = true;
+      } else if (error.status !== 401) {
+        throw error;
+      }
+    }
+  }
+
+  if (missing) {
+    notFound();
+  }
+
+  if (meeting === undefined) {
+    redirect(SESSION_RESET_PATH);
+  }
+
+  return meeting;
+}
+
+/**
+ * A meeting's attachments, newest first (invariant 7's secondary key, carried by the API's own
+ * `orderBy`). Same session/404 handling as `getMeetingById` — see there for why `notFound()` and
+ * `redirect()` both sit outside the `try/catch`.
+ */
+export async function getMeetingFiles(id: string): Promise<MeetingFilesPage> {
+  const token = await readSessionToken();
+  let page: MeetingFilesPage | undefined;
+  let missing = false;
+
+  if (token !== undefined) {
+    try {
+      page = await apiFetch<MeetingFilesPage>(`/meetings/${id}/files`, { token });
+    } catch (error) {
+      if (!(error instanceof ApiError)) {
+        throw error;
+      }
+      if (error.status === 404) {
+        missing = true;
+      } else if (error.status !== 401) {
+        throw error;
+      }
+    }
+  }
+
+  if (missing) {
+    notFound();
   }
 
   if (page === undefined) {

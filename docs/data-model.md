@@ -51,6 +51,32 @@ what each field is for.
 > **Rationale — not a fact.** `startsAt` is a string rather than a `Date` deliberately: it survives
 > JSON serialization unchanged and compares stably in assertions.
 
+### `MeetingFile`
+
+**Source:** `apps/api/src/meeting-files/meeting-file.types.ts` and
+`apps/api/prisma/schema.prisma`; the key set is asserted by `MF-API-01`.
+
+| Key         | Field         | Type         | Column    | Format / constraint                                                           | Leaves the API?                             |
+| ----------- | ------------- | ------------ | --------- | ----------------------------------------------------------------------------- | ------------------------------------------- |
+| `FACT-1056` | `id`          | `string`     | `text`    | `fil-<owner>-<n>-<k>` in the seed, `randomUUID()` from an upload              | yes                                         |
+| `FACT-1057` | `meetingId`   | `string`     | `text`    | a `Meeting.id`, `onDelete: Cascade`; taken from the path, never the body      | **never** — `toMeetingFileDto` strips it    |
+| `FACT-1058` | `filename`    | `string`     | `text`    | the upload rule in [`api-contract.md`](api-contract.md); the seed bypasses it | yes                                         |
+| `FACT-1059` | `contentType` | `string`     | `text`    | the **normalized** media type, one of four values, never the raw header       | yes                                         |
+| `FACT-1060` | `sizeBytes`   | `number`     | `integer` | 1 … 1 048 576, written from the length of the stored buffer                   | yes                                         |
+| `FACT-1061` | `content`     | `Uint8Array` | `bytea`   | the file verbatim; a `Buffer` on write, a `Uint8Array` on read                | **never** in JSON — only as a response body |
+| `FACT-1062` | `uploadedAt`  | `string`     | `text`    | ISO 8601 UTC, same format as `startsAt`                                       | yes                                         |
+
+- `FACT-1063` `MeetingFileDto = Omit<MeetingFile, 'meetingId' | 'content'>` — five keys sorted
+  `contentType`, `filename`, `id`, `sizeBytes`, `uploadedAt`, listed explicitly by the mapper rather
+  than by rest destructuring. — `apps/api/src/meeting-files/meeting-files.mapper.ts`, `MF-API-01`
+- `FACT-1064` Indexes: `Meeting(ownerId, startsAt)` for the owner-scoped recent list and
+  `MeetingFile(meetingId)` for the per-meeting listing. — `apps/api/prisma/schema.prisma`
+
+> **Rationale — not a fact.** `content` is the one column with two reasons to stay out of a mapper:
+> it is large, and `JSON.stringify` of a `Uint8Array` emits an index-keyed object rather than
+> base64. The normalized `contentType` is echoed straight back as a response header on download, so
+> normalizing on the way in is what makes that header provably one of four values.
+
 ### Response wrappers
 
 **Source:** `apps/api/src/meetings/meetings.types.ts`, `apps/api/src/auth/auth.types.ts`.
@@ -58,15 +84,21 @@ what each field is for.
 - `FACT-1012` `MeetingsPageDto` = `{ items: MeetingDto[], total: number }`. —
   `apps/api/src/meetings/meetings.types.ts`
 - `FACT-1013` `total` is the owner's full record count, never `items.length` — `items` is cut by the
-  limit. — invariant 4, `HD-UT-03`, `HD-API-05`, `HD-FN-03`
+  limit. — invariant 4, `HD-API-05`, `HD-FN-03`
 - `FACT-1014` `LoginResult` = `{ accessToken: string, user: PublicUser }`. —
   `apps/api/src/auth/auth.types.ts`
 - `FACT-1015` `JwtPayload` = `{ sub: <user id>, email }`. — `apps/api/src/auth/auth.types.ts`
 - `FACT-1016` The JWT payload is readable by anyone holding the token, so nothing secret goes in
   it. — `ADR-0003`
+- `FACT-1065` The file listing is `{ items: MeetingFileDto[] }` with **no** `total`: the route takes
+  no `limit`, so a count could only ever be `items.length`, which invariant 4 forbids. An object
+  rather than a bare array, so the response can gain a field later. —
+  `apps/api/src/meeting-files/meeting-files.controller.ts`, `MF-API-04`
 
-> **Rationale — not a fact.** `total` is covered at three levels because it is the classic mistake
-> here: the count that is easiest to write is the wrong one.
+> **Rationale — not a fact.** `total` is covered at the API and the UI level because it is the
+> classic mistake here: the count that is easiest to write is the wrong one. It used to be covered at
+> the unit level as well; that unit went with the in-memory store (`ADR-0027`), and the duplication
+> that remains is still deliberate rather than leftover.
 
 ## Value formats
 
@@ -91,37 +123,64 @@ what each field is for.
 
 ## Storage and lifetime
 
-- `FACT-1025` There is no database. — `ADR-0007`
-- `FACT-1026` Each service owns an array, seeded at module initialization. —
+- `FACT-1066` Persistence is PostgreSQL, run from the repository's `docker-compose.yml`; a
+  contributor needs a working Docker before `pnpm e2e` or `pnpm verify`. — `ADR-0027`, `FACT-3571`,
+  `FACT-3595`
+- `FACT-1067` Each service reads and writes through one injected Prisma client and keeps no
+  in-process copy of the data. — `ADR-0027`, `apps/api/src/prisma/prisma.service.ts`,
   `apps/api/src/meetings/meetings.service.ts`, `apps/api/src/users/users.service.ts`
 
-**Source:** `ADR-0007`; the cookie's lifetime is set in `apps/web/src/lib/session-cookie.ts`.
+**Source:** `ADR-0027`; the cookie's lifetime is set in `apps/web/src/lib/session-cookie.ts`.
 
-| Key         | Datum           | Lives in                               | Dies when                                                  |
-| ----------- | --------------- | -------------------------------------- | ---------------------------------------------------------- |
-| `FACT-1027` | Users, meetings | in-memory arrays in the services       | the API process restarts (`--watch` does it on every edit) |
-| `FACT-1028` | Password hashes | computed at startup from the seed      | with the process; plaintext never persists                 |
-| `FACT-1029` | Session         | the `ps_session` cookie in the browser | it expires (1 h) or sign-out deletes it                    |
+| Key         | Datum                          | Lives in                               | Dies when                                                        |
+| ----------- | ------------------------------ | -------------------------------------- | ---------------------------------------------------------------- |
+| `FACT-1068` | Users, meetings, meeting files | rows in PostgreSQL                     | the compose volume is removed, or `db:reset` drops and re-pushes |
+| `FACT-1069` | Password hashes                | the `passwordHash` column              | with the row; the seed source's plaintext is never written       |
+| `FACT-1029` | Session                        | the `ps_session` cookie in the browser | it expires (1 h) or sign-out deletes it                          |
 
-- `FACT-1030` No test may depend on data another test created. — `e2e/README.md`, `ADR-0007`
+- `FACT-1030` No test may depend on data another test created. — `e2e/README.md`, `ADR-0027`
 - `FACT-1031` Mutating cases follow the robustness rules for asserting against a shared sandbox. —
   `e2e/README.md`
 
 ## Seed data
 
-- `FACT-1032` The seed is `apps/api/src/users/users.seed.ts` and `meetings.seed.ts`, mirrored for the
-  suite in `e2e/fixtures/seed.ts`. — `ADR-0007`
+- `FACT-1070` The seed source is three modules — `apps/api/src/users/users.seed.ts`,
+  `meetings.seed.ts` and `meeting-files/meeting-files.seed.ts` — applied to the database by the
+  standalone `apps/api/prisma/seed.ts` under `pnpm db:seed`, and mirrored for the suite in
+  `e2e/fixtures/seed.ts`. No service constructor and no lifecycle hook seeds anything. — `ADR-0027`,
+  `FACT-3577`
 - `FACT-1033` Drift between the seed and its mirror fails `SM-API-02` / `SM-API-03`. —
   `e2e/smoke/seed.api.spec.ts`
 
 **Source:** `apps/api/src/users/users.seed.ts`, `e2e/fixtures/seed.ts`.
 
-| Key         | User                          | Name            | Meetings | Role in the suite                                 |
-| ----------- | ----------------------------- | --------------- | -------- | ------------------------------------------------- |
-| `FACT-1034` | `teacher@purpleschool.test`   | Anna Teacher    | 5        | read-only; exact counts and the "last 3" ordering |
-| `FACT-1035` | `student@purpleschool.test`   | Ivan Student    | 0        | read-only; the empty-state edge case              |
-| `FACT-1036` | `planner@purpleschool.test`   | Maria Planner   | 1        | mutation sandbox for `*.api.spec.ts`              |
-| `FACT-1037` | `organizer@purpleschool.test` | Peter Organizer | 1        | mutation sandbox for `*.functional.spec.ts`       |
+| Key         | User                          | Name            | Meetings | Role in the suite                                                            |
+| ----------- | ----------------------------- | --------------- | -------- | ---------------------------------------------------------------------------- |
+| `FACT-1034` | `teacher@purpleschool.test`   | Anna Teacher    | 5        | read-only; exact counts and the "last 3" ordering                            |
+| `FACT-1035` | `student@purpleschool.test`   | Ivan Student    | 0        | read-only; the empty-state edge case                                         |
+| `FACT-1071` | `planner@purpleschool.test`   | Maria Planner   | 2        | mutation sandbox for `*.api.spec.ts`, plus one never-mutated fixture meeting |
+| `FACT-1037` | `organizer@purpleschool.test` | Peter Organizer | 1        | mutation sandbox for `*.functional.spec.ts`                                  |
+
+`planner`'s second meeting is the one place the seed deliberately writes rows no endpoint would
+accept:
+
+**Source:** `apps/api/src/meetings/meetings.seed.ts`,
+`apps/api/src/meeting-files/meeting-files.seed.ts`, `e2e/fixtures/seed.ts`.
+
+| Key         | Meeting                                  | Files | What it is for                                                                            |
+| ----------- | ---------------------------------------- | ----- | ----------------------------------------------------------------------------------------- |
+| `FACT-1072` | `mtg-teacher-3` "Geometry workshop"      | 2     | the read-only file baseline: `syllabus.pdf` (1024 B) and `notes.txt` (48 B)               |
+| `FACT-1073` | `mtg-planner-2` "Archive intake session" | 5     | `SEC-API-11`'s fixture: hostile filenames written straight through Prisma, never uploaded |
+| `FACT-1074` | every other seeded meeting               | 0     | the empty-state fixture                                                                   |
+
+- `FACT-1075` The seeded files' bytes are deterministic — a fixed ASCII header padded with `0x20` to
+  the exact seeded size — so `db:reset` is byte-identical every time and `1024` and `48` render as
+  `1.0 KiB` and `48 B`. — `apps/api/src/meeting-files/meeting-files.seed.ts`, `MF-FN-03`
+- `FACT-1076` A mutating file case creates **its own** meeting under its sandbox owner rather than
+  sharing one: the ten-file refusal consumes every slot of whatever meeting proves it, and a listing
+  over a meeting the case made itself has an exact expected count rather than a relative one.
+  `FACT-3131` still governs anything counted across an owner's whole collection. —
+  `e2e/regression/meeting-files/meeting-files.api.cases.md`, `MF-API-15`
 
 - `FACT-1038` All four users share one password, `Passw0rd!`. — `e2e/fixtures/seed.ts`
 - `FACT-1039` `teacher` and `student` are never mutated. — `e2e/README.md`, `SM-API-02`
@@ -195,6 +254,35 @@ Browser  form POST ──► Server Action createMeetingAction
 
 - `FACT-1048` `ownerId` is taken from the token, and sending one in the body is rejected with a 400. — invariant 5, `HD-API-16`, `HD-API-17`
 
+### Attaching a file to a meeting, and reading it back
+
+- `FACT-1077` The upload and download paths are the ones drawn below. —
+  `apps/web/src/lib/actions/meeting-files.ts`,
+  `apps/web/src/app/meetings/[id]/files/[fileId]/route.ts`
+
+```
+Browser  form POST ──► Server Action uploadMeetingFileAction
+                        ├─ its own session check (the proxy proves nothing here)
+                        ├─► api-client: apiFetchMultipart — one part named `file`, no JSON
+                        │      POST /meetings/<id>/files   (Bearer)   201 MeetingFileDto
+                        │      the meeting id is BOUND to the action, never a form field
+                        └─ revalidatePath('/meetings/<id>')  → the attachment list re-renders
+
+Browser  GET /meetings/<id>/files/<fileId> ──► Next Route Handler
+                        ├─► GET /meetings/<id>/files/<fileId>/content  (Bearer)  200 bytes
+                        ├─ streams the body through with the four headers of api-contract.md
+                        └─ 401 ──► /auth/session-expired (invariant 17); 404 passes through bare
+```
+
+- `FACT-1078` The browser never fetches the bytes from Nest: the token is attached server-side by
+  the Route Handler, which is the BFF rule applied to a non-page response. — `ADR-0002`,
+  `FACT-3633`, `MF-FN-07`
+- `FACT-1079` `content` is the only field of any entity that leaves the API outside a JSON body, and
+  it leaves through exactly one endpoint. — `ADR-0029`, `FACT-3626`, `MF-API-04`
+
+> **Rationale — not a fact.** The meeting id is bound rather than submitted for the reason invariant
+> 5 gives for `ownerId`: a value a client can set is a value a client can change.
+
 ### Session ending
 
 - `FACT-1049` Sign-out deletes the cookie and redirects to `/auth/login`. —
@@ -219,3 +307,17 @@ Browser  form POST ──► Server Action createMeetingAction
 
 > **Rationale — not a fact.** The key-set assertions are what stops a field escaping silently, which
 > is why they are listed as a step rather than left to be noticed.
+
+## Retired facts
+
+The register of the keys this document has allocated and no longer states (`ADR-0022`). A fact is
+never edited in place and never deleted; it is closed here, naming the key that replaced it.
+
+| Key         | Stated                                                                                        | Status                 | Recorded in |
+| ----------- | --------------------------------------------------------------------------------------------- | ---------------------- | ----------- |
+| `FACT-1025` | There is no database.                                                                         | `retired by FACT-1066` | `ADR-0027`  |
+| `FACT-1026` | Each service owns an array, seeded at module initialization.                                  | `retired by FACT-1067` | `ADR-0027`  |
+| `FACT-1027` | Users and meetings live in in-memory arrays and die when the API process restarts.            | `retired by FACT-1068` | `ADR-0027`  |
+| `FACT-1028` | Password hashes are computed at startup from the seed and die with the process.               | `retired by FACT-1069` | `ADR-0027`  |
+| `FACT-1032` | The seed is `users.seed.ts` and `meetings.seed.ts`, mirrored in `e2e/fixtures/seed.ts`.       | `retired by FACT-1070` | `ADR-0027`  |
+| `FACT-1036` | `planner@purpleschool.test` owns one meeting and is the mutation sandbox for `*.api.spec.ts`. | `retired by FACT-1071` | `ADR-0029`  |

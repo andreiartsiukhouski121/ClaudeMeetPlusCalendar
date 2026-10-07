@@ -10,26 +10,38 @@ Commits before that entry are in Russian and are not rewritten.
 
 ## Commands
 
-| Command                        | What it does                                                                 |
-| ------------------------------ | ---------------------------------------------------------------------------- |
-| `pnpm dev`                     | both applications in parallel                                                |
-| `pnpm dev:web`                 | Next.js on `http://127.0.0.1:3000`                                           |
-| `pnpm dev:api`                 | Nest.js on `http://127.0.0.1:3001`                                           |
-| `pnpm lint` / `pnpm lint:fix`  | ESLint over the root and every package                                       |
-| `pnpm typecheck`               | `tsc` over the root (e2e) and over each package                              |
-| `pnpm test`                    | unit tests (Vitest in `apps/api` and `apps/web`)                             |
-| `pnpm test:<feature>`          | one feature's units: `test:auth-login`, `test:home-dashboard`                |
-| `pnpm change:new <slug>`       | scaffold a change folder: research, design, plan                             |
-| `pnpm change:new <slug> --bug` | the same, with the bugfix plan template                                      |
-| `pnpm adr:new <slug>`          | record an architecture decision; takes the next free number                  |
-| `pnpm check:orientation`       | section 0 of the plans is filled in substance (in pre-commit and verify)     |
-| `pnpm verify`                  | **the whole check on a single server start**: lint + typecheck + units + e2e |
-| `pnpm e2e`                     | E2E through Playwright on ports 3100/3101; it starts the servers itself      |
-| `pnpm e2e:security`            | cross-feature security invariants (API + browser)                            |
-| `pnpm audit`                   | known CVEs in the dependencies (high and above)                              |
-| `pnpm e2e:report`              | the HTML report of the last Playwright run                                   |
-| `pnpm skills:sync`             | fetch the external skill sets into `.agents/` by the lock file               |
-| `pnpm skills:check`            | offline: verify what is on disk matches the lock file                        |
+| Command                                    | What it does                                                                        |
+| ------------------------------------------ | ----------------------------------------------------------------------------------- |
+| `pnpm dev`                                 | both applications in parallel                                                       |
+| `pnpm dev:web`                             | Next.js on `http://127.0.0.1:3000`                                                  |
+| `pnpm dev:api`                             | Nest.js on `http://127.0.0.1:3001`                                                  |
+| `pnpm lint` / `pnpm lint:fix`              | ESLint over the root and every package                                              |
+| `pnpm typecheck`                           | `tsc` over the root (e2e) and over each package                                     |
+| `pnpm test`                                | unit tests (Vitest in `apps/api` and `apps/web`)                                    |
+| `pnpm test:<feature>`                      | one feature's units: `test:auth-login`, `test:home-dashboard`, `test:meeting-files` |
+| `pnpm change:new <slug>`                   | scaffold a change folder: research, design, plan                                    |
+| `pnpm change:new <slug> --bug`             | the same, with the bugfix plan template                                             |
+| `pnpm adr:new <slug>`                      | record an architecture decision; takes the next free number                         |
+| `pnpm check:orientation`                   | section 0 of the plans is filled in substance (in pre-commit and verify)            |
+| `pnpm verify`                              | **the whole check on a single server start**: lint + typecheck + units + e2e        |
+| `pnpm e2e`                                 | E2E through Playwright on ports 3100/3101; it starts the servers itself             |
+| `pnpm e2e:security`                        | cross-feature security invariants (API + browser)                                   |
+| `pnpm audit`                               | known CVEs in the dependencies (high and above)                                     |
+| `pnpm e2e:report`                          | the HTML report of the last Playwright run                                          |
+| `pnpm --filter @purpleschool/api db:up`    | start the Postgres container and wait for its healthcheck                           |
+| `pnpm --filter @purpleschool/api db:reset` | drop, re-push the schema and re-seed; needs `DATABASE_URL`                          |
+| `pnpm skills:sync`                         | fetch the external skill sets into `.agents/` by the lock file                      |
+| `pnpm skills:check`                        | offline: verify what is on disk matches the lock file                               |
+
+**Docker must be running before `pnpm e2e` or `pnpm verify`** (`ADR-0027`, `FACT-3595`). Persistence
+is PostgreSQL in the `db` service of the repository's `docker-compose.yml`, and the api `webServer`
+entry runs `start:e2e` → `db:reset` → `docker compose up -d --wait` before Nest starts: with no
+Docker the whole run dies before a test executes. Two databases live on that one server —
+`purpleschool` for `pnpm dev` and `purpleschool_e2e` for the suite — so a development session and a
+Playwright run never share rows. What still works without a container: `pnpm lint`, `pnpm typecheck`
+and `pnpm test`, because no unit touches the database and the Prisma client connects lazily. What
+does not is accepting a change. If `docker` is not on your `PATH`, `db:up` fails as "command not
+found", which looks nothing like a database problem.
 
 Write addresses as `127.0.0.1`, never `localhost`: on Windows `localhost` resolves to `::1`, where
 `next dev` does not listen.

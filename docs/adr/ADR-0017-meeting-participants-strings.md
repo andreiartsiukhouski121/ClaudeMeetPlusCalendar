@@ -102,20 +102,27 @@ Rejected:
 - `FACT-3359` Three mirrors of the shape move in the same change or drift: the seed
   (`apps/api/src/meetings/meetings.seed.ts`), its test mirror `e2e/fixtures/seed.ts`, and
   `apps/web/src/lib/types.ts`. — `research/code.md` §3, `ADR-0007`
-- `FACT-3360` The store hands out shallow copies (`meetings.service.ts:83-87`), and a shallow copy
-  shares the array, so all four paths that hand a `Meeting` out must clone `participants`: the
-  constructor's `{ ...seed }` (`:39`), `byOwner` (`:83-87`), `create`'s return (`:77-79`) and the
-  by-id read. — `apps/api/src/meetings/meetings.service.ts`
 - `FACT-3361` `"participants": null` is stored as `[]`, and that is documented behaviour rather than
   a surprise. — `research/README.md`, contradiction C4; `FACT-2054`
-- `FACT-3362` `SM-API-03` reads only titles (`e2e/smoke/seed.api.spec.ts:14-17`), so the mirror rule
-  this record relies on is enforced only once that case is extended to compare participants. —
-  `e2e/smoke/seed.api.spec.ts`
+- `FACT-3652` `SM-API-03` compares the seeded `participants` arrays verbatim against the fixture
+  mirror, not only the titles, so the mirror rule this record relies on is enforced by a case rather
+  than by review. — `e2e/smoke/seed.api.spec.ts`
 
 > **Rationale — not a fact.** The key-set assertions are supposed to fail here: they are the check
 > that a field cannot escape silently. The clone cost did not exist while every field was a scalar,
-> and the constructor is the sharp one — without a clone the stored object shares an array with the
-> module-level `SEED_MEETINGS` constant. Free-form strings mean no check that a participant is a real
+> and the clone cost has since gone away entirely: Prisma builds a fresh object per query, so there
+> is no shared array left to defend. Free-form strings mean no check that a participant is a real
 > person, ever; that is accepted, because this field is a note rather than an invitation and nothing
 > in the product acts on it. A later change wanting 50 participants edits the contract and the data
 > model and cites this record; one wanting participants to _be_ users supersedes it.
+
+## Retired facts
+
+The register of the keys this record has allocated and no longer states (`ADR-0022`). The decision
+itself stands — `participants` is still an array of free-form strings — and both rows below are
+consequences that stopped describing the system.
+
+| Key         | Stated                                                                                                                 | Status                 | Recorded in |
+| ----------- | ---------------------------------------------------------------------------------------------------------------------- | ---------------------- | ----------- |
+| `FACT-3360` | The store hands out shallow copies, so all four paths that hand a `Meeting` out must clone `participants`.             | `withdrawn`            | `ADR-0027`  |
+| `FACT-3362` | `SM-API-03` reads only titles, so the mirror rule is enforced only once that case is extended to compare participants. | `retired by FACT-3652` | `ADR-0029`  |

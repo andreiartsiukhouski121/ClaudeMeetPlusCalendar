@@ -4,7 +4,7 @@ import { expect, mergeTests, type Page } from '@playwright/test';
 
 import { isNestRequest, test as apiTest } from '../fixtures/api.js';
 import { test as authTest } from '../fixtures/auth.fixture.js';
-import { SEED_USERS } from '../fixtures/seed.js';
+import { GEOMETRY_WORKSHOP_MEETING_ID, SEED_USERS } from '../fixtures/seed.js';
 
 /**
  * Security invariants visible only from the browser. Cases live in the paired
@@ -28,7 +28,7 @@ const test = mergeTests(authTest, apiTest);
 const SESSION_COOKIE_NAME = 'ps_session';
 
 /** Protected pages. Adding a page behind the gate means adding a path here (invariant 16). */
-const PROTECTED_PAGES = ['/'];
+const PROTECTED_PAGES = ['/', `/meetings/${GEOMETRY_WORKSHOP_MEETING_ID}`];
 
 /**
  * The web address from the project settings. There is DELIBERATELY no default: the former
@@ -86,18 +86,30 @@ test.describe('Security: browser', { tag: '@security' }, () => {
     'SEC-FN-02 — the token never reaches the page HTML',
     { tag: '@p0' },
     async ({ authedPage }) => {
-      await authedPage.goto('/');
-      await expect(authedPage.getByRole('heading', { level: 1 })).toBeVisible();
-
       const token = await sessionCookieValue(authedPage);
-      // page.content() returns the final HTML together with the serialized RSC stream — exactly
-      // where a token passed as a prop to a client component would end up (invariant 19).
-      const html = await authedPage.content();
 
-      expect(html).not.toContain(token);
-      expect(html).not.toContain('accessToken');
-      expect(html).not.toContain('Bearer');
-      expect(html).not.toContain('scrypt');
+      /*
+       * Every protected page, not just `/`. Passing the token as a prop into a client component
+       * (invariant 19) is a mistake made WHEN A PAGE IS WRITTEN, so spending this case on the one
+       * page that existed when it was written is the least useful place for it. The meeting detail
+       * page renders server-fetched file metadata, links carrying file ids and a form bound to a
+       * Server Action — exactly the shape that leaks.
+       */
+      for (const path of PROTECTED_PAGES) {
+        await authedPage.goto(path);
+        await expect(authedPage.getByRole('heading', { level: 1 })).toBeVisible();
+
+        // page.content() returns the final HTML together with the serialized RSC stream — exactly
+        // where a token passed as a prop to a client component would end up.
+        const html = await authedPage.content();
+
+        // The path is named in every message: with more than one page in the list, "something
+        // leaked somewhere" is not a usable failure.
+        expect(html, `${path} carries the session token in its HTML`).not.toContain(token);
+        expect(html, `${path} carries "accessToken" in its HTML`).not.toContain('accessToken');
+        expect(html, `${path} carries "Bearer" in its HTML`).not.toContain('Bearer');
+        expect(html, `${path} carries "scrypt" in its HTML`).not.toContain('scrypt');
+      }
     },
   );
 
@@ -114,17 +126,30 @@ test.describe('Security: browser', { tag: '@security' }, () => {
         });
       });
 
-      await authedPage.goto('/');
-      await expect(authedPage.getByRole('heading', { level: 1 })).toBeVisible();
+      /*
+       * Every protected page in turn, into one accumulated list. Walking the list is what makes
+       * this an invariant rather than a check of the dashboard: a page that fetches its own data
+       * from Nest, or a download link pointed straight at the API port, is a PER-PAGE mistake and
+       * has to be checked per page (`ADR-0002`).
+       */
+      for (const path of PROTECTED_PAGES) {
+        await authedPage.goto(path);
+        await expect(authedPage.getByRole('heading', { level: 1 })).toBeVisible();
+      }
 
+      // Not empty: proof the recording worked at all, or everything below passes vacuously.
       expect(requests.length).toBeGreaterThan(0);
       expect(
         requests.filter((request) => isNestRequest(request.url, apiBaseURL)),
-        `The browser called Nest directly (${apiBaseURL}) — a BFF violation`,
+        `The browser called Nest directly (${apiBaseURL}) — a BFF violation. Pages visited: ` +
+          PROTECTED_PAGES.join(', '),
       ).toEqual([]);
       // A token header on a browser request would mean the BFF was bypassed even if the address
       // is Next's.
-      expect(requests.filter((request) => request.hasAuthHeader)).toEqual([]);
+      expect(
+        requests.filter((request) => request.hasAuthHeader),
+        'A browser request carried an Authorization header — the token left the server layer',
+      ).toEqual([]);
     },
   );
 

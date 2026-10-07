@@ -313,5 +313,34 @@ test.describe(
         }
       },
     );
+
+    test(
+      'MD-API-08 — padded and duplicated participants are neither trimmed nor deduplicated',
+      { tag: '@mutating' },
+      async ({ request }) => {
+        const headers = await authHeadersFor(request, 'planner');
+        const title = uniqueTitle('E2E padded participants');
+        // The retired MD-UT-05's payload, carried over verbatim: padded and duplicated, so trimming
+        // or deduplication on either response would be visible immediately.
+        const participants = ['  Nina Cole ', 'Nina Cole', 'Nina Cole', 'guest@purpleschool.test'];
+
+        const created = await request.post('/meetings', {
+          headers,
+          data: { title, startsAt: FUTURE_STARTS_AT_ISO, participants },
+        });
+
+        expect(created.status()).toBe(201);
+
+        const createdBody = (await created.json()) as MeetingItem;
+        expect(createdBody.participants).toEqual(participants);
+
+        // Read back through the by-id route: proves the value is stored, not merely echoed.
+        const byId = await request.get(`/meetings/${createdBody.id}`, { headers });
+        expect(byId.status()).toBe(200);
+
+        const byIdBody = (await byId.json()) as MeetingItem;
+        expect(byIdBody.participants).toEqual(participants);
+      },
+    );
   },
 );
