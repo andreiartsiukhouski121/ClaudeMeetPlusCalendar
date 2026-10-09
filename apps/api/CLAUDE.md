@@ -16,19 +16,19 @@ the contract document fails `AR-API-05`; a guarded one missing from `PROTECTED_R
 
 ## Map
 
-| Path                   | What is there                                                               |
-| ---------------------- | --------------------------------------------------------------------------- |
-| `src/main.ts`          | bootstrap; `x-powered-by` off, no CORS and no prefix — see the file head    |
-| `src/app.module.ts`    | module wiring and **`ValidationPipe` as an `APP_PIPE` provider**            |
-| `src/auth/`            | controller, `AuthService`, `TokenService`, `JwtAuthGuard`, `@CurrentUser()` |
-| `src/meetings/`        | controller, service over Prisma, DTOs, mapper, seed rows                    |
-| `src/users/`           | user service and seed rows (plaintext → `scrypt` **in the seed script**)    |
-| `src/meeting-files/`   | controller, service, mapper, pure rules, DTO, seed rows for attachments     |
-| `src/prisma/`          | `PrismaModule` + `PrismaService` on a `@prisma/adapter-pg` driver adapter   |
-| `prisma/`              | `schema.prisma` and the standalone `seed.ts` that `db:seed` runs            |
-| `src/common/crypto/`   | `scrypt` hashing and constant-time comparison                               |
-| `src/config/`          | reads `JWT_SECRET` / `JWT_EXPIRES_IN` / `DATABASE_URL` from the environment |
-| `test/app.e2e-spec.ts` | supertest, for exactly one thing: `AppModule` boots in a test module        |
+| Path                   | What is there                                                                 |
+| ---------------------- | ----------------------------------------------------------------------------- |
+| `src/main.ts`          | bootstrap; `x-powered-by` off, no CORS and no prefix — see the file head      |
+| `src/app.module.ts`    | module wiring and **`ValidationPipe` as an `APP_PIPE` provider**              |
+| `src/auth/`            | controller, `AuthService`, `TokenService`, `JwtAuthGuard`, `@CurrentUser()`   |
+| `src/meetings/`        | controller, service over Prisma, DTOs, mapper, seed rows                      |
+| `src/users/`           | user service and seed rows (plaintext → `scrypt` **in the seed script**)      |
+| `src/meeting-files/`   | controller, service, mapper, pure rules, DTO, seed rows for attachments       |
+| `src/prisma/`          | `PrismaModule` + `PrismaService` on a `@prisma/adapter-pg` driver adapter     |
+| `prisma/`              | `schema.prisma` and the standalone `seed.ts` that `db:seed` runs              |
+| `src/common/crypto/`   | `scrypt` hashing and constant-time comparison                                 |
+| `src/config/`          | reads `JWT_SECRET` / `JWT_EXPIRES_IN` / `DATABASE_URL`; the seed's prod guard |
+| `test/app.e2e-spec.ts` | supertest, for exactly one thing: `AppModule` boots in a test module          |
 
 ## How this package differs from ordinary Nest
 

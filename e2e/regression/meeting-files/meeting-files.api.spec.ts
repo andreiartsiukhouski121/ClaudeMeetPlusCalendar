@@ -63,7 +63,7 @@ const ONE_MIB = 1_048_576;
 /** `MeetingFileDto` keys per the contract, sorted — no `content` or `meetingId` among them. */
 const FILE_KEYS = ['contentType', 'filename', 'id', 'sizeBytes', 'uploadedAt'];
 
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+const FILE_ID_PATTERN = /^fil-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 const FILENAME_RULE_MESSAGE =
   'filename must be 1 to 100 characters of letters, digits, dot, underscore, hyphen or space';
@@ -415,7 +415,7 @@ test.describe(
         expect(body.contentType).toBe('text/plain');
         expect(body.sizeBytes).toBe(Buffer.byteLength(content));
         expect(body.uploadedAt.endsWith('Z')).toBe(true);
-        expect(body.id).toMatch(UUID_PATTERN);
+        expect(body.id).toMatch(FILE_ID_PATTERN);
       },
     );
 

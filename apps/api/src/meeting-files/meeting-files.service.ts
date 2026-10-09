@@ -20,14 +20,14 @@ export class MeetingFilesService {
   }
 
   /**
-   * Ids stay application-issued (`randomUUID()`), never Prisma-generated, matching every other
-   * entity in this schema. `sizeBytes` is derived from the buffer actually stored, never trusted
+   * Ids stay application-issued — the `fil-` type prefix plus a `randomUUID()` (`ADR-0031`) —
+   * never Prisma-generated, matching every other entity in this schema. `sizeBytes` is derived from the buffer actually stored, never trusted
    * from elsewhere.
    */
   async create(meetingId: string, input: CreateMeetingFileInput): Promise<MeetingFile> {
     const row = await this.prisma.meetingFile.create({
       data: {
-        id: randomUUID(),
+        id: `fil-${randomUUID()}`,
         meetingId,
         filename: input.filename,
         contentType: input.contentType,

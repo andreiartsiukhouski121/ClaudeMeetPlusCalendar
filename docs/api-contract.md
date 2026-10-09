@@ -192,7 +192,7 @@ and 8.
 
 - `FACT-2059` A case asserts membership in `message`, not its length or the order of its entries. —
   `e2e/regression/meetings-detail/meetings-detail.api.cases.md`
-- `FACT-2060` Logic: generate a `randomUUID()` id, take `ownerId` from `@CurrentUser()`, normalize
+- `FACT-2123` Logic: generate an `mtg-` + `randomUUID()` id (`ADR-0031`), take `ownerId` from `@CurrentUser()`, normalize
   `startsAt` to canonical UTC via `new Date(...).toISOString()`, default the duration, default
   `participants` to `[]`, store, and return through `toMeetingDto`, which strips `ownerId`. —
   `apps/api/src/meetings/meetings.service.ts`
@@ -431,6 +431,7 @@ and 8.
 The register of the keys this document has allocated and no longer states (`ADR-0022`). A fact is
 never edited in place and never deleted; it is closed here, naming the key that replaced it.
 
-| Key         | Stated                                                             | Status                 | Recorded in |
-| ----------- | ------------------------------------------------------------------ | ---------------------- | ----------- |
-| `FACT-2017` | `message` is an array on a 400 and a string on a 401 and on a 404. | `retired by FACT-2086` | `ADR-0029`  |
+| Key         | Stated                                                                                                                                                                                                                                                                      | Status                 | Recorded in |
+| ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------- | ----------- |
+| `FACT-2017` | `message` is an array on a 400 and a string on a 401 and on a 404.                                                                                                                                                                                                          | `retired by FACT-2086` | `ADR-0029`  |
+| `FACT-2060` | Logic: generate a `randomUUID()` id, take `ownerId` from `@CurrentUser()`, normalize `startsAt` to canonical UTC via `new Date(...).toISOString()`, default the duration, default `participants` to `[]`, store, and return through `toMeetingDto`, which strips `ownerId`. | `retired by FACT-2123` | `ADR-0031`  |

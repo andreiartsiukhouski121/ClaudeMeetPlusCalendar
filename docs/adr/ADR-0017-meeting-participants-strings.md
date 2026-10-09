@@ -1,9 +1,9 @@
 # ADR-0017 — Participants are free-form strings on the meeting, not a relation
 
-- **Status:** accepted
+- **Status:** superseded
 - **Date:** 2026-09-28
 - **Supersedes:** —
-- **Superseded by:** —
+- **Superseded by:** [ADR-0030](ADR-0030-participants-strings-reaffirmed.md)
 
 ## Context
 
@@ -74,9 +74,6 @@
 
 Rejected:
 
-- `FACT-3353` A relation to `User` (participants as `usr-` ids, or a join entity) — the requester
-  ruled it out, and it would put an entity into `docs/data-model.md` that nothing in a seeded
-  in-memory store can enforce referential integrity for. — this record, `ADR-0007`
 - `FACT-3354` Objects (`{ name, email }`) — the sketch writes `participants[]` and the requester
   answered "free-form strings"; a nested DTO would also make this the first nested-validation site in
   the repository for no requirement that asks for one. — this record
@@ -119,10 +116,11 @@ Rejected:
 ## Retired facts
 
 The register of the keys this record has allocated and no longer states (`ADR-0022`). The decision
-itself stands — `participants` is still an array of free-form strings — and both rows below are
-consequences that stopped describing the system.
+itself stands — `participants` is still an array of free-form strings, reaffirmed by `ADR-0030` —
+and the rows below are consequences or reasons that stopped describing the system.
 
-| Key         | Stated                                                                                                                 | Status                 | Recorded in |
-| ----------- | ---------------------------------------------------------------------------------------------------------------------- | ---------------------- | ----------- |
-| `FACT-3360` | The store hands out shallow copies, so all four paths that hand a `Meeting` out must clone `participants`.             | `withdrawn`            | `ADR-0027`  |
-| `FACT-3362` | `SM-API-03` reads only titles, so the mirror rule is enforced only once that case is extended to compare participants. | `retired by FACT-3652` | `ADR-0029`  |
+| Key         | Stated                                                                                                                                                                                                                                 | Status                 | Recorded in |
+| ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------- | ----------- |
+| `FACT-3360` | The store hands out shallow copies, so all four paths that hand a `Meeting` out must clone `participants`.                                                                                                                             | `withdrawn`            | `ADR-0027`  |
+| `FACT-3362` | `SM-API-03` reads only titles, so the mirror rule is enforced only once that case is extended to compare participants.                                                                                                                 | `retired by FACT-3652` | `ADR-0029`  |
+| `FACT-3353` | A relation to `User` (participants as `usr-` ids, or a join entity) — the requester ruled it out, and it would put an entity into `docs/data-model.md` that nothing in a seeded in-memory store can enforce referential integrity for. | `retired by FACT-3661` | `ADR-0030`  |

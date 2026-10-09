@@ -40,6 +40,7 @@ register(`data:text/javascript,${encodeURIComponent(resolveTsSiblingHook)}`, imp
 const { PrismaPg } = await import('@prisma/adapter-pg');
 const { PrismaClient } = await import('@prisma/client');
 const { hashPassword } = await import('../src/common/crypto/password.js');
+const { assertSeedAllowed } = await import('../src/config/seed-guard.js');
 const { loadDatabaseConfig } = await import('../src/config/database.config.js');
 const { SEED_MEETING_FILES } = await import('../src/meeting-files/meeting-files.seed.js');
 const { SEED_MEETINGS } = await import('../src/meetings/meetings.seed.js');
@@ -63,6 +64,8 @@ const { normalizeEmail } = await import('../src/users/normalize-email.js');
  * Users are applied before meetings and meetings before files: Postgres enforces both foreign keys.
  */
 async function main(): Promise<void> {
+  assertSeedAllowed(process.env.NODE_ENV);
+
   const { databaseUrl } = loadDatabaseConfig();
   const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: databaseUrl }) });
 

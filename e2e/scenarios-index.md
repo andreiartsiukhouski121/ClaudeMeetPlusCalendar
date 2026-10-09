@@ -80,6 +80,7 @@ One row per scenario declared in a Summary table, across every level and module 
 | unit | regression/auth-login | `AL-UT-15` | P1 |
 | unit | regression/auth-login | `AL-UT-17` | P0 |
 | unit | regression/auth-login | `AL-UT-19` | P0 |
+| unit | regression/auth-login | `AL-UT-32` | P0 |
 | unit | regression/auth-login | `AL-UT-20` | P0 |
 | unit | regression/auth-login | `AL-UT-21` | P0 |
 | unit | regression/auth-login | `AL-UT-22` | P1 |
@@ -107,7 +108,7 @@ One row per scenario declared in a Summary table, across every level and module 
 | api | regression/home-dashboard | `HD-API-16` | POST /meetings with an extra field gives 400 |
 | api | regression/home-dashboard | `HD-API-17` | the created meeting belongs to the token owner |
 | api | regression/home-dashboard | `HD-API-20` | POST /meetings without durationMinutes gives 201 and 60 |
-| api | regression/home-dashboard | `HD-API-21` | the created id is a randomUUID, not a seeded `mtg-` id |
+| api | regression/home-dashboard | `HD-API-21` | the created id is `mtg-` + a randomUUID, not a seeded literal |
 | api | regression/home-dashboard | `HD-API-22` | equal startsAt still orders by id ascending |
 | functional | regression/home-dashboard | `HD-FN-01` | an unauthenticated visitor on / goes to login |
 | functional | regression/home-dashboard | `HD-FN-02` | the greeting contains the user email |

@@ -9,9 +9,9 @@
 - **Grouping:** every group below starts with a line carrying the **spec path**; the meta-test
   checks the path exists and that every ID listed under it appears in that file.
 
-28 cases, all automated: 19 in `apps/api` and 9 in `apps/web`. Cases `29` and `30` were filed as a
+29 cases, all automated: 20 in `apps/api` and 9 in `apps/web`. Cases `29` and `30` were filed as a
 fix task after accepting feature 1 (password trimming), not by the original plan; `31` came from
-the timing fix. Numbers `12`, `16` and `18` are **never reused**.
+the timing fix, and `32` from closing `BL-004` (the seed's production guard). Numbers `12`, `16` and `18` are **never reused**.
 
 **`AL-UT-17` and `AL-UT-19` were re-pointed when the store moved, and one assertion did not
 survive.** They used to build `UsersService` over an in-memory map. From `ADR-0027` the service
@@ -67,6 +67,7 @@ that admits a hole. `SEC-API-05` keeps the timing branch honest independently of
 | AL-UT-15 | P1       | an expired token is rejected                                 | `TokenService`      |
 | AL-UT-17 | P0       | the lookup key ignores case and edge whitespace              | `normalize-email`   |
 | AL-UT-19 | P0       | the public mapping carries no `passwordHash`                 | `users.mapper`      |
+| AL-UT-32 | P0       | the seed refuses to run with `NODE_ENV=production`           | `seed-guard`        |
 | AL-UT-20 | P0       | session cookie options in development                        | `session-cookie`    |
 | AL-UT-21 | P0       | `secure: true` in production                                 | `session-cookie`    |
 | AL-UT-22 | P1       | the cookie lifetime matches `JWT_EXPIRES_IN`                 | `session-cookie`    |
@@ -175,6 +176,15 @@ in the header above.
   returns exactly `email`, `id` and `name`, has no `passwordHash` property, and its serialized form
   contains no `scrypt`. Hand-built rather than fetched: the rule is about the mapper's output shape,
   and reading a real row would make the case depend on a database for nothing.
+
+## `apps/api/src/config/seed-guard.spec.ts`
+
+`apps/api/prisma/seed.ts` runs under plain `node` and has no units of its own; the rule it obeys
+before touching the database lives in a pure module so it can have one.
+
+- `AL-UT-32` P0 — `assertSeedAllowed('production')` throws, naming `NODE_ENV=production`;
+  `undefined`, `''`, `'development'` and `'test'` do not. The seed accounts share a password
+  committed to git, so this is the only thing between them and a production database.
 
 ## `apps/api/src/auth/jwt-auth.guard.spec.ts`
 

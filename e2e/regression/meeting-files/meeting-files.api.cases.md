@@ -77,8 +77,8 @@ large`, which names no limit, so the web surface substitutes its own line — as
   **exactly** `contentType`, `filename`, `id`, `sizeBytes`, `uploadedAt`, so a leaked `content` or
   `meetingId` is caught (`FACT-3626`); `sizeBytes` is the byte length sent, `filename` echoes the
   request, `contentType` is the normalized media type (`text/plain`), `uploadedAt` ends in `Z`, and
-  `id` is a `randomUUID()` matching
-  `/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/`, not `fil-…` (`FACT-3583`).
+  `id` is `fil-` followed by a `randomUUID()`, matching
+  `/^fil-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/` (`FACT-1081`, `ADR-0031`).
 
 ### MF-API-02 — all three file routes without a token give 401
 

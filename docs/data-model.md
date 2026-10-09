@@ -36,14 +36,14 @@ what each field is for.
 
 **Source:** `apps/api/src/meetings/meetings.types.ts`; the key set is asserted by `HD-API-01`.
 
-| Key         | Field             | Type       | Format / constraint                                                            | Leaves the API?                      |
-| ----------- | ----------------- | ---------- | ------------------------------------------------------------------------------ | ------------------------------------ |
-| `FACT-1005` | `id`              | `string`   | `mtg-<owner>-<n>` in the seed                                                  | yes                                  |
-| `FACT-1006` | `ownerId`         | `string`   | a `User.id`; set from the token, never the body                                | **never** — `toMeetingDto` strips it |
-| `FACT-1007` | `title`           | `string`   | 3–100 characters                                                               | yes                                  |
-| `FACT-1008` | `startsAt`        | `string`   | ISO 8601, UTC, always `…Z` — a string, not a `Date`                            | yes                                  |
-| `FACT-1009` | `durationMinutes` | `number`   | integer, 15–480; optional on input, default 60                                 | yes                                  |
-| `FACT-1010` | `participants`    | `string[]` | 0–20 free-form strings, 1–100 characters each; optional on input, default `[]` | yes                                  |
+| Key         | Field             | Type       | Format / constraint                                                                       | Leaves the API?                      |
+| ----------- | ----------------- | ---------- | ----------------------------------------------------------------------------------------- | ------------------------------------ |
+| `FACT-1080` | `id`              | `string`   | `mtg-<owner>-<n>` in the seed, `mtg-` + `randomUUID()` from `POST /meetings` (`ADR-0031`) | yes                                  |
+| `FACT-1006` | `ownerId`         | `string`   | a `User.id`; set from the token, never the body                                           | **never** — `toMeetingDto` strips it |
+| `FACT-1007` | `title`           | `string`   | 3–100 characters                                                                          | yes                                  |
+| `FACT-1008` | `startsAt`        | `string`   | ISO 8601, UTC, always `…Z` — a string, not a `Date`                                       | yes                                  |
+| `FACT-1009` | `durationMinutes` | `number`   | integer, 15–480; optional on input, default 60                                            | yes                                  |
+| `FACT-1010` | `participants`    | `string[]` | 0–20 free-form strings, 1–100 characters each; optional on input, default `[]`            | yes                                  |
 
 - `FACT-1011` `MeetingDto = Omit<Meeting, 'ownerId'>`. — `apps/api/src/meetings/meetings.types.ts`,
   `HD-API-01`
@@ -56,15 +56,15 @@ what each field is for.
 **Source:** `apps/api/src/meeting-files/meeting-file.types.ts` and
 `apps/api/prisma/schema.prisma`; the key set is asserted by `MF-API-01`.
 
-| Key         | Field         | Type         | Column    | Format / constraint                                                           | Leaves the API?                             |
-| ----------- | ------------- | ------------ | --------- | ----------------------------------------------------------------------------- | ------------------------------------------- |
-| `FACT-1056` | `id`          | `string`     | `text`    | `fil-<owner>-<n>-<k>` in the seed, `randomUUID()` from an upload              | yes                                         |
-| `FACT-1057` | `meetingId`   | `string`     | `text`    | a `Meeting.id`, `onDelete: Cascade`; taken from the path, never the body      | **never** — `toMeetingFileDto` strips it    |
-| `FACT-1058` | `filename`    | `string`     | `text`    | the upload rule in [`api-contract.md`](api-contract.md); the seed bypasses it | yes                                         |
-| `FACT-1059` | `contentType` | `string`     | `text`    | the **normalized** media type, one of four values, never the raw header       | yes                                         |
-| `FACT-1060` | `sizeBytes`   | `number`     | `integer` | 1 … 1 048 576, written from the length of the stored buffer                   | yes                                         |
-| `FACT-1061` | `content`     | `Uint8Array` | `bytea`   | the file verbatim; a `Buffer` on write, a `Uint8Array` on read                | **never** in JSON — only as a response body |
-| `FACT-1062` | `uploadedAt`  | `string`     | `text`    | ISO 8601 UTC, same format as `startsAt`                                       | yes                                         |
+| Key         | Field         | Type         | Column    | Format / constraint                                                                    | Leaves the API?                             |
+| ----------- | ------------- | ------------ | --------- | -------------------------------------------------------------------------------------- | ------------------------------------------- |
+| `FACT-1081` | `id`          | `string`     | `text`    | `fil-<owner>-<n>-<k>` in the seed, `fil-` + `randomUUID()` from an upload (`ADR-0031`) | yes                                         |
+| `FACT-1057` | `meetingId`   | `string`     | `text`    | a `Meeting.id`, `onDelete: Cascade`; taken from the path, never the body               | **never** — `toMeetingFileDto` strips it    |
+| `FACT-1058` | `filename`    | `string`     | `text`    | the upload rule in [`api-contract.md`](api-contract.md); the seed bypasses it          | yes                                         |
+| `FACT-1059` | `contentType` | `string`     | `text`    | the **normalized** media type, one of four values, never the raw header                | yes                                         |
+| `FACT-1060` | `sizeBytes`   | `number`     | `integer` | 1 … 1 048 576, written from the length of the stored buffer                            | yes                                         |
+| `FACT-1061` | `content`     | `Uint8Array` | `bytea`   | the file verbatim; a `Buffer` on write, a `Uint8Array` on read                         | **never** in JSON — only as a response body |
+| `FACT-1062` | `uploadedAt`  | `string`     | `text`    | ISO 8601 UTC, same format as `startsAt`                                                | yes                                         |
 
 - `FACT-1063` `MeetingFileDto = Omit<MeetingFile, 'meetingId' | 'content'>` — five keys sorted
   `contentType`, `filename`, `id`, `sizeBytes`, `uploadedAt`, listed explicitly by the mapper rather
@@ -104,16 +104,16 @@ what each field is for.
 
 **Source:** the DTOs in `apps/api/src/**/dto`, plus the invariant named in the row.
 
-| Key         | Value         | Rule                                                                                                                                                                        |
-| ----------- | ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `FACT-1017` | Identifiers   | opaque strings with a type prefix (`usr-`, `mtg-`). Never a number, never guessable-by-increment                                                                            |
-| `FACT-1018` | Timestamps    | ISO 8601 in **UTC**, milliseconds included. No local time anywhere in storage or on the wire                                                                                |
-| `FACT-1019` | Display dates | formatted with `Intl.DateTimeFormat('en-GB', …, { timeZone: 'UTC' })`, pinned                                                                                               |
-| `FACT-1020` | Durations     | whole minutes, 15–480                                                                                                                                                       |
-| `FACT-1021` | Email         | validated by `@IsEmail()` on input; `trim`med on the web side before submission                                                                                             |
-| `FACT-1022` | Password      | validated only as a non-empty string on login, and **never trimmed** (invariant 15)                                                                                         |
-| `FACT-1023` | Created dates | tests create meetings dated **2030**                                                                                                                                        |
-| `FACT-1024` | Participants  | free-form strings, a name or an email, 1–100 characters, at most 20 per meeting. Never a `User.id`, never validated as an email, never trimmed or deduplicated (`ADR-0017`) |
+| Key         | Value         | Rule                                                                                                                                                                                 |
+| ----------- | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `FACT-1082` | Identifiers   | opaque strings with a type prefix (`usr-`, `mtg-`, `fil-`): a readable body in the seed, a `randomUUID()` body at runtime (`ADR-0031`). Never a number, never guessable-by-increment |
+| `FACT-1018` | Timestamps    | ISO 8601 in **UTC**, milliseconds included. No local time anywhere in storage or on the wire                                                                                         |
+| `FACT-1019` | Display dates | formatted with `Intl.DateTimeFormat('en-GB', …, { timeZone: 'UTC' })`, pinned                                                                                                        |
+| `FACT-1020` | Durations     | whole minutes, 15–480                                                                                                                                                                |
+| `FACT-1021` | Email         | validated by `@IsEmail()` on input; `trim`med on the web side before submission                                                                                                      |
+| `FACT-1022` | Password      | validated only as a non-empty string on login, and **never trimmed** (invariant 15)                                                                                                  |
+| `FACT-1023` | Created dates | tests create meetings dated **2030**                                                                                                                                                 |
+| `FACT-1024` | Participants  | free-form strings, a name or an email, 1–100 characters, at most 20 per meeting. Never a `User.id`, never validated as an email, never trimmed or deduplicated (`ADR-0017`)          |
 
 > **Rationale — not a fact.** Display dates are pinned to UTC or both the units and the e2e depend on
 > the machine's time zone. A password strength rule would turn a wrong password into a 400 and make
@@ -313,11 +313,14 @@ Browser  GET /meetings/<id>/files/<fileId> ──► Next Route Handler
 The register of the keys this document has allocated and no longer states (`ADR-0022`). A fact is
 never edited in place and never deleted; it is closed here, naming the key that replaced it.
 
-| Key         | Stated                                                                                        | Status                 | Recorded in |
-| ----------- | --------------------------------------------------------------------------------------------- | ---------------------- | ----------- |
-| `FACT-1025` | There is no database.                                                                         | `retired by FACT-1066` | `ADR-0027`  |
-| `FACT-1026` | Each service owns an array, seeded at module initialization.                                  | `retired by FACT-1067` | `ADR-0027`  |
-| `FACT-1027` | Users and meetings live in in-memory arrays and die when the API process restarts.            | `retired by FACT-1068` | `ADR-0027`  |
-| `FACT-1028` | Password hashes are computed at startup from the seed and die with the process.               | `retired by FACT-1069` | `ADR-0027`  |
-| `FACT-1032` | The seed is `users.seed.ts` and `meetings.seed.ts`, mirrored in `e2e/fixtures/seed.ts`.       | `retired by FACT-1070` | `ADR-0027`  |
-| `FACT-1036` | `planner@purpleschool.test` owns one meeting and is the mutation sandbox for `*.api.spec.ts`. | `retired by FACT-1071` | `ADR-0029`  |
+| Key         | Stated                                                                                                         | Status                 | Recorded in |
+| ----------- | -------------------------------------------------------------------------------------------------------------- | ---------------------- | ----------- |
+| `FACT-1025` | There is no database.                                                                                          | `retired by FACT-1066` | `ADR-0027`  |
+| `FACT-1026` | Each service owns an array, seeded at module initialization.                                                   | `retired by FACT-1067` | `ADR-0027`  |
+| `FACT-1027` | Users and meetings live in in-memory arrays and die when the API process restarts.                             | `retired by FACT-1068` | `ADR-0027`  |
+| `FACT-1028` | Password hashes are computed at startup from the seed and die with the process.                                | `retired by FACT-1069` | `ADR-0027`  |
+| `FACT-1032` | The seed is `users.seed.ts` and `meetings.seed.ts`, mirrored in `e2e/fixtures/seed.ts`.                        | `retired by FACT-1070` | `ADR-0027`  |
+| `FACT-1036` | `planner@purpleschool.test` owns one meeting and is the mutation sandbox for `*.api.spec.ts`.                  | `retired by FACT-1071` | `ADR-0029`  |
+| `FACT-1005` | `Meeting.id`: `string`, `mtg-<owner>-<n>` in the seed.                                                         | `retired by FACT-1080` | `ADR-0031`  |
+| `FACT-1017` | Identifiers: opaque strings with a type prefix (`usr-`, `mtg-`). Never a number, never guessable-by-increment. | `retired by FACT-1082` | `ADR-0031`  |
+| `FACT-1056` | `MeetingFile.id`: `string`, `text`, `fil-<owner>-<n>-<k>` in the seed, `randomUUID()` from an upload.          | `retired by FACT-1081` | `ADR-0031`  |

@@ -20,26 +20,26 @@
 
 ## Summary
 
-| ID        | Title                                                    | Priority | Tags                                        |
-| --------- | -------------------------------------------------------- | -------- | ------------------------------------------- |
-| HD-API-01 | GET /meetings with a token returns the list and total    | P0       | `@regression @home-dashboard @p0`           |
-| HD-API-02 | GET /meetings without a token gives 401                  | P0       | `@regression @home-dashboard @p0`           |
-| HD-API-03 | limit=3 returns exactly 3 items                          | P0       | `@regression @home-dashboard @p0`           |
-| HD-API-04 | sorted by date DESC, older meetings cut                  | P0       | `@regression @home-dashboard @p0`           |
-| HD-API-05 | total is the full count, not the length of items         | P0       | `@regression @home-dashboard @p0`           |
-| HD-API-06 | data isolation between users                             | P0       | `@regression @home-dashboard @p0`           |
-| HD-API-07 | a user with no meetings                                  | P1       | `@regression @home-dashboard`               |
-| HD-API-08 | a non-numeric limit gives 400                            | P1       | `@regression @home-dashboard`               |
-| HD-API-09 | a limit outside 1..100 gives 400                         | P1       | `@regression @home-dashboard`               |
-| HD-API-10 | limit contract: default, ceiling, unknown parameter      | P1       | `@regression @home-dashboard`               |
-| HD-API-13 | POST /meetings creates a meeting                         | P0       | `@regression @home-dashboard @p0 @mutating` |
-| HD-API-14 | POST /meetings without a token gives 401, data unchanged | P0       | `@regression @home-dashboard @p0`           |
-| HD-API-15 | POST /meetings without required fields gives 400         | P1       | `@regression @home-dashboard`               |
-| HD-API-16 | POST /meetings with an extra field gives 400             | P1       | `@regression @home-dashboard`               |
-| HD-API-17 | the created meeting belongs to the token owner           | P1       | `@regression @home-dashboard @mutating`     |
-| HD-API-20 | POST /meetings without durationMinutes gives 201 and 60  | P0       | `@regression @home-dashboard @p0 @mutating` |
-| HD-API-21 | the created id is a randomUUID, not a seeded `mtg-` id   | P0       | `@regression @home-dashboard @p0 @mutating` |
-| HD-API-22 | equal startsAt still orders by id ascending              | P1       | `@regression @home-dashboard @mutating`     |
+| ID        | Title                                                         | Priority | Tags                                        |
+| --------- | ------------------------------------------------------------- | -------- | ------------------------------------------- |
+| HD-API-01 | GET /meetings with a token returns the list and total         | P0       | `@regression @home-dashboard @p0`           |
+| HD-API-02 | GET /meetings without a token gives 401                       | P0       | `@regression @home-dashboard @p0`           |
+| HD-API-03 | limit=3 returns exactly 3 items                               | P0       | `@regression @home-dashboard @p0`           |
+| HD-API-04 | sorted by date DESC, older meetings cut                       | P0       | `@regression @home-dashboard @p0`           |
+| HD-API-05 | total is the full count, not the length of items              | P0       | `@regression @home-dashboard @p0`           |
+| HD-API-06 | data isolation between users                                  | P0       | `@regression @home-dashboard @p0`           |
+| HD-API-07 | a user with no meetings                                       | P1       | `@regression @home-dashboard`               |
+| HD-API-08 | a non-numeric limit gives 400                                 | P1       | `@regression @home-dashboard`               |
+| HD-API-09 | a limit outside 1..100 gives 400                              | P1       | `@regression @home-dashboard`               |
+| HD-API-10 | limit contract: default, ceiling, unknown parameter           | P1       | `@regression @home-dashboard`               |
+| HD-API-13 | POST /meetings creates a meeting                              | P0       | `@regression @home-dashboard @p0 @mutating` |
+| HD-API-14 | POST /meetings without a token gives 401, data unchanged      | P0       | `@regression @home-dashboard @p0`           |
+| HD-API-15 | POST /meetings without required fields gives 400              | P1       | `@regression @home-dashboard`               |
+| HD-API-16 | POST /meetings with an extra field gives 400                  | P1       | `@regression @home-dashboard`               |
+| HD-API-17 | the created meeting belongs to the token owner                | P1       | `@regression @home-dashboard @mutating`     |
+| HD-API-20 | POST /meetings without durationMinutes gives 201 and 60       | P0       | `@regression @home-dashboard @p0 @mutating` |
+| HD-API-21 | the created id is `mtg-` + a randomUUID, not a seeded literal | P0       | `@regression @home-dashboard @p0 @mutating` |
+| HD-API-22 | equal startsAt still orders by id ascending                   | P1       | `@regression @home-dashboard @mutating`     |
 
 ## Cases
 
@@ -171,17 +171,17 @@
   on the DTO field this answers 400 and the "Create meeting" button does not work at all — that is
   the point of the case.
 
-### HD-API-21 — the created id is a randomUUID, not a seeded `mtg-` id
+### HD-API-21 — the created id is `mtg-` + a randomUUID, not a seeded literal
 
 - **Priority:** P0
 - **Steps:** as `planner`, `POST /meetings` with a unique title and the 2030 date; then
   `GET /meetings/{returned id}` as `planner`.
 - **Expected:** the returned `id` matches
-  `/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/` and does **not** match the
-  seeded `mtg-<owner>-<n>` shape; the follow-up `GET` returns that same meeting, so the id was
-  stored and not only echoed. `FACT-2060` promises a `randomUUID()` and no API case asserted the
-  shape before: this one carries the half of the retired `HD-UT-07` that `HD-API-16` and
-  `HD-API-17` do not already cover.
+  `/^mtg-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/` — the type prefix
+  followed by a `randomUUID()` (`FACT-2123`, `ADR-0031`) — so neither a bare UUID nor a seeded
+  `mtg-<owner>-<n>` literal passes; the follow-up `GET` returns that same meeting, so the id was
+  stored and not only echoed. This case carries the half of the retired `HD-UT-07` that
+  `HD-API-16` and `HD-API-17` do not already cover.
 
 ### HD-API-22 — equal startsAt still orders by id ascending
 

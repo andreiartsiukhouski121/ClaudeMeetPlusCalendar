@@ -75,9 +75,6 @@
   no `enableShutdownHooks()`, so the connection opens at the first query. — this record, `FACT-3569`
 - `FACT-3582` `startsAt` and `uploadedAt` are `String` columns holding ISO 8601 UTC, not `DateTime`
   columns, so what is stored is byte-identical to what the wire carries. — this record, `FACT-1018`
-- `FACT-3583` Identifiers go on being issued by the application exactly as today: the seed supplies
-  the prefixed literals and the create path a `randomUUID()`; the schema declares no `@default`. —
-  this record, `FACT-2060`
 
 Rejected:
 
@@ -129,3 +126,12 @@ Rejected:
 > if someone reuses a server that is already up, the reset silently does not happen. The same
 > property already applies to `JWT_SECRET` under `reuseExistingServer`, so it is a known shape rather
 > than a new one — but it is a shape that bites in exactly the moment a run goes mysteriously red.
+
+## Retired facts
+
+The register of the keys this record has allocated and no longer states (`ADR-0022`). The decision
+itself stands; the row below is a consequence that a later record changed.
+
+| Key         | Stated                                                                                                                                                                               | Status                 | Recorded in |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------- | ----------- |
+| `FACT-3583` | Identifiers go on being issued by the application exactly as today: the seed supplies the prefixed literals and the create path a `randomUUID()`; the schema declares no `@default`. | `retired by FACT-3670` | `ADR-0031`  |

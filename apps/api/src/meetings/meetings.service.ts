@@ -50,13 +50,13 @@ export class MeetingsService {
    * `startsAt` is normalized to canonical UTC: a client may send an offset date while the contract
    * promises `…Z`. Without it the store would hold strings in mixed formats.
    *
-   * Ids stay application-issued (`randomUUID()`), exactly as before the move onto Prisma
-   * (`FACT-2060`): the schema's `id` column carries no `@default`.
+   * Ids stay application-issued — the `mtg-` type prefix plus a `randomUUID()` (`FACT-2123`,
+   * `ADR-0031`): the schema's `id` column carries no `@default`.
    */
   async create(ownerId: string, input: CreateMeetingInput): Promise<Meeting> {
     const row = await this.prisma.meeting.create({
       data: {
-        id: randomUUID(),
+        id: `mtg-${randomUUID()}`,
         ownerId,
         title: input.title,
         startsAt: new Date(input.startsAt).toISOString(),

@@ -426,7 +426,7 @@ test.describe(
     );
 
     test(
-      'HD-API-21 — the created id is a randomUUID, not a seeded `mtg-` id',
+      'HD-API-21 — the created id is `mtg-` + a randomUUID, not a seeded literal',
       { tag: ['@p0', '@mutating'] },
       async ({ request }) => {
         const headers = await authHeadersFor(request, 'planner');
@@ -441,12 +441,11 @@ test.describe(
 
         const createdBody = (await created.json()) as MeetingItem;
 
-        // `FACT-2060` promises `randomUUID()`: the id shape, not merely "has an id".
+        // `FACT-2123` promises `mtg-` + `randomUUID()`: the id shape, not merely "has an id". The
+        // anchored UUID body also rules out a bare UUID and a seeded `mtg-<owner>-<n>` literal.
         expect(createdBody.id).toMatch(
-          /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
+          /^mtg-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
         );
-        // And not the seeded `mtg-<owner>-<n>` shape.
-        expect(createdBody.id).not.toMatch(/^mtg-/);
 
         // The follow-up GET proves the id was stored, not only echoed back on the POST response.
         const byId = await request.get(`/meetings/${createdBody.id}`, { headers });
