@@ -139,6 +139,22 @@ Otherwise **no plan is needed**: a red test, the fix and an `FX-` entry are enou
 is not a loophole but protection from what `CH-004` moved away from — 100 minutes of planning
 against 85 of code. A document for a one-line fix costs more than the fix.
 
+**The threshold is strict, not a recommendation.** When any of the four criteria holds, the short path
+is not offered as an option, and never labelled "recommended" or framed as the cheaper choice against
+a full path. The owner may override the threshold, but only explicitly, and the question put to them
+names **every** criterion that holds. Why: in `FX-046` the threshold held on criteria 2 and 4 and the
+choice was put to the owner without naming either, so the short path was taken above the threshold
+without anyone having decided that.
+
+**The path marker.** Every `FX-` row numbered 48 and above carries exactly one of these three literal
+forms (held by the ledger meta-test, `LG-API-07`):
+
+- `Path: full (docs/plans/<slug>)`
+- `Path: short, below the threshold`
+- `Path: short, threshold overridden by the owner: criteria <n>[, <n>…]`
+
+Rows numbered below 48 are not rewritten.
+
 ## 5. The red test — before the fix, not after
 
 The scenario is written **first**, by `test-designer`, as a row in the paired `.cases.md` — the same
@@ -190,7 +206,8 @@ checking the wrong place; go back to step 3.
 - **One full `pnpm verify`**, not just the new case: the fix may have broken something next door. If
   a `.cases.md` changed at step 5, run `pnpm scenarios:index` first and commit the refreshed
   `e2e/scenarios-index.md` — `PR-API-07` fails `pnpm verify` on a stale one.
-- **An `FX-` entry** in `docs/CHANGELOG.md` with the "Found by" column filled. That column is not a
+- **An `FX-` entry** in `docs/CHANGELOG.md` with the "Found by" column filled, and the `Path:` marker
+  defined in §4 (rows numbered 48 and above). That column is not a
   formality: it shows which checks work, and today it says the control experiments and the security
   suite found three defects each while diff review found none. **Where step 2's reproduction was a
   procedure rather than a red run, say so by name here** (e.g. "observed in the running application;

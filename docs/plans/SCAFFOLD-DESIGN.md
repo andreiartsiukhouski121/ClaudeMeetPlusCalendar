@@ -25,9 +25,10 @@ Layer by layer: what changes in `apps/api` (controller, service, DTO, mapper, gu
 
 ## 3. Contract
 
-Method, path, auth, request body, success response, and the **exact error bodies**. Shapes come from
-the framework's behaviour rather than memory: invariants 1 and 8 were both learned the hard way. If
-nothing in the HTTP contract changes, say that explicitly.
+Method, path, auth, request body, success response, and the **exact error bodies** of what is new or
+changed. Shapes come from the framework's behaviour rather than memory: invariants 1 and 8 were both
+learned the hard way. A response or fact the change does not alter is cited by its `FACT-` key, not
+restated. If nothing in the HTTP contract changes, say that explicitly.
 
 <!-- fill this in -->
 
@@ -60,7 +61,16 @@ accepted ADR supersedes it properly or does not contradict it.
 ## 7. Impact on what already exists
 
 Which cases (by ID), invariants (by number) and behaviours the change disturbs. Silence here becomes
-a red run somebody else has to diagnose.
+a red run somebody else has to diagnose. One row per artifact family; each row carries the grep or
+command that was run and the IDs it returned, not a narrative. The default rows and how to build them
+are in `design-protocol`, "What a design contains", item 7.
+
+| Artifact family                           | Grep or command run | IDs returned |
+| ----------------------------------------- | ------------------- | ------------ |
+| Existing specs and case preconditions     |                     |              |
+| Corpus keys                               |                     |              |
+| Hand-kept lists                           |                     |              |
+| Framework output (a written line is fine) |                     |              |
 
 <!-- fill this in -->
 

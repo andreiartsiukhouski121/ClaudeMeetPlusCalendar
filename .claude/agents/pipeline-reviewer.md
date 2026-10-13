@@ -92,6 +92,4 @@ that the file needs formatting, so it is not discovered by a red `verify` two st
 
 ## Facts in the corpus
 
-The corpus states facts as keyed lines — `` `FACT-1013` `total` is the owner's full count… — invariant 4 `` — and keeps reasoning in `> **Rationale — not a fact.**` blocks that carry no key. The rule is `ADR-0021`, the lifecycle is `ADR-0022`, and the `project-context` skill is where both are explained.
-
 Evidence about the corpus is evidence like any other: `docs/facts-lock.json` says how many facts exist, how many are retired and in which documents. Record what it says; do not conclude from it.

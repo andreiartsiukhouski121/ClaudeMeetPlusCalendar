@@ -335,3 +335,19 @@ Recorded as facts, not as recommendations.
   by a machine rather than a person** — the other five all needed someone to read, grep or notice.
   Worth naming as a positive case: the part of this pipeline that does not depend on anyone
   remembering, working on its first real test outside the corpus itself.
+
+## Correction note, 2026-10-13 (`TUNE-S1` review of 2026-10-12, §11 items 10 and 11)
+
+The record above is left as written; three statements are corrected here rather than edited.
+
+- **Where the functional-specs dispatch is counted.** The 326,861-token dispatch sits in the
+  "fixes and corrections" bucket (1,148,652), and the text later calls it "written at `FEAT-S11`".
+  The `FEAT-S11` row (368,913) does **not** contain it. "Written at `FEAT-S11`" says which stage's
+  work it was; the tokens are counted in the bucket and nowhere else.
+- **The e2e file count before this change.** "Up from 112 across 13 files" was 14 files:
+  `e2e/README.md` carries the correction ("112 e2e in 14 files, corrected from … 13") and the
+  record's own recount method gives 14.
+- **The e2e baseline.** "+55 from 112" measures against the 2026-09-29 figure. The records and the
+  ledger give three different earlier counts for the same suite: 112 (2026-09-29), 119
+  (`FX-037`, 2026-10-01) and 128 (the `2026-10-03` record). The recounted **167 across 16 files** is
+  unaffected; the size of the increase depends on which earlier count is taken as the baseline.

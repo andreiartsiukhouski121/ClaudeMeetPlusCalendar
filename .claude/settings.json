@@ -1,3 +1,11 @@
 {
-  "enabledMcpjsonServers": ["playwright"]
+  "enabledMcpjsonServers": ["playwright"],
+  "hooks": {
+    "SubagentStop": [
+      {
+        "matcher": "research-reviewer|design-reviewer|plan-reviewer|code-reviewer",
+        "hooks": [{ "type": "command", "command": "node scripts/save-verdict.mjs" }]
+      }
+    ]
+  }
 }

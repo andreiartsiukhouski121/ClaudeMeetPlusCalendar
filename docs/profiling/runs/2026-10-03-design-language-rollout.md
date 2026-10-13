@@ -212,3 +212,16 @@ Recorded as facts, not as recommendations.
   here.
 - `FEAT-S10` having no subject is the first time this inventory's own "no subject" convention — as
   opposed to a skipped stage — has been exercised in a recorded cycle.
+
+## Correction note, 2026-10-13 (`TUNE-S1` review of 2026-10-12, §11 item 9)
+
+The record above is left as written; two statements in it disagree with its own gate-yield table
+and are corrected here rather than edited.
+
+- **The shape-blocker count.** The paragraph under "3. Gate yield" says six blockers changed the
+  shape, "2 at `G2`, 1 at `G4`", and that "the remaining five were corrections". The table's own
+  cells give **3 `shape` blockers (2 at `FEAT-G2`, 1 at `FEAT-G4`) and 8 `correction` blockers**
+  (4 at `FEAT-G3`, 2 at `FEAT-G2`, 2 at `FEAT-G4`), 11 in all.
+- **Which gate found the definition-of-done defect.** The same paragraph attributes the "check green
+  in the exact state it should have caught" finding to `FEAT-G2`. The table places it under
+  `FEAT-G3`, which is where it belongs.

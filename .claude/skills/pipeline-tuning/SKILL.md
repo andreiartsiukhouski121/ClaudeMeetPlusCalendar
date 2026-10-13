@@ -37,6 +37,12 @@ definitions in `.claude/agents/`, `docs/CHANGELOG.md`'s `CH-` entries and `docs/
 rows — including the **Rejected** section, so a proposal already turned down is not revived without
 knowing it was.
 
+**Gate verdicts.** `pnpm verdicts:report` summarises the verdicts the hook saved in
+`docs/profiling/verdicts/` (`ADR-0032`). The reviewer has no `Bash`, so the orchestrator runs it and
+hands the output in the brief; the reviewer cites it like any other record. Run it on its own when
+the owner asks to look for frequent errors, and before each tuning round. A category that keeps
+appearing is evidence for a proposal, and the category list itself (`team-roles`) is revised from it.
+
 What it produces: observations, open questions, and `Not found` lines. "Nothing measures X" is a
 finding, and usually the most valuable one. Anything uncitable is an open question, not a hunch
 stated softly.

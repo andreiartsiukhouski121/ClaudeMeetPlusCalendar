@@ -4045,6 +4045,36 @@
       "status": "active",
       "document": "docs/adr",
       "hash": "fcb82928057a9bd662073df08e79c87d8796192ec668412f9a02829796119a74"
+    },
+    "FACT-3678": {
+      "status": "active",
+      "document": "docs/adr",
+      "hash": "28ef4d1d90f96736d1ecc93f0622a9eb20ecd951728f314fd905f360ca13e99c"
+    },
+    "FACT-3679": {
+      "status": "active",
+      "document": "docs/adr",
+      "hash": "8e8f57fee2bac294e6db7cfda8ec9429ecbc7e9c718ca7721bbaa5dce1eaaa7c"
+    },
+    "FACT-3680": {
+      "status": "active",
+      "document": "docs/adr",
+      "hash": "218f13cdb12b1985730355446f8eccf867978f57172a154a8b0beffa965a3f27"
+    },
+    "FACT-3681": {
+      "status": "active",
+      "document": "docs/adr",
+      "hash": "05052f1e4811a1258a9dd11eaab15f3c10a6b9b12ee758c2a06b1eab1635db36"
+    },
+    "FACT-3682": {
+      "status": "active",
+      "document": "docs/adr",
+      "hash": "75fbff770262a1cdef40ab190bc60bac93afa102962d26501950f6d9ab59c83c"
+    },
+    "FACT-3683": {
+      "status": "active",
+      "document": "docs/adr",
+      "hash": "a828ed9b5befe607eb447ab4b8ad26d7b48fb7946d746e96742d836ba0f7b743"
     }
   }
 }

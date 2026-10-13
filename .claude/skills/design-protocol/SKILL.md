@@ -23,8 +23,10 @@ on an unrecorded assumption is exactly what the stage before it exists to preven
 
 The scaffold is `docs/plans/SCAFFOLD-DESIGN.md`, created by `pnpm change:new`. **300 lines**, the
 same form `feature-pipeline` §4 already uses for the plan ("100–150 lines"). What the budget never
-cuts: the contract's exact error bodies, the seed as concrete values, and the rejected alternatives —
-those are exactness requirements, not length to trim. Its sections and why each is there:
+cuts: the exact error bodies of a **new or changed** response, the seed as concrete values, and the
+rejected alternatives — those are exactness requirements, not length to trim. A response or fact the
+change does not alter is **cited by its `FACT-` key**, not restated: restating it is how three
+records in a row (697, 422 and 1,042 lines) overshot the budget. Its sections and why each is there:
 
 1. **What the research established** — links into `research/`, not a second copy of it.
 2. **The shape** — layer by layer, what changes in `apps/api` (controller, service, DTO, mapper,
@@ -49,7 +51,22 @@ those are exactness requirements, not length to trim. Its sections and why each 
    skipped.
 6. **Decisions and ADRs** — see below.
 7. **Impact** — which cases (by ID), invariants (by number) and behaviours the change disturbs.
-   Silence here becomes a red run somebody else has to diagnose.
+   Silence here becomes a red run somebody else has to diagnose. It is a **table, one row per
+   artifact family**, and each row carries the grep or command that was run and the IDs it returned
+   — not a narrative. The default rows, which are the single home of the method (`FT-007`'s design
+   §7 is the worked example):
+   - **Existing specs and case preconditions** — not "which cases mention the thing I changed" but
+     "which cases have a **scope** that contains it". Grep `toHaveCount`, `toBeHidden`,
+     `not.toBeVisible` and unscoped `getByRole(...)` across every spec that touches a changed page.
+     `.cases.md` preconditions count: nothing executes them, so a sweep is all that finds a stale one.
+   - **Corpus keys** — a grep of the four corpus documents for counting words (`exactly`, `only`,
+     `all`, `one`, `two`) next to the entity being changed (a seed-count fact was falsified by a fixture nobody
+     linked to it — `docs/profiling/runs/2026-10-06-meeting-files.md`, miss 4).
+   - **Hand-kept lists** — `PROTECTED_ROUTES`, `PROTECTED_PAGES`, `AUDITED_PAGES`, `POST_ROUTES`,
+     `KNOWN_CASE_PREFIXES`, the module maps and both application `CLAUDE.md` files.
+   - **Framework output** — what the framework itself renders or logs (the route announcer, the
+     dev-tools control, Chromium's console 404). No grep over this repository reaches it, so it
+     stays a **written line**; this is the one row that can be prose.
 8. **Open questions and deliberate omissions** — an omission not stated is a misreported result.
 
 ## ADRs are written here, before the code

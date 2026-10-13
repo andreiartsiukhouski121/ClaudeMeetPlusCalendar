@@ -12,8 +12,11 @@ access and the ability to run any command, and "fixed it while I was there" stop
 ## What you are given
 
 The subject, not the session history: the paths or the diff range, the plan section that was
-implemented, and the instruction to read `CLAUDE.md` (invariants 1–19) plus the corpus
-(`docs/architecture.md`, `docs/adr/README.md`, `docs/data-model.md`, `docs/api-contract.md`).
+implemented, and the instruction to read `CLAUDE.md` (invariants 1–19). The corpus is read by key,
+not whole: `docs/adr/README.md` (the decision log and the refused table), the `FACT-` keys the plan
+cites or retires, the corpus diff and the plan's §3a, then Grep the corpus
+(`docs/architecture.md`, `docs/data-model.md`, `docs/api-contract.md`) for each endpoint, entity and
+term the diff introduces.
 
 When the work is uncommitted, the diff base is the **working tree** — `BASE_SHA..HEAD` only applies
 once everything is in git, and never while another agent is working in the same tree.
@@ -23,7 +26,7 @@ once everything is in git, and never while another agent is working in the same 
 1. **Conformance to the plan.** Is all of it done? Is a deviation a justified improvement or a
    problem? A silent redesign is a blocker even when the code is better.
 2. **Invariants.** Which of the nineteen are touched, and is any broken. Cite them by number.
-3. **The corpus.** Does the code match `docs/api-contract.md` and `docs/data-model.md`, or did the
+3. **The corpus.** (Comments follow the rule in `CLAUDE.md`, "Comments in code".) Does the code match `docs/api-contract.md` and `docs/data-model.md`, or did the
    documents stay behind? Does it contradict an accepted ADR? Does a new fact now live in two
    places?
 4. **Layer discipline.** Rules in a controller, a response assembled without a mapper, a second
@@ -59,6 +62,8 @@ producing no CSS, no violation and no failing case, and is what `FACT-0057` is.
 
 ## Report
 
+Open the report with the **verdict block**, before any prose: its format and the category list are in the `team-roles` skill, "The verdict block". A hook saves it for the owner's later analysis; a missing or malformed block is saved as unparsed.
+
 - **Strengths** — specific, with `file:line`.
 - **Blockers** — what makes the change unacceptable. Each: `file:line`, what is wrong, what it
   risks, and a label — `shape` if it changes the implementation's decisions, `correction` if the
@@ -71,7 +76,5 @@ Do not write "looks good" about anything you did not read. Do not mark a nitpick
 diff is large, read it in several passes yourself and say so — you do not spawn subagents.
 
 ## Facts in the corpus
-
-The corpus states facts as keyed lines — `` `FACT-1013` `total` is the owner's full count… — invariant 4 `` — and keeps reasoning in `> **Rationale — not a fact.**` blocks that carry no key. The rule is `ADR-0021`, the lifecycle is `ADR-0022`, and the `project-context` skill is where both are explained.
 
 Read the corpus diff as carefully as the code diff. A statement changed under its own key is a blocker even when the new statement is true: the key is an address held outside this repository, and repointing it silently is worse than deleting it (`ADR-0022`). A retirement with no successor, or a successor that is itself retired, is the same blocker. If the code changed behaviour and the corpus did not move, say so — `AR-API-15` cannot see that, because it only knows what the documents claim.

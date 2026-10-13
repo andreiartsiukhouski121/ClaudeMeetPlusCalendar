@@ -18,15 +18,11 @@ lists the four external rules that are wrong for this repository — read it bef
 
 ## Rules that are not negotiable
 
-- `POST /auth/login` answers **200**: `@HttpCode(HttpStatus.OK)`. Nest defaults POST to 201.
-- Every optional DTO field carries `@IsOptional()`, or an absent field answers 400.
-- `ValidationPipe` is an `APP_PIPE` provider in `AppModule`, never `useGlobalPipes`.
-- `total` is the owner's full count, never `items.length`.
-- `ownerId` comes from `@CurrentUser()`, never from the body; DTOs have no owner or role field.
-- Identical text **and** identical timing on both authentication rejection branches.
-- Sorting by date always carries `id` as a secondary key.
-- Responses leave through a mapper. An inline response object leaks internal fields.
-- Pure ESM: every relative import carries a `.js` extension, even though the file is `.ts`.
+Invariants 1–8 in `CLAUDE.md` — read them there; they are not restated here, so there is one copy to
+keep true. Two rules are not invariants and live elsewhere: responses leave through a mapper, never
+an inline object (`FACT-0014`, `docs/architecture.md`), and the package is pure ESM with a `.js`
+extension on every relative import (`apps/api/CLAUDE.md`, "How this package differs from ordinary
+Nest").
 
 ## Boundaries
 
@@ -36,7 +32,7 @@ lists the four external rules that are wrong for this repository — read it bef
   (`ADR-0014`).
 - You do not update `docs/api-contract.md` on your own initiative — if the contract changed, that is
   a plan deviation and goes back to the lead. If the plan says to update it, do.
-- You do not review, accept or dispatch. `pnpm verify` at the end is the acceptance tester's job.
+- You do not review, accept or dispatch. `pnpm verify` at `FEAT-S6` is `lead`'s, not yours.
 
 ## Finishing a task
 
@@ -45,8 +41,6 @@ could not do as written. Building and type-checking your own change is fine and 
 (`pnpm --filter @purpleschool/api typecheck`); running the whole suite is not your step.
 
 ## Facts in the corpus
-
-The corpus states facts as keyed lines — `` `FACT-1013` `total` is the owner's full count… — invariant 4 `` — and keeps reasoning in `> **Rationale — not a fact.**` blocks that carry no key. The rule is `ADR-0021`, the lifecycle is `ADR-0022`, and the `project-context` skill is where both are explained.
 
 When your code changes behaviour the corpus describes, the corpus moves in the same commit (`FACT-1052`). **Retire and replace — never edit in place.** Move the old statement into the document's "Retired facts" register naming the key that supersedes it, state the new fact under a number from `pnpm fact:next`, and run `pnpm fact:lock` so the change is visible in the diff. `AR-API-15` fails the run if a key vanished or a statement changed under its own key.
 

@@ -269,6 +269,109 @@ function stalePendingEntries(root: string): string[] {
     .map((entry) => entry.id);
 }
 
+/** Defects and fixes: the section of the changelog whose rows `LG-API-07` judges. */
+const DEFECTS_HEADING = '## Defects and fixes';
+
+/** From this number on an `FX-` row must name the path it took (`bugfix-pipeline` §4). */
+const FIRST_MARKED_FIX = 48;
+
+/** Criteria of `bugfix-pipeline` §4 an owner override may cite: 1 to 4. */
+const CRITERIA = [1, 2, 3, 4];
+
+/**
+ * The three literal path-marker forms, as one global matcher. Group 2 is the `full` slug, group 3
+ * the raw text after `criteria` in the override form (up to the end of the sentence or cell).
+ */
+const PATH_MARKER =
+  /Path:\s*(full \(docs\/plans\/([^)]*)\)|short, below the threshold|short, threshold overridden by the owner: criteria([^.;|(`]*))/g;
+
+/** The criteria list as it must read: integers separated by commas. */
+const CRITERIA_LIST = /^\s*\d+(?:\s*,\s*\d+)*\s*$/;
+
+/** The body of the Defects table: from its heading to the next `## ` heading. */
+function defectsSection(content: string): string {
+  const start = content.indexOf(DEFECTS_HEADING);
+
+  if (start === -1) {
+    return '';
+  }
+
+  const rest = content.slice(start + DEFECTS_HEADING.length);
+  const next = rest.search(/^## /m);
+
+  return next === -1 ? rest : rest.slice(0, next);
+}
+
+/** Why a row's path marker does not hold; empty when it does. One reason per row. */
+function pathMarkerProblems(root: string, row: Entry): string[] {
+  const markers = [...row.rest.matchAll(PATH_MARKER)];
+
+  if (markers.length === 0) {
+    return [`${row.id}: no path marker — the row does not say which path it took`];
+  }
+  if (markers.length > 1) {
+    return [`${row.id}: ${markers.length} path markers — the row must carry exactly one`];
+  }
+
+  const [, form, slug, criteria] = markers[0];
+
+  if (form.startsWith('full')) {
+    const folder = path.join(root, 'docs', 'plans', slug);
+    const named = /^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(slug);
+
+    return named && fs.existsSync(folder) && fs.statSync(folder).isDirectory()
+      ? []
+      : [
+          `${row.id}: "full" names docs/plans/${slug}, which is not a folder — a plan nobody can open`,
+        ];
+  }
+  if (form.startsWith('short, below')) {
+    return [];
+  }
+  if (!CRITERIA_LIST.test(criteria)) {
+    return [`${row.id}: "overridden" carries no criteria list, or one that is not integers`];
+  }
+
+  const outside = criteria
+    .split(',')
+    .map((part) => Number(part.trim()))
+    .filter((n) => !CRITERIA.includes(n));
+
+  return outside.length === 0
+    ? []
+    : [`${row.id}: "overridden" cites criterion ${outside.join(', ')} outside 1–4`];
+}
+
+/** The Defects rows numbered 48 and above — the only ones the marker rule applies to. */
+function markedScopeRows(content: string): Entry[] {
+  return entries(defectsSection(content)).filter(
+    (row) => row.id.startsWith('FX-') && Number(row.id.slice(3)) >= FIRST_MARKED_FIX,
+  );
+}
+
+/** A real folder under `docs/plans/`, so the passing `full` sample cites one that exists. */
+function existingPlanSlug(root: string): string {
+  return (
+    fs
+      .readdirSync(path.join(root, 'docs', 'plans'), { withFileTypes: true })
+      .find((entry) => entry.isDirectory())?.name ?? ''
+  );
+}
+
+/** Sample rows for the vacuity guard; written here, never under `docs/`. */
+function markerFixture(slug: string): string {
+  return [
+    `| FX-901 | 2026-10-13 | sound, full | Path: full (docs/plans/${slug}) | pending |`,
+    '| FX-902 | 2026-10-13 | sound, below | Path: short, below the threshold | pending |',
+    '| FX-903 | 2026-10-13 | sound, override | Path: short, threshold overridden by the owner: criteria 2, 4 | pending |',
+    '| FX-904 | 2026-10-13 | no marker at all | pending |',
+    '| FX-905 | 2026-10-13 | two | Path: short, below the threshold | Path: short, below the threshold | pending |',
+    '| FX-906 | 2026-10-13 | no folder | Path: full (docs/plans/no-such-folder-lg-api-07) | pending |',
+    '| FX-907 | 2026-10-13 | empty list | Path: short, threshold overridden by the owner: criteria | pending |',
+    '| FX-908 | 2026-10-13 | out of range | Path: short, threshold overridden by the owner: criteria 5 | pending |',
+  ].join('\n');
+}
+
 test.describe('Changelog and backlog', { tag: '@ledger' }, () => {
   test('LG-API-01 — both ledger files exist and are not empty', () => {
     const root = repoRoot();
@@ -367,6 +470,47 @@ test.describe('Changelog and backlog', { tag: '@ledger' }, () => {
       danglingReferences(root, declared),
       'A dangling reference means an entry was deleted instead of having its status changed, ' +
         'and the reasoning behind the decision was lost',
+    ).toEqual([]);
+  });
+
+  test('LG-API-07 — every FX- row numbered 48 and above names the path it took', () => {
+    const root = repoRoot();
+    const content = read(root, CHANGELOG);
+
+    // The real table parsed: a moved or reworded heading must not make this green by reading
+    // zero rows.
+    expect(
+      entries(defectsSection(content)).filter((row) => row.id.startsWith('FX-')).length,
+      `${CHANGELOG}: the "${DEFECTS_HEADING}" table yielded no FX- row`,
+    ).toBeGreaterThan(0);
+
+    // Vacuity guard: the ledger may hold no row numbered 48 or above, so the matcher is driven over
+    // a fixture — three sound rows and five broken ones, each broken for its own reason.
+    const sample = markedScopeRows(
+      `${DEFECTS_HEADING}\n\n${markerFixture(existingPlanSlug(root))}`,
+    );
+
+    expect(
+      sample.map((row) => row.id),
+      'The fixture was not parsed into eight rows',
+    ).toHaveLength(8);
+
+    const verdicts = Object.fromEntries(
+      sample.map((row) => [row.id, pathMarkerProblems(root, row).join('')]),
+    );
+
+    expect([verdicts['FX-901'], verdicts['FX-902'], verdicts['FX-903']]).toEqual(['', '', '']);
+    expect(verdicts['FX-904']).toContain('no path marker');
+    expect(verdicts['FX-905']).toContain('2 path markers');
+    expect(verdicts['FX-906']).toContain('not a folder');
+    expect(verdicts['FX-907']).toContain('no criteria list');
+    expect(verdicts['FX-908']).toContain('outside 1–4');
+
+    const problems = markedScopeRows(content).flatMap((row) => pathMarkerProblems(root, row));
+
+    expect(
+      problems,
+      'Every FX- row numbered 48 and above carries exactly one literal path marker (bugfix-pipeline §4)',
     ).toEqual([]);
   });
 });

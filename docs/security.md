@@ -34,7 +34,9 @@ local container, so the threat model is narrow:
 Both specs walk routes and pages **from a list** (`PROTECTED_ROUTES`, `POST_ROUTES`,
 `PROTECTED_PAGES`): add a protected route or page, add a line, and the check picks it up. Forget the
 line and the check silently stops covering what is new — which is why it is its own item on the
-acceptance checklist.
+acceptance checklist. Only `PROTECTED_ROUTES` is compared against the controllers by a check
+(`AR-API-06`); `PROTECTED_PAGES`, `POST_ROUTES` and `AUDITED_PAGES` are kept by hand, and nothing
+fails when one of them is out of date.
 
 ## What this suite found in live code
 

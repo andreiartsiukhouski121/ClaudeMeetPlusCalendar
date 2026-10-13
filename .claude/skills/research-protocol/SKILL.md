@@ -61,8 +61,12 @@ entries.
 
 **Probes** (`feature-pipeline` §0 mandates five to seven of them) have the same home as any other
 finding: the fact they prove lands in `research/code.md`, in `researcher-code`'s own voice. A
-separate file holding the throwaway code itself, `research/probes.md`, is allowed alongside it —
-unscaffolded and unbudgeted, so no check and no line limit applies to it.
+separate file, `research/probes.md`, is allowed alongside it — unscaffolded and unbudgeted, so no
+check and no line limit applies to it. It holds **each probe's command plus the output lines its
+fact rests on, not the full output**: the deciding output is what the reviewer checks, and raw
+compiler output nobody drew on was 657 of the 3,007 research lines in one record. The sweeps that
+hold `Bash` run `npx prettier --write` on their own file before hand-back, so a later `format:check`
+does not go red on a research file.
 
 ## The four sweeps
 

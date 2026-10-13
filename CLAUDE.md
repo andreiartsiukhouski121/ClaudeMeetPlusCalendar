@@ -10,28 +10,29 @@ Commits before that entry are in Russian and are not rewritten.
 
 ## Commands
 
-| Command                                    | What it does                                                                        |
-| ------------------------------------------ | ----------------------------------------------------------------------------------- |
-| `pnpm dev`                                 | both applications in parallel                                                       |
-| `pnpm dev:web`                             | Next.js on `http://127.0.0.1:3000`                                                  |
-| `pnpm dev:api`                             | Nest.js on `http://127.0.0.1:3001`                                                  |
-| `pnpm lint` / `pnpm lint:fix`              | ESLint over the root and every package                                              |
-| `pnpm typecheck`                           | `tsc` over the root (e2e) and over each package                                     |
-| `pnpm test`                                | unit tests (Vitest in `apps/api` and `apps/web`)                                    |
-| `pnpm test:<feature>`                      | one feature's units: `test:auth-login`, `test:home-dashboard`, `test:meeting-files` |
-| `pnpm change:new <slug>`                   | scaffold a change folder: research, design, plan                                    |
-| `pnpm change:new <slug> --bug`             | the same, with the bugfix plan template                                             |
-| `pnpm adr:new <slug>`                      | record an architecture decision; takes the next free number                         |
-| `pnpm check:orientation`                   | section 0 of the plans is filled in substance (in pre-commit and verify)            |
-| `pnpm verify`                              | **the whole check on a single server start**: lint + typecheck + units + e2e        |
-| `pnpm e2e`                                 | E2E through Playwright on ports 3100/3101; it starts the servers itself             |
-| `pnpm e2e:security`                        | cross-feature security invariants (API + browser)                                   |
-| `pnpm audit`                               | known CVEs in the dependencies (high and above)                                     |
-| `pnpm e2e:report`                          | the HTML report of the last Playwright run                                          |
-| `pnpm --filter @purpleschool/api db:up`    | start the Postgres container and wait for its healthcheck                           |
-| `pnpm --filter @purpleschool/api db:reset` | drop, re-push the schema and re-seed; needs `DATABASE_URL`                          |
-| `pnpm skills:sync`                         | fetch the external skill sets into `.agents/` by the lock file                      |
-| `pnpm skills:check`                        | offline: verify what is on disk matches the lock file                               |
+| Command                                    | What it does                                                                          |
+| ------------------------------------------ | ------------------------------------------------------------------------------------- |
+| `pnpm dev`                                 | both applications in parallel                                                         |
+| `pnpm dev:web`                             | Next.js on `http://127.0.0.1:3000`                                                    |
+| `pnpm dev:api`                             | Nest.js on `http://127.0.0.1:3001`                                                    |
+| `pnpm lint` / `pnpm lint:fix`              | ESLint over the root and every package                                                |
+| `pnpm typecheck`                           | `tsc` over the root (e2e) and over each package                                       |
+| `pnpm test`                                | unit tests (Vitest in `apps/api` and `apps/web`)                                      |
+| `pnpm test:<feature>`                      | one feature's units: `test:auth-login`, `test:home-dashboard`, `test:meeting-files`   |
+| `pnpm change:new <slug>`                   | scaffold a change folder: research, design, plan                                      |
+| `pnpm change:new <slug> --bug`             | the same, with the bugfix plan template                                               |
+| `pnpm adr:new <slug>`                      | record an architecture decision; takes the next free number                           |
+| `pnpm check:orientation`                   | section 0 of the plans is filled in substance (in pre-commit and verify)              |
+| `pnpm verify`                              | **the whole check on a single server start**: lint + typecheck + units + e2e          |
+| `pnpm e2e`                                 | E2E through Playwright on ports 3100/3101; it starts the servers itself               |
+| `pnpm e2e:security`                        | cross-feature security invariants (API + browser)                                     |
+| `pnpm audit`                               | known CVEs in the dependencies (high and above)                                       |
+| `pnpm e2e:report`                          | the HTML report of the last Playwright run                                            |
+| `pnpm --filter @purpleschool/api db:up`    | start the Postgres container and wait for its healthcheck                             |
+| `pnpm --filter @purpleschool/api db:reset` | drop, re-push the schema and re-seed; needs `DATABASE_URL`                            |
+| `pnpm skills:sync`                         | fetch the external skill sets into `.agents/` by the lock file                        |
+| `pnpm skills:check`                        | offline: verify what is on disk matches the lock file                                 |
+| `pnpm verdicts:report`                     | the stored gate verdicts: per gate, the most frequent finding categories (`ADR-0032`) |
 
 **Docker must be running before `pnpm e2e` or `pnpm verify`** (`ADR-0027`, `FACT-3595`). Persistence
 is PostgreSQL in the `db` service of the repository's `docker-compose.yml`, and the api `webServer`
@@ -337,6 +338,14 @@ The threat model, what the automated checks found and the list of deliberate gap
 [`docs/security.md`](docs/security.md). Run them with `pnpm e2e:security` and
 `pnpm audit --audit-level high`.
 
+## Comments in code
+
+**A comment says why.** It cites `FACT-`/`ADR-` keys, invariant numbers, case IDs and symbol names —
+things that survive a refactor. It never cites another file's line number, and never "design §N" or
+any other section of a change folder: `docs/plans/<slug>/` is history, not a reference, and a
+comment pointing into it rots the day the design is revised. It does not restate an invariant's text
+either — the invariant number is enough, and a second copy drifts (`FX-023`).
+
 ## Verifying a change is mandatory
 
 Any change under `apps/web` or `apps/api` that affects runtime behaviour is verified by actually
@@ -362,11 +371,11 @@ The procedure, the locator rules and the common failures are in
 Three layers, each with its own job. Keep them in mind before typing another run command: almost
 everything you might want to run by hand is already part of one of them.
 
-| Layer               | What it runs                                                                   | When               | Cost  |
-| ------------------- | ------------------------------------------------------------------------------ | ------------------ | ----- |
-| `.husky/pre-commit` | orientation + `lint-staged` (`eslint --fix`, `prettier --write`) + `pnpm test` | every `git commit` | ~6 s  |
-| `pnpm verify`       | orientation + lint + typecheck + units + supertest + format + all e2e + audit  | accepting a change | ~66 s |
-| CI, job `verify`    | the same list of steps as the local `pnpm verify`                              | push and PR        | —     |
+| Layer               | What it runs                                                                   | When               | Cost                 |
+| ------------------- | ------------------------------------------------------------------------------ | ------------------ | -------------------- |
+| `.husky/pre-commit` | orientation + `lint-staged` (`eslint --fix`, `prettier --write`) + `pnpm test` | every `git commit` | ~6 s                 |
+| `pnpm verify`       | orientation + lint + typecheck + units + supertest + format + all e2e + audit  | accepting a change | [row](e2e/README.md) |
+| CI, job `verify`    | the same list of steps as the local `pnpm verify`                              | push and PR        | —                    |
 
 **The hook is a floor, not acceptance.** A red unit **fails the commit**. But the full `pnpm lint`
 (49 s), typecheck and e2e are deliberately not in the hook: a hook longer than ten seconds starts

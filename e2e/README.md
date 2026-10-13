@@ -304,69 +304,35 @@ store; the two that remain are still deliberate rather than leftover.)
 reference it: four diverging copies of this paragraph already produced `FX-027`. When the numbers
 change, change them here and set a new measurement date.
 
-Measured **2026-10-06**, Windows 11, Docker up on a reset-and-reseeded database, after `meeting-files`'s
-verify run. Suite composition — **167 e2e in 16 files and 43 units** (26 in `apps/api`, 17 in
-`apps/web`) plus one supertest module-boot check. Both counts moved by more than a line this time,
-independently recounted file by file rather than taken on faith (`grep -c` over every `test(`/`it(`
-in the tree, not a re-run of the suite): **+55 e2e**, from a new `e2e/regression/meeting-files/`
-directory (`meeting-files.api.spec.ts`, `meeting-files.functional.spec.ts`) plus relocated and grown
-cases inside several existing files (`home-dashboard`, `meetings-detail`, `security`, `smoke`,
-`accessibility`). The recount also caught a **pre-existing off-by-one**: the entry below stated 13
-files before this change, but `find e2e -name "*.spec.ts"` outside the new `meeting-files` directory
-gives **14** — corrected below rather than left standing, the same class of drift `FX-027`/`FX-035`
-are already the ledger entries for. The current, directly recounted total is **16 files**. **−8 units
-net**: 18 service-layer cases against the retired
-in-memory store (`meetings.service.spec.ts`, `users.service.spec.ts`'s `findByEmail` case) retired,
-relocated onto three new api cases, or withdrawn outright because the behaviour they guarded (shared
-in-memory objects) ceased to exist once Prisma builds a fresh object per query (design §7); 10 new
-pure-function units arrived for the upload filename/content-type/header rules and `formatFileSize`.
-`pnpm test:meetings-detail` lost its subject and was dropped from the script list; `pnpm test:home-dashboard`
-keeps its four `apps/web` `format-date` cases, untouched by this change, and stays.
+**The current row.** Measured **2026-10-06**, Windows 11, Docker up on a reset-and-reseeded
+database, after `meeting-files`'s verify run:
 
-Before that, measured 2026-09-29, warm `.next`, after `TUNE-S3`'s (second round) verify run, at
-**112 e2e in 14 files** (corrected from a previously stated 13 — a pre-existing off-by-one, found by
-the recount above rather than by this measurement, and not chased further back than this) **and 51
-units** (38 in `apps/api`, 13 in `apps/web`) plus one supertest module-boot check. The two e2e added
-since the count before it were `PR-API-07` (the scenario index
-staleness check, in the existing `process.api.spec.ts`) and rule 10 (the level-tag-matches-suffix
-check, in the existing `suite-integrity.api.spec.ts`); the file count did not move. Before that,
-measured 2026-09-29 (`CH-019`'s verify run) at **110 e2e**: the one added since the count before it was
-`AR-API-10`, in the existing `architecture.api.spec.ts`; the file count did not move. Before that,
-measured 2026-09-28 at **109 e2e**: the eight added since the count before it were `meetings-detail`'s
-`MD-API-01`…`07` in a new 13th file (`e2e/regression/meetings-detail/`, deliberately no `.functional.`
-pair) plus `AR-API-09`, a new test in the existing `architecture.api.spec.ts`. `SEC-API-09` does
-**not** add to this count: it is the same case, extended in place to walk the by-id route rather than
-duplicated into a new one, so it moves the file's line count but not the suite's test count. The nine
-added units are `MD-UT-01`…`09` inside the existing `meetings.service.spec.ts`, so the unit file count
-does not move.
+| Date       | e2e tests | e2e files | Units | `pnpm verify` end to end    |
+| ---------- | --------- | --------- | ----- | --------------------------- |
+| 2026-10-06 | 167       | 16        | 43    | **1 min 22 s – 1 min 47 s** |
+
+Units are 26 in `apps/api` and 17 in `apps/web`, plus one supertest module-boot check. The counts are
+recounted file by file (`grep -c` over every `test(`/`it(` in the tree), not taken from a run.
+**This is the only row.** When the numbers change, replace it and set a new date; the earlier counts
+are in git history (`git log -p -- e2e/README.md`), and a running narrative of them here is how the
+count came to disagree across four documents (`FX-027`, `FX-035`).
 
 **What the process costs is measured elsewhere.** `docs/profiling/` holds one record per development
 cycle — stage by stage, in tokens and wall-clock (`ADR-0020`, closing what `BL-022` asked for). The
 figures on this page are run economics only, and the two are kept apart deliberately: one paragraph
 carrying two subjects is how `FX-027` happened.
 
-| What                                             | Time                        | How measured                                                                            |
-| ------------------------------------------------ | --------------------------- | --------------------------------------------------------------------------------------- |
-| `pnpm e2e` — all 167                             | **47.7–51.4 s**             | timing the whole command, Docker up on a reset database; three measurements             |
-| `pnpm e2e --project=api --grep @auth-login` — 11 | **13.1 s**\*                | the same; ~12 s of it is starting servers (pre-`meeting-files` figure, not re-measured) |
-| `pnpm verify` end to end                         | **1 min 22 s – 1 min 47 s** | the acceptance run plus two confirmation re-runs this entry's own edit required         |
-| `pnpm verify` on a cold `.next`                  | ~137 s\*                    | the first run of the day (pre-`meeting-files` figure, not re-measured)                  |
-
-\* Carried over from the previous measurement rather than re-taken this round; see the history below
-for what moved and what did not.
+| What                                             | Time                        | How measured                                                                         |
+| ------------------------------------------------ | --------------------------- | ------------------------------------------------------------------------------------ |
+| `pnpm e2e` — all 167                             | **47.7–51.4 s**             | timing the whole command, Docker up on a reset database; three measurements          |
+| `pnpm e2e --project=api --grep @auth-login` — 11 | **13.1 s**                  | the same; ~12 s of it is starting servers                                            |
+| `pnpm verify` end to end                         | **1 min 22 s – 1 min 47 s** | the acceptance run plus two confirmation re-runs; the figure other documents link to |
+| `pnpm verify` on a cold `.next`                  | ~137 s                      | the first run of the day                                                             |
 
 The spread is warm-up **and** now the database: `.next`, Nest's `tsc` and the `prisma generate`
-prefix (~2 s per process, about five calls per `pnpm verify` — design §1, row 3) are each warm to a
+prefix (~2 s per process, about five calls per `pnpm verify`) are each warm to a
 different degree between runs. The order of magnitude is stable, and that is what the rule below
 rests on.
-
-**Why `pnpm verify` grew (~66 s → ~1 min 22–47 s):** not the suite — 167 e2e still finish in well
-under a minute, same order of magnitude as 112 did. The `prisma generate` prefix on seven scripts
-plus the compose stack already being up accounts for the growth; the design predicted the generator
-alone at 71 ms and measured the full process at ~2.0 s warm, an order of magnitude apart — caught by
-a spike at planning rather than in production. Per-cycle process cost belongs in
-`docs/profiling/runs/2026-10-06-meeting-files.md`, not restated here (the two are kept apart
-deliberately, directly above).
 
 The second row is where the one-call rule comes from: **every additional `pnpm e2e …` costs about
 12 s regardless of how many tests are filtered**, because it restarts **both** servers, `next dev`

@@ -34,11 +34,14 @@ different fact than a thin file from an expensive one, and the first is fixable 
 
 ## What you do not check
 
-Whether the change is a good idea, how it should be built, whether the coverage is adequate, or
-whether an existing decision still holds. All of those are later stages. You judge whether what was
+Whether the change is a good idea, how it should be built, or whether an existing decision still
+holds. All of those are later stages. Whether the requirement's **surface was covered** is the
+opposite: it is question 3 above, and you do check it. You judge whether what was
 written down is **true and complete**, not whether it is wise.
 
 ## Report
+
+Open the report with the **verdict block**, before any prose: its format and the category list are in the `team-roles` skill, "The verdict block". A hook saves it for the owner's later analysis; a missing or malformed block is saved as unparsed.
 
 - **Strengths** — specific, with the file and finding you verified.
 - **Blockers** — an unsupported claim, a citation that does not check out, an uncovered area, a
@@ -55,7 +58,5 @@ Do not mark a nitpick a blocker. Do not dodge the verdict. Describe fixes in wor
 applies them.
 
 ## Facts in the corpus
-
-The corpus states facts as keyed lines — `` `FACT-1013` `total` is the owner's full count… — invariant 4 `` — and keeps reasoning in `> **Rationale — not a fact.**` blocks that carry no key. The rule is `ADR-0021`, the lifecycle is `ADR-0022`, and the `project-context` skill is where both are explained.
 
 Two things to check that are specific to this stage: a finding resting on the corpus cites a `FACT-` key rather than a document, and no finding rests on an unkeyed sentence — that is reasoning borrowed as evidence, and it is the same failure as an uncited claim. A sweep that quietly treated a rationale block as fact is a blocker.

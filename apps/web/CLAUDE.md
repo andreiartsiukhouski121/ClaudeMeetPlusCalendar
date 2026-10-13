@@ -14,17 +14,20 @@ render, meeting creation, session end — in [`docs/data-model.md`](../../docs/d
 
 ## Map
 
-| Path                            | What is there                                                                     |
-| ------------------------------- | --------------------------------------------------------------------------------- |
-| `src/proxy.ts`                  | the gate for unauthenticated visitors (Next 16's `middleware.ts`), narrow matcher |
-| `src/app/`                      | pages: `/`, `/meetings/[id]`, `/auth/login`, the `/auth/register` placeholder     |
-| `src/app/auth/session-expired/` | the Route Handler that erases a broken cookie (root rule 17)                      |
-| `src/app/meetings/[id]/`        | the meeting detail page: the meeting, its attachments and the upload form         |
-| `.../[id]/files/[fileId]/`      | the Route Handler that streams a download, attaching the token server-side        |
-| `src/components/`               | form and list components, styled with HeroUI v3 and Tailwind utilities            |
-| `src/lib/actions/`              | Server Actions: login, sign-out, meeting creation, file upload                    |
-| `src/lib/dal.ts`, `session.ts`  | `server-only`: reading the session and checking access                            |
-| `src/lib/api-client.ts`         | the server-side `fetch` to Nest: `apiFetch` (JSON) and `apiFetchMultipart`        |
+This table states **where a thing goes**, not which files exist: a list of names rots by omission
+(`FX-023`), a rule does not. To find what is there, list the directory.
+
+| Path                    | What goes there                                                                                                                                    |
+| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/proxy.ts`          | the one gate for unauthenticated visitors (Next 16's `middleware.ts`); narrow matcher, optimistic only (rule 9–10)                                 |
+| `src/app/`              | routes only: a `page.tsx` per page, a `route.ts` per Route Handler, layouts and `globals.css`                                                      |
+| `src/app/**/page.tsx`   | a page: a protected one is added to `PROTECTED_PAGES` and `AUDITED_PAGES` (below)                                                                  |
+| `src/app/**/route.ts`   | a Route Handler: what a page cannot do — erasing a cookie (rule 17), streaming bytes with the token server-side                                    |
+| `src/app/<route>/*.tsx` | an exception, not the default: a component only that route uses may sit next to its page (the login form does)                                     |
+| `src/components/`       | the default home of a component, whether one page or several use it; HeroUI v3 and Tailwind utilities, tokens per the `design-system` skill        |
+| `src/lib/actions/`      | Server Actions, one file per feature; each re-checks the session itself (rule 10)                                                                  |
+| `src/lib/`              | everything else: pure helpers go in a module without `server-only` (units); only the session readers (`dal.ts`, `session.ts`) import `server-only` |
+| `src/lib/api-client.ts` | the only server-side `fetch` to Nest for JSON and multipart; the download handler is the exception                                                 |
 
 ## Styling: HeroUI v3 on Tailwind v4
 
@@ -34,17 +37,8 @@ before the ones they override — plus the app-shell rules that have no componen
 `postcss.config.mjs` carries `@tailwindcss/postcss` and nothing else: Tailwind v4 needs no
 `tailwind.config.js`.
 
-Four rules that are not negotiable, each bought with a decision and all four in the `heroui-react`
-skill with their reasons:
-
-1. the `<form>` element stays **native** wherever a Server Action is bound — HeroUI's `Form` owns
-   submission and does not compose with `action={formAction}`;
-2. submit is `<Button type="submit">`, never `onPress` — `onPress` forces `'use client'` onto a
-   server component and breaks the no-JS path;
-3. lists stay `ul`/`li` — `ListBox` renders `role="listbox"`/`role="option"`, which is not what
-   `HD-FN-04`/`HD-FN-05` assert;
-4. no `isRequired`, no `required`, email as `type="text"`, `noValidate` on the form — HeroUI's own
-   form examples break root invariant 15 in three places.
+The rules for forms, submit buttons and lists, with their reasons, are in the `heroui-react` skill;
+read it before any component.
 
 ## The BFF layout: three layers, not one
 

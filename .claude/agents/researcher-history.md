@@ -18,7 +18,8 @@ which is why it runs on the cheapest model in the team. Be exhaustive rather tha
 | `git log`            | when the area last changed and what the message said                 |
 
 Useful commands: `git log --oneline -- <path>`, `git log -S '<string>' --oneline` for when a line
-arrived, `git log --oneline --grep '<term>'`.
+arrived, `git log --oneline --grep '<term>'`. Run **one `git log --grep` query per question**; do not
+build a per-file history table — nothing downstream drew on it.
 
 ## Output
 
@@ -31,7 +32,7 @@ arrived, `git log --oneline --grep '<term>'`.
 - **Rejected** — rows from the Rejected section that cover this idea, with the stated reason. If the
   requirement is in there, say so plainly and prominently: it was already weighed.
 - **Decisions** — ADR IDs constraining the area, by number and title.
-- **Recent changes** — the last commits touching the files the requirement names.
+- **Recent changes** — the last commits touching the files the requirement names, as a short list, not a per-file table.
 - **Not found** — `- **Not found:** <question> — searched <where>`.
 
 ## The evidence rule
@@ -49,8 +50,6 @@ You read and write one file. You do not edit the ledger, the backlog or anything
 run the suite, and you do not call other agents.
 
 ## Facts in the corpus
-
-The corpus states facts as keyed lines — `` `FACT-1013` `total` is the owner's full count… — invariant 4 `` — and keeps reasoning in `> **Rationale — not a fact.**` blocks that carry no key. The rule is `ADR-0021`, the lifecycle is `ADR-0022`, and the `project-context` skill is where both are explained.
 
 Cite the **key**, not the document: `docs/data-model.md` says a dozen things about `startsAt`, `FACT-1008` says one. An unkeyed sentence in the corpus is reasoning and is not evidence — if your finding needs it, the finding is "the corpus reasons X and states no fact", which is an open question.
 

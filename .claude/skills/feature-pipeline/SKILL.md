@@ -42,13 +42,8 @@ cross-cutting: what not to cut, the budget, and reporting as you go.
 verdict; no plan before the design review's; no implementation before the plan review's; no
 acceptance before the code review's; no "done" before a green `pnpm verify`.
 
-**Every blocker in a verdict carries a label, `shape` or `correction`.** `shape` means the artifact's
-decisions change; `correction` means the artifact is right and a statement in it is wrong, mispointed
-or stale. A verdict with any `shape` blocker re-runs the stage, as today. A verdict whose blockers
-are **all** `correction` is answered by a narrow dispatch to the role that owns the artifact — naming
-the blockers and the file, without re-reading the change folder. The label is the reviewer's call;
-`lead` holds the gate, and a `correction` blocker that turns out to change a decision is escalated
-the way a disputed test already is (§6).
+**Every blocker in a verdict carries a label, `shape` or `correction`**; what each means and how a
+verdict is answered is in `team-roles`, "Handoff".
 
 Phases are never reordered or skipped, but they **shrink with the task**: for a small change the
 research is one sweep and the plan is three rows in the task section. A skipped phase is named out
@@ -102,9 +97,6 @@ covered, and confirms contradictions were **named rather than resolved**.
 Its **Gaps to carry forward** section is part of the deliverable: unknowns that reach the designer
 unannounced come back as rework.
 
-Its verdict labels each blocker `shape` or `correction` ("Phases", above); only a `shape` blocker
-sends the research back for a full re-run.
-
 ## 2. Design — the shape, not the order
 
 By `designer`, from the accepted research folder. The sections and the rules are in the
@@ -135,9 +127,6 @@ is anything new secure (invariants 16–19).
 
 This is the last gate before the shape becomes expensive to change: a blocker here costs a
 paragraph; the same blocker during implementation costs an iteration.
-
-Its verdict labels each blocker `shape` or `correction` ("Phases", above); only a `shape` blocker
-sends the design back for a full re-run.
 
 ## 4. The plan — orientation and the task breakdown
 
@@ -200,11 +189,6 @@ the same edits on live code, where a run catches them.
 
 Who to call and how is in `requesting-code-review` and `team-roles`. Blockers go back to the role
 that owns the artifact, unedited — the lead does not soften a verdict.
-
-Its verdict labels each blocker `shape` or `correction` ("Phases", above); only a `shape` blocker
-sends the plan back for a full re-run — the "second review happens only if the first found a blocker
-that changes the shape" rule above is now the mechanical reading of that label, not a separate
-judgement.
 
 ## 5a. Test design, then the red run
 
@@ -311,9 +295,6 @@ checklist is in the agent definition; when to call one at all is in `requesting-
 
 It reviews, it does not run. Runs are the testers' step, and their reports are inputs to this one.
 
-Its verdict labels each blocker `shape` or `correction` ("Phases", above); only a `shape` blocker
-sends the change back for a full re-run.
-
 ## Roles, models and permissions
 
 Roles are **files**, not parameters: `.claude/agents/*.md` fixes each role's tool list and model, so
@@ -360,35 +341,9 @@ branch's changes and complements the automated cases rather than replacing them.
 
 ## 10. Time budget
 
-**Plan through acceptance**, for a feature the size of "a page plus two endpoints": plan 10, plan
-review 12, implementation 25, acceptance 10, security 3 — **about 60 minutes**, and that is the
-floor. This groups stages by when they run, not by the discovery-versus-implementation split
-`docs/profiling/README.md` defines by stage ID (`FEAT-S1`…`FEAT-G3` against `FEAT-S4`…`FEAT-S8`):
-the plan and plan review counted here fall on the discovery side of that split. The pipeline audit
-recomputed the total against observed agent durations (minimum 8.7 minutes, median 21.4) and got 70
-minutes with a narrow review and 85 with a full one, including the probes that now live in §0. There
-is no slack in those numbers: going back to a full plan review costs +15 minutes.
-
-**§5a's test design (`FEAT-S9`) adds a line no record has measured yet: projected 10–25 minutes**,
-bracketed against `FEAT-S3` (the closest analogue — a document, written by one role, from accepted
-artifacts). The red run it feeds (`FEAT-S10`) and the run-boundary `FEAT-S11` adds are not a new
-line here: the plan that introduced them projects the same total work as the retired `FEAT-S5`,
-reordered, plus a few seconds per extra filtered run — negligible against the totals above. So the
-floor moves to a **projected 70–85 minutes**, not measured, and the first record after this change
-either confirms the bracket or falsifies it.
-
-**The discovery half is now measured.** `docs/profiling/` holds one record per cycle (`ADR-0020`,
-closing `BL-022`), and the first put discovery and its three gates at 1.47M tokens against 2.01M for
-everything after — the larger figure on the side this budget treats as the predictable one. What
-follows is the original wording, kept because the budget above still rests on it: no estimate was
-given here rather than an invented one, and the first features through this flow were to be the
-measurement (`ADR-0016`). They were. The measurements live in `docs/profiling/`, **not** in
-`e2e/README.md` — that page is the suite's run economics, and `ADR-0020` keeps the two apart
-deliberately.
-
-If the whole comes out at twice the floor, the cause is almost always the size of a document or the
-number of review iterations, not the difficulty of the code — which is what `CH-004` was written
-about.
+What a stage costs is measured, not projected: the figures per stage ID are in
+`docs/profiling/runs/`. The artifact line budgets are in `design-protocol`, §4 above and
+`test-designer.md`.
 
 ## 11. Reporting as you go
 
@@ -408,8 +363,8 @@ A task is not closed until `docs/CHANGELOG.md` has a row: a feature → `FT-`, a
 with "Conflicts with" filled in; a closed backlog item is marked closed with a reference and is
 **never deleted**. The full rules are in `CLAUDE.md`, the commit order in the `git-commit` skill.
 
-The "Found by" column is the only way to learn which checks actually work: today's ledger shows the
-control experiments and the security suite found three defects each, and diff review found none.
+The "Found by" column is the only way to learn which checks actually work. Read it rather than a
+tally quoted here: a tally written into this file once disagreed with the ledger it summarised.
 
 ## Facts in the corpus
 

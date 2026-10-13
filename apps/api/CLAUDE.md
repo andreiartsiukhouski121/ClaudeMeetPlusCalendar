@@ -16,19 +16,21 @@ the contract document fails `AR-API-05`; a guarded one missing from `PROTECTED_R
 
 ## Map
 
-| Path                   | What is there                                                                 |
-| ---------------------- | ----------------------------------------------------------------------------- |
-| `src/main.ts`          | bootstrap; `x-powered-by` off, no CORS and no prefix — see the file head      |
-| `src/app.module.ts`    | module wiring and **`ValidationPipe` as an `APP_PIPE` provider**              |
-| `src/auth/`            | controller, `AuthService`, `TokenService`, `JwtAuthGuard`, `@CurrentUser()`   |
-| `src/meetings/`        | controller, service over Prisma, DTOs, mapper, seed rows                      |
-| `src/users/`           | user service and seed rows (plaintext → `scrypt` **in the seed script**)      |
-| `src/meeting-files/`   | controller, service, mapper, pure rules, DTO, seed rows for attachments       |
-| `src/prisma/`          | `PrismaModule` + `PrismaService` on a `@prisma/adapter-pg` driver adapter     |
-| `prisma/`              | `schema.prisma` and the standalone `seed.ts` that `db:seed` runs              |
-| `src/common/crypto/`   | `scrypt` hashing and constant-time comparison                                 |
-| `src/config/`          | reads `JWT_SECRET` / `JWT_EXPIRES_IN` / `DATABASE_URL`; the seed's prod guard |
-| `test/app.e2e-spec.ts` | supertest, for exactly one thing: `AppModule` boots in a test module          |
+This table states **where a thing goes**, not which files exist: a list of names rots by omission
+(`FX-023`), a rule does not. To find what is there, list the directory.
+
+| Path                       | What goes there                                                                                                                      |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `src/main.ts`              | bootstrap only; `x-powered-by` off, no CORS and no prefix — see the file head                                                        |
+| `src/app.module.ts`        | module wiring and **`ValidationPipe` as an `APP_PIPE` provider**; a new feature module is imported here                              |
+| `src/<feature>/`           | one directory per feature module: controller, service, DTOs in `dto/`, mapper, types, module, and its seed rows                      |
+| `src/<feature>/*.rules.ts` | pure rules with no Nest or Prisma imports, so they carry units                                                                       |
+| `src/auth/`                | the session machinery: tokens, the guard and `@CurrentUser()` (invariant 5); a guarded route uses them from here                     |
+| `src/prisma/`              | the one Prisma client, on a `@prisma/adapter-pg` driver adapter; features import `PrismaService`, never the client                   |
+| `prisma/`                  | `schema.prisma` and the standalone `seed.ts` that `db:seed` runs; plaintext → `scrypt` happens **there**                             |
+| `src/common/`              | code shared by two or more features and owned by none, grouped by concern (`crypto/`: `scrypt` hashing and constant-time comparison) |
+| `src/config/`              | reads of the process environment, one file per concern, each with a logged default; the seed's prod guard                            |
+| `test/app.e2e-spec.ts`     | supertest, for exactly one thing: `AppModule` boots in a test module                                                                 |
 
 ## How this package differs from ordinary Nest
 

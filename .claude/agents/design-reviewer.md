@@ -16,8 +16,10 @@ costs a paragraph; the same blocker found during implementation costs an iterati
    `docs/plans/<slug>/research/`. A fact that appears for the first time in the design is an
    assumption — check whether it is true, and say so either way. This is the most common failure at
    this gate.
-2. **Does it fit the architecture?** Read `docs/architecture.md`, `docs/adr/README.md`,
-   `docs/data-model.md`, `docs/api-contract.md`. Does the design contradict an accepted ADR without
+2. **Does it fit the architecture?** Read `docs/adr/README.md` (the decision log and the refused
+   table), then the `FACT-` keys the design cites or retires, then Grep the corpus
+   (`docs/architecture.md`, `docs/data-model.md`, `docs/api-contract.md`) for each endpoint, entity and
+   term the design introduces. Do not read the four documents whole. Does the design contradict an accepted ADR without
    superseding it? Does it re-introduce something from the "refused" table? Does it put a fact in a
    second place where one already exists? Does it respect the layer rules — no logic in a
    controller, no response without a mapper, no second door to the API, no client-side fetch?
@@ -33,7 +35,9 @@ costs a paragraph; the same blocker found during implementation costs an iterati
 
 Also: does the design state its **impact** on existing cases by ID, and its open questions and
 deliberate omissions? Silence about a disturbed case becomes a red run somebody else has to
-diagnose.
+diagnose. Impact is a table of artifact families, each row with the grep or command that was run:
+**re-run at least one row's grep** and say whether it returns what the row lists, rather than
+judging whether the section reads as thorough.
 
 ## If the design touches the UI
 
@@ -59,6 +63,8 @@ notices a forgotten line (`ADR-0025`, invariant 16).
 
 ## Report
 
+Open the report with the **verdict block**, before any prose: its format and the category list are in the `team-roles` skill, "The verdict block". A hook saves it for the owner's later analysis; a missing or malformed block is saved as unparsed.
+
 - **Strengths** — specific, with the section.
 - **Blockers** — what makes the design unfit to plan from. Each: where, what is wrong, what it
   risks, and a label — `shape` if it changes the design's decisions, `correction` if the design is
@@ -71,7 +77,5 @@ notices a forgotten line (`ADR-0025`, invariant 16).
 Do not redesign it in the report. You name what is wrong; the designer decides how to answer it.
 
 ## Facts in the corpus
-
-The corpus states facts as keyed lines — `` `FACT-1013` `total` is the owner's full count… — invariant 4 `` — and keeps reasoning in `> **Rationale — not a fact.**` blocks that carry no key. The rule is `ADR-0021`, the lifecycle is `ADR-0022`, and the `project-context` skill is where both are explained.
 
 Check the ADRs the designer wrote against `ADR-0021`: keyed lines in Context and Decision, a source on each, reasoning in rationale blocks with no key. Then check the lifecycle (`ADR-0022`): if the design changes something the corpus states, does it name the key being retired **and** its successor? A design that rewrites a fact in place is a blocker, however small the wording change looks — that is precisely the failure the lifecycle exists to stop.

@@ -4,9 +4,8 @@
 IDs; every record here cites those IDs, and `AR-API-10` fails a record naming a stage that file does
 not define.
 
-It exists because the pipeline is slow and nobody could say where. `feature-pipeline` §10 budgets
-the implementation half and states outright that the discovery half **is not measured**; `BL-022`
-has asked for that figure since `CH-017`. Impressions are not enough to tune against: the first
+It exists because the pipeline is slow and nobody could say where: the discovery half was once
+stated outright to be **not measured**, and `BL-022` asked for that figure from `CH-017` on. Impressions are not enough to tune against: the first
 fully measured cycle disproved the assumption that discovery was the expensive half, and disproved
 it in a direction nobody predicted.
 
@@ -20,34 +19,25 @@ which is the cost this directory exists to remove.
 badly. Correcting a number is fine and should say so; tidying a run into a nicer story destroys the
 only thing the file is for.
 
-**What every row carries**: the stage or gate ID, the role, the model, wall-clock, tokens, a cost
-figure, tool calls, and the outcome. **Rework is recorded against the stage that was reworked, not
+**What every row carries**: the stage or gate ID, the role, the model, wall-clock, tokens, tool
+calls, and the outcome. These come from the completion notices `lead` logs as it goes (`lead.md`,
+"Keeping the profiling log") and hands to `FEAT-S8`'s brief; nothing is read from transcripts. **Rework is recorded against the stage that was reworked, not
 the gate that caught it** — the gate's own cost is its row, and separating the two is what makes
 "did this gate pay for itself" answerable.
 
 **A stage re-run after its gate gets two rows under the same ID**, first pass and re-run, rather than
-one row combining both — and a stage dispatched to more than one role (`FEAT-S1`'s four sweeps,
-`FEAT-S5`'s `tester-api`, `tester-unit`, `tester-security`) gets one row per role. `FEAT-S8` gets a
-row of its own. No new stage IDs are minted and none is renumbered for this (`ADR-0020`): the split
-is by role and by pass within the same ID.
-
-**The table also carries a row for the orchestrator (`lead`)**, covering work done in its own
-context rather than in a dispatch — holding gates, sequencing, and, since the fourth tuning round,
-running `FEAT-S6` directly. No sub-agent hand-back reports that cost, so it has to be attributed
-separately or it disappears from the record entirely.
-
-**A cost column sits beside tokens**, so a change to a role's model has a unit to be judged against;
-without it, tokens are the only figure this directory holds and a cheaper model can never be shown
-to have saved anything.
+one row combining both. `FEAT-S8` gets a row of its own. No new stage IDs are minted and none is
+renumbered for this (`ADR-0020`): the split is by pass within the same ID.
 
 **The cycle also carries one further number: elapsed wall-clock for the whole cycle**, from the first
-dispatch to the ledger entry, recorded next to the agent-time total at `FEAT-S8`. The per-stage rows
+dispatch to the ledger entry, recorded next to the agent-time total at `FEAT-S8`. `lead` notes the
+time of the first dispatch and of the `FEAT-S7` dispatch for exactly this. The per-stage rows
 stay agent-time, summed per dispatch; the elapsed figure is the one number in the record that is not
 a sum of the rows above it, because dispatches can run in parallel.
 
 **Discovery and implementation are one split, cited by stage ID rather than restated in prose**:
 `FEAT-S1`…`FEAT-G3` are discovery, `FEAT-S4`…`FEAT-S8` are everything after. Every record and
-`feature-pipeline` §10 use this same boundary. **This boundary is frozen** — the second tuning round
+the first record use this same boundary. **This boundary is frozen** — the second tuning round
 (`TUNE-S3`, 2026-09-29) added `FEAT-S9`, `FEAT-S10` and `FEAT-S11`, and `discovery` is deliberately
 **not** redefined to absorb any of them: the first record's 42.3% / 57.7% split stays comparable with
 every future one, which is the whole reason this boundary was fixed by ID in the first place.
@@ -67,8 +57,7 @@ The Flow field reads `FIX`; the stage rows are whichever of `FIX-S1`…`FIX-S11`
 Gate yield is written as zero by design, not left blank: the defect flow carries no review gate.
 
 **Record what you actually know.** Sub-agent cost arrives in the hand-back; wall-clock is the
-harness's duration; the orchestrator's own row and the cost column are the orchestrator's to
-attribute, and it has miscounted its own table before (`FX-034`: dispatches 30 → 29, agent-time 190
+harness's duration; both reach `lead` in the completion notices it logs. A table was miscounted before (`FX-034`: dispatches 30 → 29, agent-time 190
 against a column summing to 190.5). Where a number is unavailable, the cell says so — an invented
 figure is worse than a gap, and `FX-027` is the ledger entry for what a wrong number in a measurement
 paragraph costs.
@@ -82,6 +71,17 @@ paragraph costs.
    rather than the prose.
 4. **What found each defect** — the same column the ledger's "Found by" carries, so the two can be
    read together.
+
+## Verdicts
+
+Every gate verdict is a file in [`verdicts/`](verdicts/README.md). The four gate reviewers
+(`FEAT-G1`…`FEAT-G4`) are read-only, so they do not write it: they open their report with a fixed
+verdict block (`team-roles`, "The verdict block"), and a `SubagentStop` hook saves the whole report
+(`scripts/save-verdict.mjs`, `ADR-0032`). Files are never edited by hand.
+
+These files are the evidence for **gate yield** — the blockers each gate raised, their `shape` or
+`correction` label and their category — and replace a record's "verdict not recorded" cell.
+`pnpm verdicts:report [--since YYYY-MM-DD]` prints the counts; it writes nothing.
 
 ## The records
 
@@ -107,12 +107,14 @@ what was supplied.
 
 ## What the records have shown so far
 
-One cycle is not a trend, and nothing here should be treated as one. Stated as observations rather
-than conclusions:
+Three records exist and they are only partly comparable (the second is partial, the third holds
+lower bounds), so nothing here should be treated as a trend. The bullets below are the **first**
+record's observations, kept because later rounds cite them; the later records and their comparison
+are in `reviews/`. Stated as observations rather than conclusions:
 
 - **The implementation half cost more than discovery, not less** — 2.01M against 1.47M. The
-  assumption baked into `feature-pipeline` §10, that the implementation half is the measured and
-  predictable one, does not match the first measurement of both.
+  assumption that the implementation half is the measured and predictable one (once written into
+  `feature-pipeline` §10, since removed) does not match the first measurement of both.
 - **Rework after a gate was 29.3% of the whole run.** Every one of the four gates returned
   `accept after blockers`, and every rejected stage was re-run.
 - **Product code was 83k tokens — 2.4% of the total.** The rest is discovery, tests, checks and the

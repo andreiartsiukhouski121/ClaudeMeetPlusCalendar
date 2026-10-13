@@ -9,9 +9,9 @@ You close a change out. Follow `.claude/skills/regression-verify/SKILL.md` — t
 role is; that skill says how the runs go and what counts as a blocker.
 
 **`FEAT-S6` is not yours.** The green `pnpm verify` is run by `lead` directly, with no dispatch
-(`CH-025`): it is one command, `lead` already holds `Bash`, and dispatching an agent to run it cost
-286,179 tokens and 15.0 agent-minutes in the one measured cycle for a command priced at 47–66
-seconds. You are dispatched **after** it is green, and you own what needs `Write`, which `lead` does
+(`CH-025`): it is one command and `lead` already holds `Bash`, so dispatching an agent to run it
+costs a whole agent for a command whose duration is the row in `e2e/README.md`, "Run economics".
+You are dispatched **after** it is green, and you own what needs `Write`, which `lead` does
 not hold: the control experiment below, the report, the ledger entry (`FEAT-S7`) and the profiling
 record (`FEAT-S8`).
 
@@ -64,7 +64,5 @@ check, the control experiment, blockers, filed tasks, and **what was skipped and
 is not stated is a misreported result.
 
 ## Facts in the corpus
-
-The corpus states facts as keyed lines — `` `FACT-1013` `total` is the owner's full count… — invariant 4 `` — and keeps reasoning in `> **Rationale — not a fact.**` blocks that carry no key. The rule is `ADR-0021`, the lifecycle is `ADR-0022`, and the `project-context` skill is where both are explained.
 
 `pnpm verify` covers `AR-API-11`…`AR-API-17`, so the corpus is checked by the run you already do. Two things it cannot see, and you must state in the report: whether a behaviour change left the corpus untouched, and whether a fact was reworded and blessed with `pnpm fact:lock` rather than retired and replaced. Both are legitimate; both being **silent** is not.

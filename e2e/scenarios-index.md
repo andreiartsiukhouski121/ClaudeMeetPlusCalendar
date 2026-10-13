@@ -34,6 +34,7 @@ One row per scenario declared in a Summary table, across every level and module 
 | api | ledger | `LG-API-04` | commit references resolve in git |
 | api | ledger | `LG-API-05` | every backlog item has the "Conflicts with" column filled |
 | api | ledger | `LG-API-06` | no references to non-existent `BL-`/`FX-`/`FT-`/`CH-` |
+| api | ledger | `LG-API-07` | every `FX-` row numbered 48 and above names the path it took |
 | api | process | `PR-API-01` | every plan template shares one set of section 0 labels |
 | api | process | `PR-API-02` | every plan template is registered in `check-orientation.mjs` |
 | api | process | `PR-API-03` | every change folder holds the three discovery stages |

@@ -109,7 +109,11 @@ A brief has five parts and nothing else:
    re-reading it was measured at roughly 29% of an iteration's spend (2026-09-08,
    `docs/pipeline-audit.md`, marked ARCHIVE).
 4. **Constraints** — what must not change, and anything the user said that still applies.
-5. **Report back** — the artifact and the facts wanted (commands and numbers, not "done").
+5. **Report back** — the artifact and the facts wanted (commands and numbers, not "done"). Every
+   hand-back states: the stage ID, the pass (first, re-run or correction), the artifact path and,
+   at a gate, the verdict with each blocker's label. The cost of the dispatch (tokens, tool calls,
+   duration) is in the completion notice `lead` already receives, and `lead` logs it
+   (`lead.md`, "Keeping the profiling log").
 
 From the design stage onward the brief names the **change folder** rather than restating its
 contents: `docs/plans/<slug>/` is the context, and it is read, not summarized into the prompt.
@@ -121,7 +125,60 @@ soften a verdict, or merge two roles' outputs into one story.
 `correction` (the artifact is right and a statement in it is wrong, mispointed or stale), the
 reviewer's own call. A verdict with any `shape` blocker re-runs the stage. A verdict whose blockers
 are all `correction` is answered by a narrow dispatch naming the blockers and the file, which does
-not re-read the change folder.
+not re-read the change folder. `lead` holds the gate, and a `correction` blocker that turns out to
+change a decision is escalated the way a disputed test already is (`feature-pipeline` §6).
+
+**The verdict block.** The four gate reviewers (`research-reviewer`, `design-reviewer`,
+`plan-reviewer`, `code-reviewer`) open their final report with this block, verbatim in shape and
+before any prose. It is the one home of the format and of the category list; the four agent
+definitions point here. A `SubagentStop` hook (`scripts/save-verdict.mjs`) saves every such report
+to `docs/profiling/verdicts/`, so a verdict survives a killed session, and `pnpm verdicts:report`
+reads the files back (`docs/profiling/README.md`, "Verdicts"). The reviewers stay read-only: the hook
+writes, they do not (`ADR-0014`).
+
+```
+VERDICT
+Change: <change-folder slug>
+Gate: <FEAT-G1|FEAT-G2|FEAT-G3|FEAT-G4>
+Pass: <first|re-run>
+Verdict: <accept|accept-after-blockers|reject>
+Findings:
+- blocker | shape | <category> | <one line>
+- blocker | correction | <category> | <one line>
+- nit | - | <category> | <one line>
+END VERDICT
+```
+
+`reject` is this block's word for `rework` in the prose verdict; `accept-after-blockers` is `accept
+after blockers`; the parser accepts the prose words too and counts them under the block's. One line per finding; `Findings:` with nothing under it is written `- none`.
+`<category>` is exactly one of these twelve, and the list is kept short on purpose, so a finding that
+fits none is `other` rather than a new name (a new category is a change to this list, made here):
+
+| Category               | A finding that…                                                                      |
+| ---------------------- | ------------------------------------------------------------------------------------ |
+| task-order             | needs an artifact from a later task or stage                                         |
+| unreachable-dod        | has a definition of done that cannot be met where it is stated                       |
+| dod-passes-when-broken | has a check or definition of done that stays green in the state where it should fail |
+| assertion-scope        | has an assertion or count that is unscoped, or too wide or narrow                    |
+| recall-not-read        | states something from memory that the tree or the corpus contradicts                 |
+| stale-fact             | cites a fact, line or pointer that is wrong or no longer true                        |
+| doc-drift              | holds one fact in two places that now disagree                                       |
+| unverified-guarantee   | rests on library or framework behaviour nobody ran                                   |
+| contract-gap           | leaves a response, field or error shape vague or missing                             |
+| security               | misses a guard, a leak or an invariant 16–19                                         |
+| tool-gap               | assigns work to a role whose tool list cannot do it                                  |
+| other                  | fits none of the above                                                               |
+
+The categories are seeded from the recurring classes in `docs/profiling/reviews/2026-10-12-review.md`
+§7 (classes 1–6) and the `FEAT-G2`/`FEAT-G3` findings of §4–§5; they are revised from
+`pnpm verdicts:report`, not from impressions.
+
+**A gate is answered by a fresh dispatch, never by resuming the stage agent.** Once a stage agent's
+artifact has gone to its gate, that agent is not resumed: a resumed agent carries its whole earlier
+context into every turn, and the `FEAT-S9` stage resumed about 15 times cost 587,815 tokens in the
+`meeting-files` record. A `correction` verdict gets a fresh dispatch whose brief names only the
+blocker text and the file. A `shape` verdict gets a fresh dispatch that reads the change folder. A
+resume to answer a mid-stage question, before the artifact has gone to a gate, is still allowed.
 
 ## When the team is the wrong tool
 

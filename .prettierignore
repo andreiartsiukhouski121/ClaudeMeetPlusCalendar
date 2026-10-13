@@ -27,3 +27,9 @@ e2e/scenarios-index.md
 # longer evidence, it is a paraphrase that happens to look like one. Every change folder has one of
 # these.
 docs/plans/*/research/probes.md
+
+# docs/profiling/verdicts/ holds each gate reviewer's final report exactly as the SubagentStop hook
+# (scripts/save-verdict.mjs) captured it. Like probes.md, it is verbatim evidence: a reformatted
+# table or a re-wrapped finding is a paraphrase, and `pnpm verdicts:report` parses the block by its
+# literal shape. The files are never hand-written, so there is nothing to keep tidy.
+docs/profiling/verdicts/
