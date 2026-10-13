@@ -50,8 +50,11 @@ the plan, visible in review. The machine checks the form, a human checks the con
 
 - **Priority:** P1
 - **Steps:** take the commit column of every row in the Features, Process and Defects tables.
-- **Expected:** the column is non-empty: either a hash, or the literal `pending` for an entry added
-  by the current change. Additionally, if the ledger file has **no uncommitted edits** — meaning
+- **Expected:** the column is non-empty and is **exactly** one of two forms, both in backticks: a
+  hash (7–40 hex characters), or `` `pending` `` for an entry added by the current change. A bare
+  `pending` fails here, with a message about the format: `pnpm ledger:fill` fills only the
+  backticked form, so a bare one would otherwise go red one commit later as "stale" (`BL-026`,
+  `FX-048`). Additionally, if the ledger file has **no uncommitted edits** — meaning
   the change is finished — it must contain no `pending`.
 - **Three rejected formulations of this rule**, each caught by a run. Recorded so nobody returns to
   them:

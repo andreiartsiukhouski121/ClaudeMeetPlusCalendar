@@ -33,6 +33,9 @@ const PENDING = 'pending';
 /** Commit hash in the ledger column: 7–40 hex characters, usually in backticks. */
 const COMMIT_HASH = /\b([0-9a-f]{7,40})\b/;
 
+/** The whole commit cell: a backticked hash or the backticked literal `pending`, nothing else. */
+const COMMIT_CELL = /^`(?:[0-9a-f]{7,40}|pending)`$/;
+
 /** Where to look for dangling references to ledger entries. */
 const REFERENCE_ROOTS = ['docs', '.claude/skills', 'e2e'];
 
@@ -409,6 +412,21 @@ test.describe('Changelog and backlog', { tag: '@ledger' }, () => {
       .map((entry) => entry.id);
 
     expect(empty, `${CHANGELOG}: entries carry no commit reference`).toEqual([]);
+
+    /*
+     * The cell holds exactly one of the two forms `pnpm ledger:fill` understands. A bare
+     * `pending` passed the old check and was filled by nothing, so it went red one commit later
+     * with a staleness message instead of a format one (BL-026, FX-048).
+     */
+    const malformed = commitCells(read(root, CHANGELOG))
+      .filter((entry) => entry.cell !== '' && !COMMIT_CELL.test(entry.cell))
+      .map((entry) => `${entry.id}: ${entry.cell}`);
+
+    expect(
+      malformed,
+      `${CHANGELOG}: a commit cell is either a hash or \`${PENDING}\`, both in backticks — ` +
+        '`pnpm ledger:fill` fills only the backticked form',
+    ).toEqual([]);
 
     /*
      * `pending` is legitimate while the change is in flight: the hash is unknown before the
