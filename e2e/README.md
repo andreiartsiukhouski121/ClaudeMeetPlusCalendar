@@ -192,8 +192,9 @@ than repeating it.
   framework-injected sources live outside our markup and none of them is visible in a component, so
   each is found by a run rather than by review:
   1. **App Router's route announcer** — an empty `role="alert"` element outside `<main>`, so a bare
-     `getByRole('alert')` is a strict-mode violation in **every** error case. Locate a form error as
-     `getByRole('main').getByRole('alert')`.
+     `getByRole('alert')` can fail with a strict-mode violation or pass with no form alert at all,
+     depending on when the announcer mounts (CI run `37930853945`). Locate a form error as
+     `getByRole('main').getByRole('alert')`, and when the error text is known, wait for it.
   2. **`next dev`'s "Open Next.js Dev Tools" control** — a button outside the application's
      rendered tree on every page of every Next 16 app, absent from `grep -r` over this repository
      and absent from a production build. Playwright's `webServer` is `next dev`, so it is always

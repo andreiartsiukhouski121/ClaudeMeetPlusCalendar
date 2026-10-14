@@ -23,12 +23,15 @@ icon-only buttons without names. Each of those loses to a rule below.
 ## Colour: the measured table
 
 Every value is OKLCH and every pair was computed, not eyeballed. WCAG AA for normal text is 4.5:1;
-the suite is what decides (`ACC-FN-01`, see "The gate").
+the suite is what decides (the `axe` cases, see "The gate").
 
 | Token               | Value                      | Hex       | Against               | Ratio |
 | ------------------- | -------------------------- | --------- | --------------------- | ----- |
 | `--accent`          | `oklch(0.55 0.21 285)`     | `#6B53E4` | `--accent-foreground` | 5.15  |
 | `--accent` as text  | the same                   | `#6B53E4` | a white card          | 5.28  |
+| `--accent-hover`    | `oklch(0.50 0.21 285)`     | `#5F42D3` | `--snow`              | 6.38  |
+| `--danger`          | `oklch(0.55 0.21 25.74)`   | `#D01C27` | white                 | 5.42  |
+| `--danger`          | the same                   | `#D01C27` | the canvas            | 4.93  |
 | `--background`      | `oklch(0.969 0.004 286)`   | `#F4F4F7` | `--foreground`        | 16.19 |
 | `--muted`           | `oklch(0.52 0.014 286)`    | `#686871` | the canvas            | 5.05  |
 | `--muted`           | the same                   | `#686871` | a white card          | 5.53  |
@@ -38,9 +41,12 @@ the suite is what decides (`ACC-FN-01`, see "The gate").
 | `--category-green`  | ink `oklch(0.47 0.10 155)` | `#1F6B41` | its tint `#E4F5E9`    | 5.75  |
 | `--category-amber`  | ink `oklch(0.50 0.10 75)`  | `#845A0F` | its tint `#F9EFDA`    | 5.36  |
 
-Everything else — `--foreground`, `--surface`, `--border`, `--separator`, `--danger`, `--success`,
-`--warning` and the whole `*-soft` family — is **HeroUI's default and stays that way**. The palette
-is three overrides and five additions, not a fork of the theme.
+Everything else — `--foreground`, `--surface`, `--border`, `--separator`, `--success`, `--warning`,
+`--danger-hover` and the whole `*-soft` family — is **HeroUI's default and stays that way**. The
+palette is six overrides (`--accent`, `--accent-hover`, `--background`, `--muted`, `--danger`,
+`--radius`) and five additions, not a fork of the theme. A future `variant="danger"` button would
+paint `--danger-hover` at 4.33:1 under `--snow`: measure and override it before that button ships
+(`ADR-0033`).
 
 Rules that hold the table up:
 
@@ -162,7 +168,9 @@ None of the following bends for a visual reason. All of them have already been b
 ## The gate
 
 A change to any token is accepted by **`pnpm verify`**, whose `@accessibility` cases run `axe-core`
-at WCAG 2.0/2.1 AA over every page (`ADR-0025`). `pnpm e2e:a11y` is for localizing a failure, not
+at WCAG 2.0/2.1 AA (`ADR-0025`) over every page as loaded (`ACC-FN-01`, `ACC-FN-02`) and over every
+state that renders the token: the error states (`ACC-FN-03`, `ACC-FN-05`, `ACC-FN-06`) for a token
+that appears only after a submit (`FACT-3691`). `pnpm e2e:a11y` is for localizing a failure, not
 for acceptance.
 
 The standing bar from the HeroUI migration holds: **restyling changes no accessible name**

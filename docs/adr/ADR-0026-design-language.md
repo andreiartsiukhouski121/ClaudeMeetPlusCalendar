@@ -87,10 +87,6 @@ Rejected, each in one line:
 
 ## Consequences
 
-- `FACT-3558` Every contrast number in this record and in the skill is computed from the OKLCH
-  values, and `ACC-FN-01` is what decides: a token change is accepted by a green
-  `pnpm e2e:a11y` inside a green `pnpm verify`, the same gate that caught `FX-039`. — `ADR-0025`,
-  `e2e/accessibility/accessibility.functional.spec.ts`
 - `FACT-3559` Restyling changes no accessible name. All 28 functional cases passed unmodified across
   the HeroUI migration, and that is the standing bar: a visual change that needs a functional case
   edited is a defect to investigate, not a test to update. — `FACT-3515`,
@@ -119,6 +115,7 @@ is not part of the statement and is not repeated here.
 | `FACT-3542` | Before this record `apps/web` had no visual language of its own. `globals.css` holds the two imports, the app-shell rules and exactly one project-owned value — the `--accent` override from `FX-039`; everything else is HeroUI's untouched default theme plus utilities chosen per component.                                                                                                                                                            | `retired by FACT-0055` | `BL-031`    |
 | `FACT-3544` | Two utility classes in use across `apps/web` generate no CSS at all: `text-foreground-500` (seven occurrences) and `border-default-200` (two) name tokens HeroUI v3 does not define, so the secondary text renders at the full foreground colour and the borders fall back to `currentColor`. Verified by compiling `@import 'tailwindcss'` plus `@import '@heroui/styles'` through `@tailwindcss/postcss` and searching the output for the two selectors. | `retired by FACT-0057` | `BL-032`    |
 | `FACT-3560` | The language is not free to apply: it needs Plus Jakarta Sans through `next/font`, `@phosphor-icons/react` as a new runtime dependency watched by `pnpm audit --audit-level high`, and a rework of the four existing pages. That work is `BL-031`, not this record.                                                                                                                                                                                        | `retired by FACT-0056` | `BL-031`    |
+| `FACT-3558` | Every contrast number in this record and in the skill is computed from the OKLCH values, and `ACC-FN-01` is what decides: a token change is accepted by a green `pnpm e2e:a11y` inside a green `pnpm verify`, the same gate that caught `FX-039`.                                                                                                                                                                                                          | `retired by FACT-3691` | `FX-049`    |
 
 > **Rationale — not a fact.** `FACT-3542` retires whole rather than being partly edited: only its
 > second clause went false (`globals.css` now holds the whole token block from

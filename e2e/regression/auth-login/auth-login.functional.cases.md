@@ -15,7 +15,8 @@ default. A successful login is confirmed by the URL change and the session cooki
 
 **The form error is located as `getByRole('main').getByRole('alert')`**, never as a bare
 `getByRole('alert')`: App Router keeps its own empty `role="alert"` route announcer outside
-`<main>`, which causes a strict mode violation in every error case. Verified by a run.
+`<main>`, so a bare locator can fail with a strict-mode violation or pass with no form alert at
+all, depending on when the announcer mounts (CI run `37930853945`).
 
 10 cases: 5 P0, 5 P1/P2. Numbers `07`, `09`, `11`, `12` are **never reused**.
 

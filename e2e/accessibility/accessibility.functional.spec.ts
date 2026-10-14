@@ -79,10 +79,43 @@ test.describe('Accessibility', { tag: '@accessibility' }, () => {
     await page.getByLabel('Password').fill('definitely-not-the-password');
     await page.getByRole('button', { name: 'Sign in' }).click();
 
-    // Scanning before the live region exists would scan the same DOM as ACC-FN-01.
-    await expect(page.getByRole('alert')).toBeVisible();
+    // Scoped to `main` and to the exact text: App Router's route announcer is a `role="alert"` outside
+    // `main`, and a bare locator can be satisfied before the form's paragraph exists, so the scan
+    // would miss the error DOM. The pointer stays where the click put it, on the button.
+    const alert = page.getByRole('main').getByRole('alert');
+    await expect(alert).toBeVisible();
+    await expect(alert).toContainText('Invalid email or password');
 
     expect(await violationsOf(page), 'the login error state has violations').toEqual([]);
+  });
+
+  test('ACC-FN-05 — the create-meeting form in its error state passes WCAG 2.1 AA', async ({
+    authedPage,
+  }) => {
+    await authedPage.goto('/');
+    await authedPage.getByRole('button', { name: 'Create meeting' }).click();
+
+    const alert = authedPage.getByRole('main').getByRole('alert');
+    await expect(alert).toBeVisible();
+    await expect(alert).toContainText('Enter a meeting title');
+
+    expect(await violationsOf(authedPage), 'the create-meeting error state has violations').toEqual(
+      [],
+    );
+  });
+
+  test('ACC-FN-06 — the upload form in its error state passes WCAG 2.1 AA', async ({
+    authedPage,
+  }) => {
+    await authedPage.goto(`/meetings/${GEOMETRY_WORKSHOP_MEETING_ID}`);
+    await authedPage.getByRole('button', { name: 'Upload' }).click();
+
+    // The API's 400 shown verbatim: an empty selection submits an empty `File`, not `null`.
+    const alert = authedPage.getByRole('main').getByRole('alert');
+    await expect(alert).toBeVisible();
+    await expect(alert).toContainText('file is required');
+
+    expect(await violationsOf(authedPage), 'the upload error state has violations').toEqual([]);
   });
 
   test('ACC-FN-04 — every audited page has exactly one h1 and a main landmark', async ({

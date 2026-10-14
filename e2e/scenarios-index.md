@@ -11,6 +11,8 @@ One row per scenario declared in a Summary table, across every level and module 
 | functional | accessibility | `ACC-FN-02` | every page behind a session passes WCAG 2.1 AA |
 | functional | accessibility | `ACC-FN-03` | the login form in its error state passes WCAG 2.1 AA |
 | functional | accessibility | `ACC-FN-04` | every audited page has exactly one `h1` and a `main` landmark |
+| functional | accessibility | `ACC-FN-05` | the create-meeting form in its error state passes WCAG 2.1 AA |
+| functional | accessibility | `ACC-FN-06` | the upload form in its error state passes WCAG 2.1 AA |
 | api | architecture | `AR-API-01` | ADR files are named `ADR-NNNN-slug.md` and numbers are unique |
 | api | architecture | `AR-API-02` | every ADR has a heading, a known status and the three sections |
 | api | architecture | `AR-API-03` | the ADR index and the directory agree in both directions |

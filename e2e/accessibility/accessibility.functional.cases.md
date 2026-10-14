@@ -36,6 +36,11 @@ Generalising the existing case was chosen over adding a second one precisely so 
 list and one place to forget (`FX-027`'s failure mode); a parallel session-page case would have
 been a second list in all but name.
 
+**Error states are scanned case by case.** The page scans see each page as loaded, with no form
+submitted (`FACT-3687`), so a token that appears only after a submit is decided by an error-state
+case (`FACT-3691`): `ACC-FN-03`, `ACC-FN-05` and `ACC-FN-06` each submit one form so that its error
+paragraph renders, wait for that paragraph by its exact text inside `main`, and scan.
+
 ## Summary
 
 | ID        | Title                                                         | Priority | Tag   |
@@ -44,6 +49,8 @@ been a second list in all but name.
 | ACC-FN-02 | every page behind a session passes WCAG 2.1 AA                | P0       | `@p0` |
 | ACC-FN-03 | the login form in its error state passes WCAG 2.1 AA          | P1       | —     |
 | ACC-FN-04 | every audited page has exactly one `h1` and a `main` landmark | P1       | —     |
+| ACC-FN-05 | the create-meeting form in its error state passes WCAG 2.1 AA | P1       | —     |
+| ACC-FN-06 | the upload form in its error state passes WCAG 2.1 AA         | P1       | —     |
 
 ## Cases
 
@@ -73,13 +80,20 @@ been a second list in all but name.
 ### ACC-FN-03 — the login form in its error state passes WCAG 2.1 AA
 
 - **Priority:** P1
-- **Steps:** open `/auth/login`, submit a wrong password, wait for the form's alert — located as
-  `getByRole('main').getByRole('alert')`, **never** as a bare `getByRole('alert')`, because App
-  Router keeps its own hidden `role="alert"` route announcer outside `<main>` and a page-wide
-  locator matches both — then run the scan.
+- **Steps:** open `/auth/login`, submit a wrong password with the "Sign in" button, then wait until
+  `getByRole('main').getByRole('alert')` is visible **with the text** `Invalid email or password`
+  — **never** a bare `getByRole('alert')`, and never the scoped locator without the text. App
+  Router keeps its own `role="alert"` route announcer outside `<main>`, so a bare locator can be
+  satisfied before the form's paragraph exists and the scan then misses the error DOM. Leave the
+  pointer where the click put it — do not move it off the button — then run the scan with the same
+  four tags.
 - **Expected:** zero violations. The error state is a **different DOM** from the one `ACC-FN-01`
   scans: a live region appears, and that is exactly the kind of markup a scanner is good at judging
-  and a human reviewer forgets to look at.
+  and a human reviewer forgets to look at. Two things on that DOM are decided here: the
+  `text-danger` paragraph on the white form surface (`FACT-3684`, `FACT-3688`) and the focused,
+  hovered "Sign in" button on `--accent-hover` (`FACT-3686`, `FACT-3689`).
+- **Fails on purpose when:** `--danger` is HeroUI's default — `color-contrast` at ≈3.56:1 on the
+  `text-danger` paragraph (`FACT-3684`).
 
 ### ACC-FN-04 — every audited page has exactly one `h1` and a `main` landmark
 
@@ -90,3 +104,37 @@ been a second list in all but name.
   `h1` elements, so this is asserted here rather than assumed to be covered — the gap is the reason
   the case exists. Neither count is disturbed by App Router's injected markup: the route announcer
   is a `role="alert"` element, not a heading or a landmark.
+
+### ACC-FN-05 — the create-meeting form in its error state passes WCAG 2.1 AA
+
+- **Priority:** P1
+- **Steps:** sign in through `authedPage` (`teacher`), open `/`, leave the title empty and press
+  "Create meeting". Wait until `getByRole('main').getByRole('alert')` is visible **with the text**
+  `Enter a meeting title` — the same scoped locator and exact-text wait as `ACC-FN-03`, for the
+  same reason. Then run the scan with the same four tags.
+- **Expected:** zero violations. This paragraph renders inside the create-meeting `Card`, a white
+  surface (`FACT-3685`), so the error colour is judged on white in a second form. The Server Action
+  refuses an empty title before Nest is called: no meeting is created, so the case is not
+  `@mutating` and shares the seed with every other case.
+- **Fails on purpose when:** `--danger` is HeroUI's default — `color-contrast` at ≈3.57:1 on the
+  `text-danger` paragraph (`FACT-3684`). This state was scanned by nothing before (`FACT-3687`).
+
+### ACC-FN-06 — the upload form in its error state passes WCAG 2.1 AA
+
+- **Priority:** P1
+- **Steps:** sign in through `authedPage` (`teacher`), open `/meetings/<id>` with the id taken from
+  `GEOMETRY_WORKSHOP_MEETING_ID` in `e2e/fixtures/seed.ts` (the seeded, `teacher`-owned "Geometry
+  workshop"), never a literal. Press "Upload" **without choosing a file**. Wait until
+  `getByRole('main').getByRole('alert')` is visible **with the text** `file is required` — the same
+  scoped locator and exact-text wait as `ACC-FN-03`, for the same reason. Then run the scan with the
+  same four tags.
+- **Expected:** zero violations. This paragraph renders directly on the page canvas (`FACT-3685`),
+  the darkest surface any `text-danger` sits on, so the error colour is judged where its margin is
+  smallest (`FACT-3688`). The text is the API's 400 shown verbatim, not the action's "Choose a file
+  to upload": an empty selection submits a `File` with an empty name and zero size, not `null`, so
+  that branch is unreachable from the browser and the refusal comes from Nest (`MF-FN-15`). Nest
+  refuses the request, so no attachment row is created: the case is not `@mutating` and shares the
+  seed with every other case.
+- **Fails on purpose when:** `--danger` is HeroUI's default — `color-contrast` at ≈3.25:1 on the
+  `text-danger` paragraph against the canvas (`FACT-3684`). This state was scanned by nothing before
+  (`FACT-3687`).

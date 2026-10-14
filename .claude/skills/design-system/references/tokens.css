@@ -11,13 +11,25 @@
  */
 
 /* ---------------------------------------------------------------------------------------------
- * 1. Overrides of HeroUI's own tokens. Three values. Everything not listed here stays the
+ * 1. Overrides of HeroUI's own tokens. Six values. Everything not listed here stays the
  *    library's default on purpose — the palette is not a fork of the theme.
  * ------------------------------------------------------------------------------------------- */
 
 :root {
   /* Brand violet. 5.15:1 against `--accent-foreground`, 5.28:1 as text on a white card. */
   --accent: oklch(0.55 0.21 285);
+
+  /*
+   * Hover and press of the primary button (`ADR-0033`). HeroUI's derived value is `#7766E8`, 4.22:1
+   * under `--snow`. A step darker than `--accent`: `--snow` on it measures 6.38:1.
+   */
+  --accent-hover: oklch(0.5 0.21 285);
+
+  /*
+   * Error text (`ADR-0033`). HeroUI's own `--danger` measures 3.57:1 on white and 3.25:1 on the
+   * canvas and fails WCAG AA. This value measures 5.42:1 on white and 4.93:1 on the canvas.
+   */
+  --danger: oklch(0.55 0.21 25.74);
 
   /* The page canvas: a cool grey a step below white, so a card is raised by lightness, not shadow. */
   --background: oklch(0.969 0.004 286);

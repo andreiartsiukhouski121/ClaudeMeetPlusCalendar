@@ -3443,9 +3443,11 @@
       "hash": "55cf617e7970f05a68de94678dfcf70a9a8dabfe97c3e204562469e309be7558"
     },
     "FACT-3558": {
-      "status": "active",
+      "status": "retired",
       "document": "docs/adr",
-      "hash": "137e433e8f1bf849ab085028b159cdecf7ad119e1e828b6d682aa19cb89ce365"
+      "hash": "5a769ccf9ab49cd99c162a53a3ebe4c07f6474506d4a76db9d5f81939bde2954",
+      "supersededBy": "FACT-3691",
+      "recordedIn": "`FX-049`"
     },
     "FACT-3559": {
       "status": "active",
@@ -4075,6 +4077,51 @@
       "status": "active",
       "document": "docs/adr",
       "hash": "a828ed9b5befe607eb447ab4b8ad26d7b48fb7946d746e96742d836ba0f7b743"
+    },
+    "FACT-3684": {
+      "status": "active",
+      "document": "docs/adr",
+      "hash": "b00216ef8fd4fd58da511ebaba97028aa5ee82556d2c21734649fd71c39baf25"
+    },
+    "FACT-3685": {
+      "status": "active",
+      "document": "docs/adr",
+      "hash": "e82007771b51154560fc66d941f14484373459178de31d7054262f15fb76ba28"
+    },
+    "FACT-3686": {
+      "status": "active",
+      "document": "docs/adr",
+      "hash": "e9f1468013bf83d6ffd8e1220d308e8b1c9cbf62fd52ee8f281a521a8d6ec8e7"
+    },
+    "FACT-3687": {
+      "status": "active",
+      "document": "docs/adr",
+      "hash": "e6a4ba4abbfe8bd3b72b68a527cc9410d152aa9d3b149e56b4e8c912773875b8"
+    },
+    "FACT-3688": {
+      "status": "active",
+      "document": "docs/adr",
+      "hash": "ee76ff95d04a62a7a5ee73da12793c891aaeb066ae13a206b925dcda55b73f26"
+    },
+    "FACT-3689": {
+      "status": "active",
+      "document": "docs/adr",
+      "hash": "f81feac06c0193fcf44ff021ae0b738aae3d0ece65540d981276aaaa01a1e0d4"
+    },
+    "FACT-3690": {
+      "status": "active",
+      "document": "docs/adr",
+      "hash": "f3954b9e3c8f40405d92480e7562ec6ff0438652b3f31ed549e86e7b16ad84b6"
+    },
+    "FACT-3691": {
+      "status": "active",
+      "document": "docs/adr",
+      "hash": "891bd12584e71de94a6a1991cd6581bc9cf2b81767a26aba5b6cf146f0971f67"
+    },
+    "FACT-3692": {
+      "status": "active",
+      "document": "docs/adr",
+      "hash": "db780e2a1b8b21f5c34006397b9eff9496eabe6c3c31af98c4230cad06e5dea7"
     }
   }
 }

@@ -12,7 +12,7 @@
  */
 
 /* ---------------------------------------------------------------------------------------------
- * 1. Overrides of HeroUI's own tokens. Four values. Everything not listed here stays the
+ * 1. Overrides of HeroUI's own tokens. Six values. Everything not listed here stays the
  *    library's default on purpose — the palette is not a fork of the theme.
  * ------------------------------------------------------------------------------------------- */
 
@@ -23,6 +23,22 @@
    * fact; this is.
    */
   --accent: oklch(0.55 0.21 285);
+
+  /*
+   * Hover and press of the primary button (`ADR-0033`, `FACT-3689`). HeroUI mixes `--accent` toward
+   * `--accent-foreground` and lands on `#7766E8`, 4.22:1 under `--snow`, below AA. This is a step
+   * darker than `--accent` (`#5F42D3`): `--snow` on it measures 6.38:1, and every frame of the
+   * transition between the two stays between 5.15:1 and 6.38:1.
+   */
+  --accent-hover: oklch(0.5 0.21 285);
+
+  /*
+   * Error text (`ADR-0033`, `FACT-3688`). HeroUI's own `--danger` (`oklch(0.6532 0.2328 25.74)`,
+   * `#FF383C`) measures 3.57:1 on white and 3.25:1 on the canvas and fails WCAG AA. Same hue, lightness
+   * matched to `--accent` (`#D01C27`): 5.42:1 on white (login, create-meeting) and 4.93:1 on the
+   * canvas (upload), which is the binding surface.
+   */
+  --danger: oklch(0.55 0.21 25.74);
 
   /* The page canvas: a cool grey a step below white, so a card is raised by lightness, not shadow. */
   --background: oklch(0.969 0.004 286);

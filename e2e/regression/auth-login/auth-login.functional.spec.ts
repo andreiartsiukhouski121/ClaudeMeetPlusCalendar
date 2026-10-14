@@ -28,10 +28,11 @@ const SESSION_COOKIE_NAME = 'ps_session';
 /**
  * The login form error.
  *
- * A bare `page.getByRole('alert')` does not work here, and that is not pedantry: App Router keeps
+ * A bare `page.getByRole('alert')` is not reliable here, and that is not pedantry: App Router keeps
  * its own `<div role="alert" aria-live="assertive" id="__next-route-announcer__">` on the page — a
- * routing announcer, empty and living outside `<main>`. It causes a strict mode violation
- * ("resolved to 2 elements") in every error case. Verified by a run, not assumed.
+ * routing announcer, empty and living outside `<main>`. Depending on when the announcer mounts, a
+ * bare locator either fails with a strict mode violation ("resolved to 2 elements") or is satisfied
+ * by the announcer before the form's own alert exists (CI run `37930853945`).
  *
  * So the search is narrowed by the `main` role rather than by a CSS chain or `.filter({ hasText })`
  * — a text filter would hide the "the alert never rendered" failure, since the locator would find

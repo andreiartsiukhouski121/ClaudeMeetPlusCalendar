@@ -90,6 +90,7 @@ These files are the evidence for **gate yield** — the blockers each gate raise
 | [2026-09-28](runs/2026-09-28-meetings-detail-participants.md) | `meetings-detail-participants` (`FT-003`) | `FEAT` | 3,478,421     | 190 min           | **29.3%**         |
 | [2026-10-03](runs/2026-10-03-design-language-rollout.md)      | `design-language-rollout` (`FT-006`)      | `FEAT` | 1,584,001\*   | 115.7 min\*       | 31.8%\*           |
 | [2026-10-06](runs/2026-10-06-meeting-files.md)                | `meeting-files` (`FT-007`)                | `FEAT` | 6,477,057\*\* | not available\*\* | not separable\*\* |
+| [2026-10-13](runs/2026-10-13-danger-contrast.md)              | `danger-contrast` (`FX-049`)              | `FIX`  | 1,097,759     | 36.4 min          | 22.8%             |
 
 \* Interrupted and resumed across two days; `FEAT-S1`, `FEAT-G1`, the first `FEAT-S2` pass and
 `lead`'s own orchestration/`FEAT-S6` cost are unmeasured (hand-backs lost or never produced) and are
