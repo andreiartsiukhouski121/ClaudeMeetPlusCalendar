@@ -45,8 +45,6 @@
 
 - `FACT-3571` Persistence is PostgreSQL, run from a `docker-compose.yml` at the repository root
   holding one service, `db`, with a `pg_isready` healthcheck. — this record
-- `FACT-3572` `User`, `Meeting` and `MeetingFile` are tables. The services read and write through
-  one injected Prisma client and keep no in-process copy of the data. — this record
 - `FACT-3573` Two databases live on that one server: `purpleschool` for `pnpm dev` and
   `purpleschool_e2e` for the suite, so a development session and a Playwright run never share rows.
   — this record
@@ -91,9 +89,6 @@ Rejected:
 - `FACT-3588` A GitHub Actions `services:` block for PostgreSQL — it would be a second definition of
   the database beside `docker-compose.yml`, and two copies of one fact drift silently. —
   `docs/CHANGELOG.md`, `FX-023`
-- `FACT-3589` A repository or data-access layer between the service and Prisma — the service already
-  owns the store, and an interface whose only second implementation is a hand-written fake moves the
-  unit tests from testing the code to testing the fake. — this record, `FACT-0013`
 - `FACT-3590` `DateTime` columns — Prisma maps `DateTime` to `timestamp without time zone`, and a
   zone-less column is what every UTC pin in this project exists to avoid. —
   `docs/plans/meeting-files/research/probes.md`
@@ -132,6 +127,8 @@ Rejected:
 The register of the keys this record has allocated and no longer states (`ADR-0022`). The decision
 itself stands; the row below is a consequence that a later record changed.
 
-| Key         | Stated                                                                                                                                                                               | Status                 | Recorded in |
-| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------- | ----------- |
-| `FACT-3583` | Identifiers go on being issued by the application exactly as today: the seed supplies the prefixed literals and the create path a `randomUUID()`; the schema declares no `@default`. | `retired by FACT-3670` | `ADR-0031`  |
+| Key         | Stated                                                                                                                                                                                                                                          | Status                 | Recorded in |
+| ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------- | ----------- |
+| `FACT-3583` | Identifiers go on being issued by the application exactly as today: the seed supplies the prefixed literals and the create path a `randomUUID()`; the schema declares no `@default`.                                                            | `retired by FACT-3670` | `ADR-0031`  |
+| `FACT-3572` | `User`, `Meeting` and `MeetingFile` are tables. The services read and write through one injected Prisma client and keep no in-process copy of the data.                                                                                         | `retired by FACT-3716` | `ADR-0034`  |
+| `FACT-3589` | A repository or data-access layer between the service and Prisma — the service already owns the store, and an interface whose only second implementation is a hand-written fake moves the unit tests from testing the code to testing the fake. | `retired by FACT-3703` | `ADR-0034`  |

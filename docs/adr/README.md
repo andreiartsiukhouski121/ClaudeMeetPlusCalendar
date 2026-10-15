@@ -69,6 +69,7 @@ What does not: how a function is written, which name reads better, anything a co
 | [ADR-0031](ADR-0031-prefixed-identifiers.md)                 | Every identifier carries its type prefix, including the ones issued at runtime | accepted   |
 | [ADR-0032](ADR-0032-gate-verdicts-are-captured-by-a-hook.md) | Gate verdicts are captured by a hook, not written by the reviewers             | accepted   |
 | [ADR-0033](ADR-0033-error-and-hover-tokens-measured.md)      | Error and hover tokens measured                                                | accepted   |
+| [ADR-0034](ADR-0034-meeting-files-ports-and-adapters.md)     | meeting-files is layered as domain, use cases and adapters behind ports        | accepted   |
 
 The table is checked against the directory in both directions (`AR-API-03`): a file missing from the
 table, or a row without a file, fails the run.

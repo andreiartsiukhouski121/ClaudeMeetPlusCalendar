@@ -394,8 +394,8 @@ the hook runs the units against different content — exactly what will go into 
 
 ## Skills: our own and external
 
-There are sixteen in `.claude/skills/`. Ten are ours — `feature-pipeline`, `bugfix-pipeline`,
-`pipeline-tuning`, `team-roles`, `project-context`, `research-protocol`, `design-protocol`,
+There are seventeen in `.claude/skills/`. Eleven are ours — `feature-pipeline`, `bugfix-pipeline`,
+`pipeline-tuning`, `clean-architecture`, `team-roles`, `project-context`, `research-protocol`, `design-protocol`,
 `design-system`, `playwright-verify`, `regression-verify`. The other six are **adapters** to external sets: `git-commit`,
 `heroui-react`, `nestjs-best-practices`, `requesting-code-review`, `ui-ux-pro-max`,
 `vercel-react-best-practices`.

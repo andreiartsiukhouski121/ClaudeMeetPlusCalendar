@@ -532,11 +532,12 @@ test.describe('Security: API', { tag: '@security' }, () => {
 
         /*
          * The regression pin on THIS implementation, on top of the class-level invariants above.
-         * `buildContentDisposition` (`meeting-files.rules.ts`) emits one fixed RFC 6266 pairing per
-         * stored name — the table in `security.api.cases.md` — and a different, equally valid
-         * escaping would fail only this assertion while every invariant above kept holding: the
-         * invariants catch the class of defect, this string catches a regression in one
-         * implementation of the fix.
+         * `buildContentDisposition`
+         * (`apps/api/src/meeting-files/meeting-files.content-disposition.ts`) emits one fixed
+         * RFC 6266 pairing per stored name — the table in `security.api.cases.md` — and a
+         * different, equally valid escaping would fail only this assertion while every invariant
+         * above kept holding: the invariants catch the class of defect, this string catches a
+         * regression in one implementation of the fix.
          */
         const expectedDisposition = EXPECTED_CONTENT_DISPOSITIONS[observation.filename];
 
@@ -751,8 +752,9 @@ async function filesOfMeeting(
 }
 
 /**
- * The exact `Content-Disposition` value `buildContentDisposition` (`meeting-files.rules.ts`) emits
- * today, keyed by the stored filename — the regression pin `security.api.cases.md` tables
+ * The exact `Content-Disposition` value `buildContentDisposition`
+ * (`apps/api/src/meeting-files/meeting-files.content-disposition.ts`) emits today, keyed by the
+ * stored filename — the regression pin `security.api.cases.md` tables
  * verbatim. `syllabus.pdf` is the benign control shared with `MF-API-06`; the other five are
  * `HEADER_SAFETY_MEETING.filenames`.
  */

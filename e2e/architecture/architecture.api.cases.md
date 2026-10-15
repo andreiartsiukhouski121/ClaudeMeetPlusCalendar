@@ -45,6 +45,7 @@ human checks meaning — the same line the ledger and suite meta-tests draw (`AD
 | AR-API-15 | the fact lock and the corpus agree: nothing deleted or reworded           | P0       |
 | AR-API-16 | every retired fact names a successor that exists, or a sourced withdrawal | P0       |
 | AR-API-17 | the retirement register parses, so the two rules above are not vacuous    | P1       |
+| AR-API-18 | `domain/` and `application/` import only what the allow-list admits       | P0       |
 
 A walk self-check runs before all of them: if the scanner finds no ADRs, no routes, no agents or no
 Routes table, every rule below would pass having checked nothing. That failure mode is not
@@ -280,3 +281,45 @@ hypothetical — it is how `suite-integrity` once went green under any violation
   an empty register — the vacuous-green class `ADR-0010` exists to close, and the one this suite has
   already been caught by once. The fixture lives in the spec rather than under `docs/` so it can
   never be mistaken for part of the corpus.
+
+### AR-API-18 — `domain/` and `application/` import only what the allow-list admits
+
+- **Priority:** P0
+- **Rule (`FACT-3701`, `ADR-0034`):** a file under `apps/api/src/<module>/domain/` imports only
+  `node:` built-ins and relative specifiers resolving inside that module's `domain/`; under
+  `application/`, inside that module's `domain/` or `application/`; a `*.spec.ts` may also import
+  `vitest`. One extractor covers `import … from`, `import type`, bare `import '…'`, `export … from`
+  (named and `*`) and `import(…)`, multi-line included; walk and fixture share it (`FACT-3702`).
+- **Step 1 — the fixture.** In-memory sources with pretended paths under
+  `apps/api/src/meeting-files/`, kept in the spec and never under `apps/api/src`:
+  - forbidden from `domain/x.ts` — `import { Injectable } from '@nestjs/common'`;
+    `import type { Response } from 'express'`; `export * from '@nestjs/common'`;
+    `export { PrismaClient } from '@prisma/client'`; `import 'reflect-metadata'`; a multi-line
+    `import {⏎ Injectable,⏎ Inject,⏎ } from '@nestjs/common'`; `import('express')`;
+    `../infrastructure/…`; `../application/…`; `../../meetings/domain/…` (another module's
+    `domain/`); `vitest` in a file not ending `.spec.ts`;
+  - forbidden from `application/x.ts` — `../infrastructure/…`; `../meeting-files.module`;
+  - allowed — `node:crypto` and `./file-name` from `domain/`; `../domain/…` and
+    `./meeting-file.repository` from `application/`; `vitest` in `domain/x.spec.ts`.
+  - **Expected:** each source yields exactly the one specifier it holds; the thirteen forbidden ones
+    are objected to, each objection naming the pretended file and the specifier; the five allowed
+    ones raise nothing.
+- **Step 2 — the walk's file list.** Walk every `.ts` file under `apps/api/src/*/domain/` and
+  `apps/api/src/*/application/`, spec files included, and attach the list — each file with its
+  extracted specifiers — to the report, so a reader sees what was judged.
+- **Step 3 — the self-check (`FACT-3189`).** **Expected:** the list holds at least one `domain/`
+  file and at least one `application/` file, and the walked files yield at least one import
+  specifier in total; until both hold this step alone is red — "no `domain/`/`application/` files
+  found", or "no import specifiers extracted from the walked files".
+- **Step 4 — the judgment.** **Expected:** no walked file's specifier falls outside the allow-list;
+  a failure names the file and the specifier. Relative specifiers resolve against the file's own
+  directory whichever path separator the OS uses.
+- **Why the fixture is first and the self-check separate:** the fixture proves the mechanism with or
+  without real files (`FACT-3504`, `ADR-0010`), so it must not stand in for a walk that found
+  nothing. Step 3 catches exactly two things: a walk that found no `domain/` or no `application/`
+  file, and an extractor that returns nothing on the real files even though it passes the fixture —
+  each goes red in Step 3, not green on Step 1.
+- **Control experiment (run once, not kept):** a real `domain/` file importing
+  `../infrastructure/…`; a real `application/` file importing `../meeting-files.module.js`; a real
+  non-spec `domain/` file importing `vitest` beside an `@nestjs/common` import and
+  `import('express')` — each red in Step 4 naming file and specifier, each reverted.

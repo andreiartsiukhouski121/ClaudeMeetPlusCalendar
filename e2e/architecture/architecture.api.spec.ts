@@ -977,6 +977,295 @@ const RETIREMENT_FIXTURE = [
   '',
 ].join('\n');
 
+/* ------------------- Import boundary of domain/ and application/ (FACT-3701, FACT-3702) ------------------- */
+
+const SOURCE_ROOT = 'apps/api/src';
+const BOUNDED_LAYERS = ['domain', 'application'] as const;
+
+/**
+ * Every static form that names a module: `import … from`, `import type … from`, `export … from`
+ * (named and `*`), a bare `import '…'`, and a dynamic `import('…')`. One alternation so a source
+ * yields its specifiers in source order and no statement is counted twice. The `from` forms take
+ * their clause from a closed shape (`*`, braces, a default name) rather than `[^;]*`, so one
+ * statement cannot swallow the next. Braces may span lines.
+ */
+const SPECIFIER_FORMS = new RegExp(
+  [
+    String.raw`\b(?:import|export)\s*(?:type\s+)?(?:\*(?:\s+as\s+[\w$]+)?|\{[^}]*\}|[\w$]+(?:\s*,\s*(?:\{[^}]*\}|\*\s+as\s+[\w$]+))?)\s*from\s*(['"])([^'"]+)\1`,
+    String.raw`\bimport\s*(['"])([^'"]+)\3`,
+    String.raw`\bimport\s*\(\s*(['"])([^'"]+)\5\s*\)`,
+  ].join('|'),
+  'g',
+);
+
+/** Blanks comments (keeping string contents), so an import quoted in a comment is not an import. */
+function withoutComments(source: string): string {
+  let out = '';
+  let i = 0;
+
+  while (i < source.length) {
+    const ch = source[i];
+    const next = source[i + 1];
+
+    if (ch === '/' && next === '/') {
+      while (i < source.length && source[i] !== '\n') {
+        i += 1;
+      }
+    } else if (ch === '/' && next === '*') {
+      const end = source.indexOf('*/', i + 2);
+      i = end === -1 ? source.length : end + 2;
+      out += ' ';
+    } else if (ch === "'" || ch === '"' || ch === '`') {
+      let j = i + 1;
+      while (j < source.length && source[j] !== ch) {
+        j += source[j] === '\\' ? 2 : 1;
+      }
+      out += source.slice(i, j + 1);
+      i = j + 1;
+    } else {
+      out += ch;
+      i += 1;
+    }
+  }
+
+  return out;
+}
+
+/** The one extractor: the walk and the fixture both go through it (FACT-3702). */
+function importSpecifiers(source: string): string[] {
+  const specifiers: string[] = [];
+
+  for (const match of withoutComments(source).matchAll(SPECIFIER_FORMS)) {
+    specifiers.push(match[2] ?? match[4] ?? match[6]);
+  }
+
+  return specifiers;
+}
+
+/** Repo-relative, forward-slash form of a path, whichever separator the OS produced. */
+function posixPath(file: string): string {
+  return file.replace(/\\/g, '/');
+}
+
+/**
+ * Why one specifier is outside the allow-list, or `null` when it is admitted. `file` is the
+ * repo-relative path of the importing file; relative specifiers are resolved against its own
+ * directory on the posix form of both, so Windows separators cannot change the verdict.
+ */
+function importObjection(file: string, specifier: string): string | null {
+  const normalFile = posixPath(file);
+  const location = new RegExp(`^${SOURCE_ROOT}/([^/]+)/(domain|application)/`).exec(normalFile);
+
+  if (location === null) {
+    return `${normalFile} imports '${specifier}', but the file is not under a module's domain/ or application/`;
+  }
+
+  const [, moduleName, layer] = location;
+  const reachable = layer === 'domain' ? ['domain'] : ['domain', 'application'];
+  const normalSpecifier = posixPath(specifier);
+
+  if (normalSpecifier.startsWith('node:')) {
+    return null;
+  }
+  if (normalSpecifier === 'vitest' && normalFile.endsWith('.spec.ts')) {
+    return null;
+  }
+
+  if (normalSpecifier.startsWith('.')) {
+    const resolved = path.posix.normalize(
+      path.posix.join(path.posix.dirname(normalFile), normalSpecifier),
+    );
+    const inside = reachable.some((dir) => {
+      const base = `${SOURCE_ROOT}/${moduleName}/${dir}`;
+      return resolved === base || resolved.startsWith(`${base}/`);
+    });
+
+    if (inside) {
+      return null;
+    }
+    return (
+      `${normalFile} imports '${specifier}' (resolves to ${resolved}), outside this module's ` +
+      `${reachable.map((dir) => `${dir}/`).join(' and ')}`
+    );
+  }
+
+  return (
+    `${normalFile} imports '${specifier}', which is neither a node: built-in nor a relative path ` +
+    `inside the module${normalSpecifier === 'vitest' ? ' (vitest is for *.spec.ts only)' : ''}`
+  );
+}
+
+function importObjections(file: string, source: string): string[] {
+  return importSpecifiers(source).flatMap((specifier) => {
+    const objection = importObjection(file, specifier);
+    return objection === null ? [] : [objection];
+  });
+}
+
+/** Every `.ts` file under a module's `domain/` and `application/`, repo-relative, posix form. */
+function boundedFiles(root: string): string[] {
+  const modulesDir = path.join(root, ...SOURCE_ROOT.split('/'));
+  const files: string[] = [];
+
+  for (const entry of fs.readdirSync(modulesDir, { withFileTypes: true })) {
+    if (!entry.isDirectory()) {
+      continue;
+    }
+    for (const layer of BOUNDED_LAYERS) {
+      for (const rel of walk(root, `${SOURCE_ROOT}/${entry.name}/${layer}`)) {
+        if (rel.endsWith('.ts')) {
+          files.push(posixPath(path.relative(root, path.join(root, rel))));
+        }
+      }
+    }
+  }
+
+  return files.sort();
+}
+
+const MF = `${SOURCE_ROOT}/meeting-files`;
+
+interface BoundaryControl {
+  name: string;
+  file: string;
+  source: string;
+  specifier: string;
+  forbidden: boolean;
+}
+
+/**
+ * In-memory sources with pretended paths, kept here and never under `apps/api/src`, so the
+ * mechanism is proved with or without real files (`FACT-3504`). Thirteen forbidden, five allowed.
+ */
+const BOUNDARY_CONTROLS: BoundaryControl[] = [
+  {
+    name: 'domain: value import from @nestjs/common',
+    file: `${MF}/domain/x.ts`,
+    source: "import { Injectable } from '@nestjs/common';",
+    specifier: '@nestjs/common',
+    forbidden: true,
+  },
+  {
+    name: 'domain: import type from express',
+    file: `${MF}/domain/x.ts`,
+    source: "import type { Response } from 'express';",
+    specifier: 'express',
+    forbidden: true,
+  },
+  {
+    name: 'domain: export * from @nestjs/common',
+    file: `${MF}/domain/x.ts`,
+    source: "export * from '@nestjs/common';",
+    specifier: '@nestjs/common',
+    forbidden: true,
+  },
+  {
+    name: 'domain: named re-export from @prisma/client',
+    file: `${MF}/domain/x.ts`,
+    source: "export { PrismaClient } from '@prisma/client';",
+    specifier: '@prisma/client',
+    forbidden: true,
+  },
+  {
+    name: 'domain: bare import of reflect-metadata',
+    file: `${MF}/domain/x.ts`,
+    source: "import 'reflect-metadata';",
+    specifier: 'reflect-metadata',
+    forbidden: true,
+  },
+  {
+    name: 'domain: multi-line import from @nestjs/common',
+    file: `${MF}/domain/x.ts`,
+    source: "import {\n  Injectable,\n  Inject,\n} from '@nestjs/common';",
+    specifier: '@nestjs/common',
+    forbidden: true,
+  },
+  {
+    name: 'domain: dynamic import of express',
+    file: `${MF}/domain/x.ts`,
+    source: "const loaded = await import('express');",
+    specifier: 'express',
+    forbidden: true,
+  },
+  {
+    name: 'domain: relative import into infrastructure/',
+    file: `${MF}/domain/x.ts`,
+    source: "import { Adapter } from '../infrastructure/prisma-meeting-file.repository';",
+    specifier: '../infrastructure/prisma-meeting-file.repository',
+    forbidden: true,
+  },
+  {
+    name: 'domain: relative import into application/',
+    file: `${MF}/domain/x.ts`,
+    source: "import { UseCase } from '../application/upload-meeting-file';",
+    specifier: '../application/upload-meeting-file',
+    forbidden: true,
+  },
+  {
+    name: "domain: relative import into another module's domain/",
+    file: `${MF}/domain/x.ts`,
+    source: "import { Meeting } from '../../meetings/domain/meeting';",
+    specifier: '../../meetings/domain/meeting',
+    forbidden: true,
+  },
+  {
+    name: 'domain: vitest in a file that is not a spec',
+    file: `${MF}/domain/x.ts`,
+    source: "import { expect } from 'vitest';",
+    specifier: 'vitest',
+    forbidden: true,
+  },
+  {
+    name: 'application: relative import into infrastructure/',
+    file: `${MF}/application/x.ts`,
+    source: "import { Adapter } from '../infrastructure/prisma-meeting-file.repository';",
+    specifier: '../infrastructure/prisma-meeting-file.repository',
+    forbidden: true,
+  },
+  {
+    name: 'application: relative import of the module root file',
+    file: `${MF}/application/x.ts`,
+    source: "import { MeetingFilesModule } from '../meeting-files.module';",
+    specifier: '../meeting-files.module',
+    forbidden: true,
+  },
+  {
+    name: 'domain: node: built-in',
+    file: `${MF}/domain/x.ts`,
+    source: "import { randomUUID } from 'node:crypto';",
+    specifier: 'node:crypto',
+    forbidden: false,
+  },
+  {
+    name: 'domain: sibling file in domain/',
+    file: `${MF}/domain/x.ts`,
+    source: "import { fileName } from './file-name';",
+    specifier: './file-name',
+    forbidden: false,
+  },
+  {
+    name: 'application: import from the same module domain/',
+    file: `${MF}/application/x.ts`,
+    source: "import { MeetingFile } from '../domain/meeting-file';",
+    specifier: '../domain/meeting-file',
+    forbidden: false,
+  },
+  {
+    name: 'application: sibling file in application/',
+    file: `${MF}/application/x.ts`,
+    source: "import { MeetingFileRepository } from './meeting-file.repository';",
+    specifier: './meeting-file.repository',
+    forbidden: false,
+  },
+  {
+    name: 'domain: vitest in a *.spec.ts',
+    file: `${MF}/domain/x.spec.ts`,
+    source: "import { expect } from 'vitest';",
+    specifier: 'vitest',
+    forbidden: false,
+  },
+];
+
 test.describe('Architecture corpus', { tag: '@architecture' }, () => {
   test('walk self-check — the scanner finds the corpus, the controllers and the agents', () => {
     const root = repoRoot();
@@ -1172,5 +1461,81 @@ test.describe('Architecture corpus', { tag: '@architecture' }, () => {
       'The rule must object to: an heir that does not exist, an heir that is itself retired, and ' +
         'a withdrawal naming nothing that recorded it',
     ).toEqual(['FACT-1902 n', 'FACT-1903 n', 'FACT-1905 n']);
+  });
+
+  test('AR-API-18 — domain/ and application/ import only what the allow-list admits', async () => {
+    const root = repoRoot();
+
+    await test.step('fixture: each source yields exactly its one specifier', () => {
+      for (const control of BOUNDARY_CONTROLS) {
+        expect(importSpecifiers(control.source), `extractor on "${control.name}"`).toEqual([
+          control.specifier,
+        ]);
+      }
+    });
+
+    await test.step('fixture: every forbidden form is objected to, naming file and specifier', () => {
+      const forbidden = BOUNDARY_CONTROLS.filter((control) => control.forbidden);
+      expect(forbidden, 'the fixture holds thirteen forbidden sources').toHaveLength(13);
+
+      for (const control of forbidden) {
+        const objections = importObjections(control.file, control.source);
+
+        expect(objections, `"${control.name}" must raise exactly one objection`).toHaveLength(1);
+        expect(objections[0], `objection for "${control.name}" names the file`).toContain(
+          control.file,
+        );
+        expect(objections[0], `objection for "${control.name}" names the specifier`).toContain(
+          `'${control.specifier}'`,
+        );
+      }
+    });
+
+    await test.step('fixture: every allowed form raises nothing', () => {
+      const allowed = BOUNDARY_CONTROLS.filter((control) => !control.forbidden);
+      expect(allowed, 'the fixture holds five allowed sources').toHaveLength(5);
+
+      for (const control of allowed) {
+        expect(importObjections(control.file, control.source), `"${control.name}"`).toEqual([]);
+      }
+    });
+
+    const files = boundedFiles(root);
+    const judged = files.map((file) => ({
+      file,
+      specifiers: importSpecifiers(read(root, file)),
+    }));
+
+    await test.step('the walk file list', async () => {
+      await test.info().attach('walked-files.json', {
+        body: JSON.stringify(judged, null, 2),
+        contentType: 'application/json',
+      });
+    });
+
+    await test.step('self-check: the walk found domain/ and application/ files', () => {
+      const under = (layer: string) =>
+        files.filter((file) => new RegExp(`^${SOURCE_ROOT}/[^/]+/${layer}/`).test(file));
+
+      expect(
+        under('domain').length > 0 && under('application').length > 0,
+        'no domain/application files found: at least one domain/ file and one application/ file ' +
+          `are required, found ${under('domain').length} and ${under('application').length}`,
+      ).toBe(true);
+
+      expect(
+        judged.flatMap((entry) => entry.specifiers).length,
+        'no import specifiers extracted from the walked files',
+      ).toBeGreaterThan(0);
+    });
+
+    await test.step('judgment: every walked file stays inside the allow-list', () => {
+      const objections = files.flatMap((file) => importObjections(file, read(root, file)));
+
+      expect(
+        objections,
+        'domain/ and application/ may import only node: built-ins and their own layers (FACT-3701)',
+      ).toEqual([]);
+    });
   });
 });

@@ -1,5 +1,6 @@
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 
 import { expect, test } from '@playwright/test';
@@ -21,6 +22,7 @@ import { expect, test } from '@playwright/test';
 const PLANS_DIR = 'docs/plans';
 const CHECKER = 'scripts/check-orientation.mjs';
 const SCAFFOLDER = 'scripts/new-change.mjs';
+const VERDICT_HOOK = 'scripts/save-verdict.mjs';
 
 /**
  * Templates are found by name, not by a list: the list is exactly what is under test here.
@@ -256,6 +258,29 @@ function orientationLabels(content: string): string[] | null {
   return labels;
 }
 
+const SAMPLE_VERDICT = [
+  'VERDICT',
+  'Change: sample-change',
+  'Gate: FEAT-G3',
+  'Pass: first',
+  'Verdict: accept',
+  'Findings:',
+  '- none',
+  'END VERDICT',
+].join('\n');
+
+/** Runs the hook on one `SubagentStop` input; returns the files it saved, name and body. */
+function runVerdictHook(input: object, outDir: string): { name: string; body: string }[] {
+  execFileSync('node', [path.join(repoRoot(), VERDICT_HOOK)], {
+    input: JSON.stringify(input),
+    env: { ...process.env, VERDICTS_DIR: outDir },
+    stdio: ['pipe', 'pipe', 'pipe'],
+  });
+  return fs
+    .readdirSync(outDir)
+    .map((name) => ({ name, body: fs.readFileSync(path.join(outDir, name), 'utf8') }));
+}
+
 test.describe('Planning process', { tag: '@process' }, () => {
   test('PR-API-01 — every plan template shares one set of section 0 labels', () => {
     const root = repoRoot();
@@ -346,5 +371,62 @@ test.describe('Planning process', { tag: '@process' }, () => {
       'e2e/scenarios-index.md must match `node scripts/scenarios-index.mjs check` — run ' +
         '`pnpm scenarios:index` and commit the result',
     ).toEqual([]);
+  });
+
+  test('PR-API-08 — the verdict hook saves a report handed back through a tool', () => {
+    const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'pr-api-08-'));
+    try {
+      const textOut = path.join(scratch, 'text');
+      fs.mkdirSync(textOut);
+      const fromText = runVerdictHook(
+        {
+          agent_type: 'plan-reviewer',
+          agent_id: 'a1111111',
+          session_id: 'sample-session',
+          last_assistant_message: SAMPLE_VERDICT,
+        },
+        textOut,
+      );
+      expect(fromText, 'a report in last_assistant_message is saved once').toHaveLength(1);
+      expect(fromText[0].name).not.toContain('UNPARSED');
+      expect(fromText[0].body).toContain(SAMPLE_VERDICT);
+
+      // The shape of the five empty verdicts of 2026-10-14: the report is a tool call, not text.
+      const handbackOut = path.join(scratch, 'handback');
+      fs.mkdirSync(handbackOut);
+      const subagents = path.join(scratch, 'sample-session', 'subagents');
+      fs.mkdirSync(subagents, { recursive: true });
+      const handbackLine = {
+        type: 'assistant',
+        message: {
+          role: 'assistant',
+          content: [
+            { type: 'tool_use', name: 'SubagentHandback', input: { message: SAMPLE_VERDICT } },
+          ],
+        },
+      };
+      fs.writeFileSync(
+        path.join(subagents, 'agent-a2222222.jsonl'),
+        JSON.stringify(handbackLine) + '\n',
+      );
+      const fromHandback = runVerdictHook(
+        {
+          agent_type: 'plan-reviewer',
+          agent_id: 'a2222222',
+          session_id: 'sample-session',
+          transcript_path: path.join(scratch, 'sample-session.jsonl'),
+          last_assistant_message: '',
+        },
+        handbackOut,
+      );
+      expect(fromHandback, 'a report handed back through a tool is saved once').toHaveLength(1);
+      expect(
+        fromHandback[0].name,
+        'an empty last_assistant_message must fall back to the transcript (FX-050)',
+      ).not.toContain('UNPARSED');
+      expect(fromHandback[0].body).toContain(SAMPLE_VERDICT);
+    } finally {
+      fs.rmSync(scratch, { recursive: true, force: true });
+    }
   });
 });

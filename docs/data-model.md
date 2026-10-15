@@ -53,7 +53,8 @@ what each field is for.
 
 ### `MeetingFile`
 
-**Source:** `apps/api/src/meeting-files/meeting-file.types.ts` and
+**Source:** `apps/api/src/meeting-files/domain/meeting-file.ts`,
+`apps/api/src/meeting-files/meeting-files.mapper.ts` and
 `apps/api/prisma/schema.prisma`; the key set is asserted by `MF-API-01`.
 
 | Key         | Field         | Type         | Column    | Format / constraint                                                                    | Leaves the API?                             |

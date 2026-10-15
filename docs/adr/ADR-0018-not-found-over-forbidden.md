@@ -56,8 +56,6 @@
   break the three-key rule `SEC-API-06` states. — `FACT-2066`, probe B2
 - `FACT-3384` `message` is a string on a 404, as it is on a 401 and unlike a 400. — `FACT-2086`
 - `FACT-3385` `docs/api-contract.md`'s error-shapes table carries the 404 row. — `FACT-2016`
-- `FACT-3386` The controller throws and the service returns `undefined`: translating absence into
-  HTTP is the controller's job. — `FACT-0013`, `ADR-0006`
 
 Rejected:
 
@@ -92,3 +90,13 @@ Rejected:
 > this record's central promise would be held by construction and review alone — `SEC-API-06` samples
 > key sets of unrelated responses and `SEC-API-09` compares id sets, so neither would notice the two
 > bodies drifting apart. A decision with nothing enforcing it decays into a preference.
+
+## Retired facts
+
+The register of the keys this record has allocated and no longer states (`ADR-0022`). The decision
+itself stands for the modules `ADR-0006` layers; the row below is a fact that `ADR-0034` makes false
+of `meeting-files`.
+
+| Key         | Stated                                                                                                            | Status                 | Recorded in |
+| ----------- | ----------------------------------------------------------------------------------------------------------------- | ---------------------- | ----------- |
+| `FACT-3386` | The controller throws and the service returns `undefined`: translating absence into HTTP is the controller's job. | `retired by FACT-3706` | `ADR-0034`  |

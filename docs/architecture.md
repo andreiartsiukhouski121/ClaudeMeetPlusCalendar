@@ -73,6 +73,9 @@ Three properties follow from that picture, and every one of them is checked by a
 
 ## Layers and what each may do
 
+- `FACT-0062` The table below governs the modules layered by `ADR-0006` — `meetings`, `users`, `auth`;
+  `meeting-files` is governed by the table after it. — `ADR-0006`, `ADR-0034`
+
 ### `apps/api` — controller → service → store, one direction only
 
 **Source:** `ADR-0006` — the layering, and validation registered as a provider.
@@ -84,6 +87,21 @@ Three properties follow from that picture, and every one of them is checked by a
 | `FACT-0014` | Mapper     | turn an entity into a DTO, dropping internal fields   | be skipped — a response assembled inline leaks `ownerId`                                        |
 | `FACT-0015` | DTO        | describe the shape and the validation                 | carry an owner or a role field (invariant 5); omit `@IsOptional()` on an optional (invariant 2) |
 | `FACT-0016` | Guard      | reject a request without a valid token                | be optional on a data route (invariant 16)                                                      |
+
+### `apps/api/src/meeting-files` — domain, use cases and adapters, dependencies pointing inward
+
+**Source:** `ADR-0034` — the four layers, the ports and the module's wiring.
+
+| Key         | Element                     | Lives in          | May                                                                                                                                                                                                     | Must not                                                                                                                                                                   |
+| ----------- | --------------------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `FACT-0063` | Entity, value object        | `domain/`         | hold the rules and the limits; validate on creation; throw a domain error; import `domain/` and `node:`; receive the current instant and a UUID as arguments, and compose the prefixed id from the UUID | import any package; carry a decorator; know a status code; read a clock or randomness itself — no `new Date()`, `Date.now()` or `node:crypto`                              |
+| `FACT-0064` | Domain error                | `domain/`         | carry a literal `kind` and the data its message needs                                                                                                                                                   | carry a status code or HTTP text                                                                                                                                           |
+| `FACT-0065` | Use case                    | `application/`    | call ports and entities in the contract's evaluation order; take the current instant from the `Clock` port and a UUID from the `UuidSource` port and pass them to the entity; throw a domain error      | import any package; carry a decorator; hold a rule the entity can hold; return a DTO; read a clock or randomness directly — no `new Date()`, `Date.now()` or `node:crypto` |
+| `FACT-0066` | Port                        | `application/`    | declare what a use case needs, in domain types — storage, another module's answer, the current instant (`Clock`), a UUID (`UuidSource`)                                                                 | name a Prisma, Nest or `express` type; return a finished prefixed id                                                                                                       |
+| `FACT-0067` | Repository / access adapter | `infrastructure/` | implement one port over `PrismaService` or another module's service; restore stored rows without validation; carry `@Injectable()`                                                                      | hold a business rule; throw an `HttpException`; be imported by `domain/` or `application/`                                                                                 |
+| `FACT-0068` | Clock / UUID adapter        | `infrastructure/` | implement `Clock` over the system clock and `UuidSource` over `randomUUID` from `node:crypto`; be the one implementation of its port                                                                    | add the id prefix; have a test double anywhere in the repository; be imported by `domain/` or `application/`                                                               |
+| `FACT-0069` | Error filter                | module root       | map each domain error `kind` to one `HttpException` and hand it to `BaseExceptionFilter`                                                                                                                | catch anything but the module's domain errors; write the response itself                                                                                                   |
+| `FACT-0070` | Controller                  | module root       | turn request parts into a use-case input; map the result out; convert bytes for the download                                                                                                            | call Prisma, a port or another module's service directly; throw for a business rule                                                                                        |
 
 ### `apps/web` — the BFF, with a session check on every layer that can be reached directly
 
@@ -107,22 +125,23 @@ Three properties follow from that picture, and every one of them is checked by a
 
 **Source:** the ADR named in each row; the path in "Where" is where the pattern is applied.
 
-| Key         | Pattern                                                           | Where                                                               | ADR        |
-| ----------- | ----------------------------------------------------------------- | ------------------------------------------------------------------- | ---------- |
-| `FACT-0023` | Backend for Frontend                                              | `apps/web` in front of `apps/api`                                   | `ADR-0002` |
-| `FACT-0024` | Stateless session in a cookie                                     | `ps_session`, httpOnly, holding the JWT Nest signed                 | `ADR-0003` |
-| `FACT-0025` | Defence in depth                                                  | `proxy.ts` → `dal.ts` → every Server Action                         | `ADR-0004` |
-| `FACT-0026` | Layered modules                                                   | controller → service → store, per Nest module                       | `ADR-0006` |
-| `FACT-0027` | DTO + mapper at the edge                                          | `*.mapper.ts`, `toMeetingDto`                                       | `ADR-0006` |
-| `FACT-0028` | Guard + parameter decorator                                       | `JwtAuthGuard` + `@CurrentUser()`                                   | `ADR-0009` |
-| `FACT-0029` | Global pipe as a provider                                         | `APP_PIPE` in `AppModule`                                           | `ADR-0006` |
-| `FACT-0058` | Prisma client + seed script                                       | one injected client; `*.seed.ts` applied by `db:seed`               | `ADR-0027` |
-| `FACT-0031` | Test fixture mirroring the seed                                   | `e2e/fixtures/seed.ts`                                              | `ADR-0007` |
-| `FACT-0032` | Executable convention (meta-tests)                                | `suite-integrity`, `ledger`, `process`, `architecture`              | `ADR-0010` |
-| `FACT-0033` | Decision log + orientation gate                                   | `docs/CHANGELOG.md`, `docs/BACKLOG.md`, `check-orientation`         | `ADR-0011` |
-| `FACT-0052` | Component library + utility CSS                                   | HeroUI v3 on Tailwind v4 in `apps/web`                              | `ADR-0023` |
-| `FACT-0055` | Design language declared as tokens                                | `apps/web/src/app/globals.css`                                      | `ADR-0026` |
-| `FACT-0056` | Plus Jakarta Sans; icons only through `@phosphor-icons/react/ssr` | `apps/web/src/app/layout.tsx`, every component that imports an icon | `ADR-0026` |
+| Key         | Pattern                                                           | Where                                                                                                        | ADR        |
+| ----------- | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ | ---------- |
+| `FACT-0023` | Backend for Frontend                                              | `apps/web` in front of `apps/api`                                                                            | `ADR-0002` |
+| `FACT-0024` | Stateless session in a cookie                                     | `ps_session`, httpOnly, holding the JWT Nest signed                                                          | `ADR-0003` |
+| `FACT-0025` | Defence in depth                                                  | `proxy.ts` → `dal.ts` → every Server Action                                                                  | `ADR-0004` |
+| `FACT-0060` | Layered modules                                                   | controller → service → store, in `meetings`, `users` and `auth`                                              | `ADR-0006` |
+| `FACT-0061` | Ports and adapters around a domain model                          | `apps/api/src/meeting-files`: `domain/`, `application/`, `infrastructure/`, HTTP adapters at the module root | `ADR-0034` |
+| `FACT-0027` | DTO + mapper at the edge                                          | `*.mapper.ts`, `toMeetingDto`                                                                                | `ADR-0006` |
+| `FACT-0028` | Guard + parameter decorator                                       | `JwtAuthGuard` + `@CurrentUser()`                                                                            | `ADR-0009` |
+| `FACT-0029` | Global pipe as a provider                                         | `APP_PIPE` in `AppModule`                                                                                    | `ADR-0006` |
+| `FACT-0058` | Prisma client + seed script                                       | one injected client; `*.seed.ts` applied by `db:seed`                                                        | `ADR-0027` |
+| `FACT-0031` | Test fixture mirroring the seed                                   | `e2e/fixtures/seed.ts`                                                                                       | `ADR-0007` |
+| `FACT-0032` | Executable convention (meta-tests)                                | `suite-integrity`, `ledger`, `process`, `architecture`                                                       | `ADR-0010` |
+| `FACT-0033` | Decision log + orientation gate                                   | `docs/CHANGELOG.md`, `docs/BACKLOG.md`, `check-orientation`                                                  | `ADR-0011` |
+| `FACT-0052` | Component library + utility CSS                                   | HeroUI v3 on Tailwind v4 in `apps/web`                                                                       | `ADR-0023` |
+| `FACT-0055` | Design language declared as tokens                                | `apps/web/src/app/globals.css`                                                                               | `ADR-0026` |
+| `FACT-0056` | Plus Jakarta Sans; icons only through `@phosphor-icons/react/ssr` | `apps/web/src/app/layout.tsx`, every component that imports an icon                                          | `ADR-0026` |
 
 > **Rationale — not a fact.** Why each pattern is here, in one line apiece. This is a reading aid;
 > the record that governs is the ADR in the row, and where the two differ the ADR is right.
@@ -130,7 +149,8 @@ Three properties follow from that picture, and every one of them is checked by a
 > BFF keeps the token off the client and the API off the public internet. A stateless cookie session
 > needs no session store and leaves the API the only authority on identity. Defence in depth exists
 > because the cheap check is not the real one and the real one sits next to the data. Layered modules
-> make each layer testable without the one above it. The DTO and mapper stop internal fields such as
+> make each layer testable without the one above it; ports and adapters keep the rules testable with no
+> framework and no driver loaded (`ADR-0034`). The DTO and mapper stop internal fields such as
 > `ownerId` leaving by accident. The guard and parameter decorator make identity arrive from the
 > signature rather than from the payload. The global pipe as a provider gives test modules the same
 > validation as the server. The Prisma client plus a standalone seed script gives the tests fixed
@@ -154,7 +174,6 @@ Three properties follow from that picture, and every one of them is checked by a
 | `FACT-0034` | CORS, a global API prefix                                                   | `ADR-0005`              |
 | `FACT-0035` | `@nestjs/passport` + `passport-jwt`                                         | `ADR-0009`              |
 | `FACT-0036` | `bcrypt`                                                                    | `ADR-0009`              |
-| `FACT-0059` | A repository layer between a service and Prisma                             | `ADR-0027`              |
 | `FACT-0038` | `middleware.ts`                                                             | `ADR-0002`, invariant 9 |
 | `FACT-0039` | Client-side calls to Nest                                                   | `ADR-0002`              |
 | `FACT-0040` | React component tests in jsdom                                              | `BACKLOG.md`, Rejected  |
@@ -174,7 +193,8 @@ Three properties follow from that picture, and every one of them is checked by a
 > `node:crypto.scrypt` needs no native build and is already in the platform, so `bcrypt` buys
 > nothing. A repository layer over Prisma would have exactly one second implementation — a
 > hand-written fake — which moves the unit tests from testing the code to testing the fake, and the
-> service already owns the store. `middleware.ts` is deprecated in Next 16 — the file is `proxy.ts`.
+> service already owns the store. `ADR-0034` builds a port in `meeting-files` for the direction of
+> dependency rather than for a second implementation, and never writes the fake. `middleware.ts` is deprecated in Next 16 — the file is `proxy.ts`.
 > Client-side calls to Nest would put the token in the browser and end the BFF. React component tests
 > in jsdom would be a second, less trustworthy copy of what the functional suite already checks. Next
 > 16 registers its dev server per project directory, so ports do not separate parallel agents and
@@ -219,7 +239,9 @@ Three properties follow from that picture, and every one of them is checked by a
 The register of the keys this document has allocated and no longer states (`ADR-0022`). A fact is
 never edited in place and never deleted; it is closed here, naming the key that replaced it.
 
-| Key         | Stated                                                                | Status                 | Recorded in |
-| ----------- | --------------------------------------------------------------------- | ---------------------- | ----------- |
-| `FACT-0030` | In-memory repository + seed — `*.seed.ts`; services own their arrays. | `retired by FACT-0058` | `ADR-0027`  |
-| `FACT-0037` | A database, refused — `ADR-0007`.                                     | `retired by FACT-0058` | `ADR-0027`  |
+| Key         | Stated                                                                        | Status                 | Recorded in |
+| ----------- | ----------------------------------------------------------------------------- | ---------------------- | ----------- |
+| `FACT-0030` | In-memory repository + seed — `*.seed.ts`; services own their arrays.         | `retired by FACT-0058` | `ADR-0027`  |
+| `FACT-0037` | A database, refused — `ADR-0007`.                                             | `retired by FACT-0058` | `ADR-0027`  |
+| `FACT-0026` | Layered modules — controller → service → store, per Nest module — `ADR-0006`. | `retired by FACT-0060` | `ADR-0034`  |
+| `FACT-0059` | Refused: a repository layer between a service and Prisma — `ADR-0027`.        | `retired by FACT-0061` | `ADR-0034`  |

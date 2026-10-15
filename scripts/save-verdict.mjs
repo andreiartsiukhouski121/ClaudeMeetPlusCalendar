@@ -8,7 +8,9 @@
  *
  *   echo '{"agent_type":"plan-reviewer", …}' | node scripts/save-verdict.mjs
  *
- * Stdin is the hook's JSON: `agent_type`, `agent_id`, `last_assistant_message`, `session_id`, `cwd`.
+ * Stdin is the hook's JSON: `agent_type`, `agent_id`, `last_assistant_message`, `session_id`,
+ * `transcript_path`, `cwd`. When `last_assistant_message` is empty the report is read from the
+ * reviewer's own transcript. `VERDICTS_DIR` overrides the output directory (`PR-API-08`).
  * Anything that is not one of the four reviewers is ignored. A report whose VERDICT block is missing
  * or malformed is still saved, with `UNPARSED` in the file name, so nothing is lost.
  *
@@ -19,7 +21,7 @@ import path from 'node:path';
 import { REVIEWERS, parseVerdict, safeSlug } from './verdicts-parse.mjs';
 
 const repoRoot = path.resolve(import.meta.dirname, '..');
-const OUT_DIR = path.join(repoRoot, 'docs', 'profiling', 'verdicts');
+const OUT_DIR = process.env.VERDICTS_DIR || path.join(repoRoot, 'docs', 'profiling', 'verdicts');
 
 function readStdin() {
   try {
@@ -48,11 +50,59 @@ function writeNew(base, content) {
   }
 }
 
+/** The text blocks and `SubagentHandback` messages of one transcript line, in order. */
+function reportsIn(line) {
+  const content = line?.type === 'assistant' ? line.message?.content : undefined;
+  if (!Array.isArray(content)) return [];
+  return content
+    .map((part) => {
+      if (part.type === 'text') return part.text;
+      if (part.type === 'tool_use' && part.name === 'SubagentHandback') return part.input?.message;
+      return undefined;
+    })
+    .filter((text) => typeof text === 'string' && text.trim() !== '');
+}
+
+/**
+ * The reviewer's last report, read from its own transcript. Reviewers hand back through the
+ * `SubagentHandback` tool, so their last turn holds no text and `last_assistant_message` arrives
+ * empty (`FX-050`). Claude Code keeps a subagent's transcript at
+ * `<directory of transcript_path>/<session_id>/subagents/agent-<agent_id>.jsonl`.
+ */
+function reportFromTranscript(input) {
+  const file =
+    input.agent_transcript_path ??
+    (input.transcript_path && input.session_id && input.agent_id
+      ? path.join(
+          path.dirname(input.transcript_path),
+          input.session_id,
+          'subagents',
+          `agent-${input.agent_id}.jsonl`,
+        )
+      : undefined);
+  if (!file || !fs.existsSync(file)) return '';
+
+  const lines = fs.readFileSync(file, 'utf8').split(/\r?\n/).reverse();
+  for (const raw of lines) {
+    if (raw.trim() === '') continue;
+    let line;
+    try {
+      line = JSON.parse(raw);
+    } catch {
+      continue;
+    }
+    const reports = reportsIn(line);
+    if (reports.length > 0) return reports.at(-1);
+  }
+  return '';
+}
+
 try {
   const input = JSON.parse(readStdin() || '{}');
 
   if (REVIEWERS.includes(input.agent_type)) {
-    const message = String(input.last_assistant_message ?? '');
+    const message =
+      String(input.last_assistant_message ?? '').trim() || reportFromTranscript(input);
     const parsed = parseVerdict(message);
     const now = new Date();
 

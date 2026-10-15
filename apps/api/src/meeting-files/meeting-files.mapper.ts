@@ -1,4 +1,10 @@
-import type { MeetingFile, MeetingFileDto } from './meeting-file.types.js';
+import type { MeetingFile } from './domain/meeting-file.js';
+
+/**
+ * What the listing and the upload response hand back: five keys, `content` and `meetingId`
+ * dropped — the way `toMeetingDto` drops `ownerId` (`FACT-3626`).
+ */
+export type MeetingFileDto = Omit<MeetingFile, 'meetingId' | 'content'>;
 
 /**
  * The only way a file's metadata leaves the server. Fields are listed explicitly — no rest

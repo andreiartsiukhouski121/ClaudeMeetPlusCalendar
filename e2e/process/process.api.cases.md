@@ -36,6 +36,7 @@ What the cases do **not** check: the meaning of the answers in section 0. That i
 | PR-API-05 | the scaffolder creates the files the stage check requires    | P1       |
 | PR-API-06 | every research file cites something or says what it missed   | P0       |
 | PR-API-07 | the scenario index is regenerated, never hand-edited         | P1       |
+| PR-API-08 | the verdict hook saves a report handed back through a tool   | P1       |
 
 ## Cases
 
@@ -115,3 +116,20 @@ What the cases do **not** check: the meaning of the answers in section 0. That i
   one file (second tuning round, `TUNE-S3` 2026-09-29). A hand-maintained copy is exactly the defect
   `FX-031` is the ledger entry for — a list of case IDs that drifted from what actually exists. The
   fix for a stale index is always `pnpm scenarios:index`, never an edit to the file itself.
+
+### PR-API-08 — the verdict hook saves a report handed back through a tool
+
+- **Priority:** P1
+- **Steps:** run `node scripts/save-verdict.mjs` twice with `VERDICTS_DIR` pointed at a temporary
+  directory, each time with a `SubagentStop` input for `plan-reviewer` on stdin:
+  1. `last_assistant_message` holds a well-formed `VERDICT … END VERDICT` block;
+  2. `last_assistant_message` is empty, and the reviewer's own transcript — at
+     `<directory of transcript_path>/<session_id>/subagents/agent-<agent_id>.jsonl`, the layout
+     Claude Code writes — ends with an assistant line whose only content is a `SubagentHandback`
+     tool call carrying the same block in its `message` input.
+- **Expected:** each run saves exactly one file, its name has no `UNPARSED`, and its body holds the
+  block.
+- **Why:** reviewers deliver their report through `SubagentHandback`, so their last assistant turn
+  holds no text and `last_assistant_message` arrives empty. Reading only that field saved all five
+  gate verdicts of 2026-10-14 as a header with no body, filed `UNPARSED` (`FX-050`); the hook must
+  fall back to the transcript. The second input is the shape observed in those five transcripts.

@@ -15,6 +15,7 @@ design and report it as done.
 `docs/architecture.md` (what each layer may do), `apps/api/CLAUDE.md` (the module map and what makes
 this package unusual), and **invariants 1–8** in `CLAUDE.md`. The `nestjs-best-practices` adapter
 lists the four external rules that are wrong for this repository — read it before applying a habit.
+Load the `clean-architecture` skill for work under `apps/api`.
 
 ## Rules that are not negotiable
 
@@ -23,6 +24,9 @@ keep true. Two rules are not invariants and live elsewhere: responses leave thro
 an inline object (`FACT-0014`, `docs/architecture.md`), and the package is pure ESM with a `.js`
 extension on every relative import (`apps/api/CLAUDE.md`, "How this package differs from ordinary
 Nest").
+
+For a module migrated under `ADR-0034` (today `meeting-files` only), follow the `clean-architecture`
+skill; `meetings`, `users` and `auth` stay on `ADR-0006` until a change migrates them.
 
 ## Boundaries
 

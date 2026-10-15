@@ -3,14 +3,14 @@
  * check's business (`FACT-1033`, `FACT-3247`).
  *
  * Two files, both on `mtg-teacher-3` ("Geometry workshop"), so the read-only baseline carries
- * absolute assertions and every other seeded meeting stays the empty-state fixture (design §4).
+ * absolute assertions and every other seeded meeting stays the empty-state fixture.
  * `syllabus.pdf` is uploaded one minute before `notes.txt`; the listing orders `uploadedAt` DESC
  * with `id` ASC as the tiebreak (invariant 7), so `notes.txt` lists first.
  *
  * Bytes are deterministic — a fixed ASCII header padded with `0x20` to the exact seeded size —
  * never random and never `Date.now()`, so the seed is byte-identical across every `db:reset`.
- * `1024` and `48` are the literal sizes design §4 gives, chosen so `formatFileSize` renders them as
- * `1.0 KiB` and `48 B`.
+ * `1024` and `48` are the literal sizes the seeded baseline pins, chosen so `formatFileSize`
+ * renders them as `1.0 KiB` and `48 B`.
  *
  * `content` is a `Uint8Array`, not a `Buffer`: `FACT-3628` converts `Uint8Array` to `Buffer` at the
  * controller boundary and nowhere else, and Prisma's own `Bytes` field is typed `Uint8Array`.

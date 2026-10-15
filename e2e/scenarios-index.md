@@ -30,6 +30,7 @@ One row per scenario declared in a Summary table, across every level and module 
 | api | architecture | `AR-API-15` | the fact lock and the corpus agree: nothing deleted or reworded |
 | api | architecture | `AR-API-16` | every retired fact names a successor that exists, or a sourced withdrawal |
 | api | architecture | `AR-API-17` | the retirement register parses, so the two rules above are not vacuous |
+| api | architecture | `AR-API-18` | `domain/` and `application/` import only what the allow-list admits |
 | api | ledger | `LG-API-01` | both ledger files exist and are not empty |
 | api | ledger | `LG-API-02` | IDs are unique and match `FT-`/`CH-`/`FX-`/`BL-` |
 | api | ledger | `LG-API-03` | every changelog entry has its commit filled in |
@@ -44,6 +45,7 @@ One row per scenario declared in a Summary table, across every level and module 
 | api | process | `PR-API-05` | the scaffolder creates the files the stage check requires |
 | api | process | `PR-API-06` | every research file cites something or says what it missed |
 | api | process | `PR-API-07` | the scenario index is regenerated, never hand-edited |
+| api | process | `PR-API-08` | the verdict hook saves a report handed back through a tool |
 | api | regression/auth-login | `AL-API-01` | a successful login returns a token |
 | api | regression/auth-login | `AL-API-02` | a wrong password gives 401 in the standard error shape |
 | api | regression/auth-login | `AL-API-03` | an unknown email gives 401 with the same message |
@@ -179,6 +181,16 @@ One row per scenario declared in a Summary table, across every level and module 
 | unit | regression/meeting-files | `MF-UT-08` | P0 |
 | unit | regression/meeting-files | `MF-UT-09` | P0 |
 | unit | regression/meeting-files | `MF-UT-10` | P0 |
+| unit | regression/meeting-files | `MF-UT-11` | P0 |
+| unit | regression/meeting-files | `MF-UT-12` | P0 |
+| unit | regression/meeting-files | `MF-UT-13` | P0 |
+| unit | regression/meeting-files | `MF-UT-14` | P0 |
+| unit | regression/meeting-files | `MF-UT-15` | P1 |
+| unit | regression/meeting-files | `MF-UT-16` | P1 |
+| unit | regression/meeting-files | `MF-UT-17` | P1 |
+| unit | regression/meeting-files | `MF-UT-18` | P0 |
+| unit | regression/meeting-files | `MF-UT-19` | P0 |
+| unit | regression/meeting-files | `MF-UT-20` | P1 |
 | api | regression/meetings-detail | `MD-API-01` | GET /meetings/:id returns the full meeting for its owner |
 | api | regression/meetings-detail | `MD-API-02` | GET /meetings/:id without a token gives 401 |
 | api | regression/meetings-detail | `MD-API-03` | a non-existent id and another owner's id give byte-identical 404 |

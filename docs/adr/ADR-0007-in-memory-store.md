@@ -51,9 +51,9 @@ itself is superseded by `ADR-0027`; the facts below are the ones that decision m
 keys this record still states remain true under PostgreSQL and are cited from `ADR-0027` rather than
 repeated there.
 
-| Key         | Stated                                                                                                                                       | Status                 | Recorded in |
-| ----------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------- | ----------- |
-| `FACT-3121` | Services own plain arrays, seeded at module init from `*.seed.ts`.                                                                           | `retired by FACT-3572` | `ADR-0027`  |
-| `FACT-3122` | Passwords sit in `users.seed.ts` as plaintext and are hashed with `scrypt` at startup, so the store itself never holds a plaintext password. | `retired by FACT-3578` | `ADR-0027`  |
-| `FACT-3127` | A database — see Context.                                                                                                                    | `retired by FACT-3571` | `ADR-0027`  |
-| `FACT-3130` | `nest start --watch` restarts on every edit and wipes anything a test created, so no test may depend on data created by another.             | `retired by FACT-3579` | `ADR-0027`  |
+| Key         | Stated                                                                                                                                       | Status                 | Recorded in            |
+| ----------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------- | ---------------------- |
+| `FACT-3121` | Services own plain arrays, seeded at module init from `*.seed.ts`.                                                                           | `retired by FACT-3716` | `ADR-0027`, `ADR-0034` |
+| `FACT-3122` | Passwords sit in `users.seed.ts` as plaintext and are hashed with `scrypt` at startup, so the store itself never holds a plaintext password. | `retired by FACT-3578` | `ADR-0027`             |
+| `FACT-3127` | A database — see Context.                                                                                                                    | `retired by FACT-3571` | `ADR-0027`             |
+| `FACT-3130` | `nest start --watch` restarts on every edit and wipes anything a test created, so no test may depend on data created by another.             | `retired by FACT-3579` | `ADR-0027`             |

@@ -252,7 +252,7 @@ and 8.
   `MF-API-11`
 - `FACT-2090` The stored filename is `file.originalname` and must be 1–100 characters matching
   `^[A-Za-z0-9](?:[A-Za-z0-9._ -]*[A-Za-z0-9._-])?$` — no path separator, no quote, no control
-  character, no non-ASCII (`CH-014`). — `apps/api/src/meeting-files/meeting-files.rules.ts`,
+  character, no non-ASCII (`CH-014`). — `apps/api/src/meeting-files/domain/file-name.ts`,
   `MF-API-10`
 - `FACT-2091` The rule is written against the **decoded** form: `busboy` has already applied
   `basename()` and prefers a percent-decoded RFC 5987 `filename*`, and `multer` decodes `%0A`, `%0D`
@@ -281,7 +281,8 @@ and 8.
 
 **Evaluation order.** It decides which body a request with two faults receives.
 
-**Source:** `apps/api/src/meeting-files/meeting-files.controller.ts`, `MF-API-16`.
+**Source:** `apps/api/src/meeting-files/meeting-files.controller.ts`,
+`apps/api/src/meeting-files/application/upload-meeting-file.ts`, `MF-API-16`.
 
 | Key         | Step                                                                                              |
 | ----------- | ------------------------------------------------------------------------------------------------- |
@@ -296,7 +297,7 @@ and 8.
 
 **Error bodies**, read from the framework rather than recalled.
 
-**Source:** `apps/api/src/meeting-files/meeting-files.controller.ts`,
+**Source:** `apps/api/src/meeting-files/meeting-files.error-filter.ts`,
 `apps/api/node_modules/@nestjs/platform-express/multer/multer/multer.utils.js`, `MF-API-09`…`19`.
 
 | Key         | Situation                                                                                                                 | Code  | Body                                                                                                                              |
@@ -328,7 +329,7 @@ and 8.
   with no `total` and no bytes. — `FACT-1065`, `MF-API-04`
 - `FACT-2110` Order: `uploadedAt` descending with `id` ascending as the secondary key (invariant 7),
   so the seeded `notes.txt` lists before `syllabus.pdf`. —
-  `apps/api/src/meeting-files/meeting-files.service.ts`, `MF-API-04`
+  `apps/api/src/meeting-files/infrastructure/prisma-meeting-file.repository.ts`, `MF-API-04`
 - `FACT-2111` A meeting the caller owns that holds no files answers `200` with an empty `items`,
   never a `404`. — `MF-API-05`
 - `FACT-2112` An unknown meeting and one owned by another user answer the byte-identical
@@ -349,7 +350,7 @@ and 8.
   percent-encode that base per RFC 8187 for `filename*`; replace every character outside
   `A-Za-z0-9._-` and space with `_`, capped at 100 characters, for the ASCII `filename`. Because
   neither `"` nor `\` survives the third step, the quoted string cannot terminate early. —
-  `apps/api/src/meeting-files/meeting-files.rules.ts`, `MF-UT-08`, `MF-UT-09`, `MF-UT-10`
+  `apps/api/src/meeting-files/meeting-files.content-disposition.ts`, `MF-UT-08`, `MF-UT-09`, `MF-UT-10`
 - `FACT-2116` There is therefore **no error status for a hostile stored filename**: RFC 6266's
   pairing can represent every byte sequence, so every value in the column answers `200`. — `ADR-0029`,
   `FACT-3650`, `SEC-API-11`
