@@ -1102,6 +1102,112 @@ function importObjections(file: string, source: string): string[] {
   });
 }
 
+/**
+ * What reads the clock or randomness (FACT-3719, FACT-0071). `new Date(value)` parses a value and
+ * reads no clock, so only the empty call is listed. Matched on the comment-blanked source.
+ */
+const CLOCK_AND_RANDOMNESS: { form: string; pattern: RegExp }[] = [
+  { form: 'new Date()', pattern: /\bnew\s+Date\s*\(\s*\)/g },
+  { form: 'Date.now(', pattern: /\bDate\s*\.\s*now\s*\(/g },
+  { form: 'performance.now(', pattern: /\bperformance\s*\.\s*now\s*\(/g },
+  { form: 'Math.random(', pattern: /\bMath\s*\.\s*random\s*\(/g },
+  { form: 'randomUUID', pattern: /\brandomUUID\b/g },
+  { form: 'getRandomValues', pattern: /\bgetRandomValues\b/g },
+];
+
+/** One objection per occurrence, naming the file and the form; spec files are exempt. */
+function clockObjections(file: string, source: string): string[] {
+  const normalFile = posixPath(file);
+  if (normalFile.endsWith('.spec.ts')) {
+    return [];
+  }
+
+  const code = withoutComments(source);
+  const imports = importSpecifiers(source)
+    .filter((specifier) => specifier === 'node:crypto')
+    .map((specifier) => `${normalFile} imports '${specifier}'`);
+  const calls = CLOCK_AND_RANDOMNESS.flatMap(({ form, pattern }) =>
+    [...code.matchAll(pattern)].map(() => `${normalFile} reads the clock or randomness: ${form}`),
+  );
+
+  return [...imports, ...calls];
+}
+
+const CLOCK_CONTROLS: { name: string; file: string; source: string; objections: number }[] = [
+  {
+    name: 'node:crypto import',
+    file: 'apps/api/src/meeting-files/domain/x.ts',
+    source: "import { randomUUID } from 'node:crypto';",
+    objections: 2,
+  },
+  {
+    name: 'new Date()',
+    file: 'apps/api/src/meeting-files/domain/x.ts',
+    source: 'const t = new Date();',
+    objections: 1,
+  },
+  {
+    name: 'Date.now()',
+    file: 'apps/api/src/meeting-files/domain/x.ts',
+    source: 'const t = Date.now();',
+    objections: 1,
+  },
+  {
+    name: 'performance.now()',
+    file: 'apps/api/src/meeting-files/domain/x.ts',
+    source: 'const t = performance.now();',
+    objections: 1,
+  },
+  {
+    name: 'Math.random()',
+    file: 'apps/api/src/meeting-files/domain/x.ts',
+    source: 'const r = Math.random();',
+    objections: 1,
+  },
+  {
+    name: 'global crypto.randomUUID()',
+    file: 'apps/api/src/meeting-files/domain/x.ts',
+    source: 'const id = crypto.randomUUID();',
+    objections: 1,
+  },
+  {
+    name: 'global crypto.getRandomValues()',
+    file: 'apps/api/src/meeting-files/domain/x.ts',
+    source: 'crypto.getRandomValues(buffer);',
+    objections: 1,
+  },
+  {
+    name: 'spaced new Date ( ) in application/',
+    file: 'apps/api/src/meeting-files/application/x.ts',
+    source: 'const now = new Date ( );',
+    objections: 1,
+  },
+  {
+    name: 'new Date(value) parses, reads no clock',
+    file: 'apps/api/src/meeting-files/domain/x.ts',
+    source: 'const at = new Date(stored.uploadedAt);',
+    objections: 0,
+  },
+  {
+    name: 'an instant passed in',
+    file: 'apps/api/src/meeting-files/domain/x.ts',
+    source: 'const at = input.now.toISOString();',
+    objections: 0,
+  },
+  {
+    name: 'a comment',
+    file: 'apps/api/src/meeting-files/domain/x.ts',
+    source: '// never Date.now() here\nconst a = 1;',
+    objections: 0,
+  },
+  {
+    name: 'a spec file',
+    file: 'apps/api/src/meeting-files/domain/x.spec.ts',
+    source: 'const t = new Date();\nconst r = Math.random();',
+    objections: 0,
+  },
+];
+
 /** Every `.ts` file under a module's `domain/` and `application/`, repo-relative, posix form. */
 function boundedFiles(root: string): string[] {
   const modulesDir = path.join(root, ...SOURCE_ROOT.split('/'));
@@ -1535,6 +1641,39 @@ test.describe('Architecture corpus', { tag: '@architecture' }, () => {
       expect(
         objections,
         'domain/ and application/ may import only node: built-ins and their own layers (FACT-3701)',
+      ).toEqual([]);
+    });
+  });
+
+  test('AR-API-19 — domain/ and application/ read no clock and no randomness', async () => {
+    const root = repoRoot();
+
+    await test.step('fixture: each forbidden form is objected to, each allowed one is not', () => {
+      expect(CLOCK_CONTROLS.filter((control) => control.objections > 0)).toHaveLength(8);
+      expect(CLOCK_CONTROLS.filter((control) => control.objections === 0)).toHaveLength(4);
+
+      for (const control of CLOCK_CONTROLS) {
+        const objections = clockObjections(control.file, control.source);
+
+        expect(objections, `"${control.name}"`).toHaveLength(control.objections);
+        for (const objection of objections) {
+          expect(objection, `objection for "${control.name}" names the file`).toContain(
+            control.file,
+          );
+        }
+      }
+    });
+
+    await test.step('judgment: no walked file reads the clock or randomness', () => {
+      const judged = boundedFiles(root).filter((file) => !file.endsWith('.spec.ts'));
+      expect(judged.length, 'no non-spec domain/ or application/ file was judged').toBeGreaterThan(
+        0,
+      );
+
+      expect(
+        judged.flatMap((file) => clockObjections(file, read(root, file))),
+        'domain/ and application/ get the instant and randomness through ports or arguments ' +
+          '(FACT-3719): use Clock / UuidSource',
       ).toEqual([]);
     });
   });

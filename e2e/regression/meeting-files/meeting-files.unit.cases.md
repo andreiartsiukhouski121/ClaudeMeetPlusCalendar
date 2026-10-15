@@ -13,7 +13,7 @@
   and `MF-API-19`; the header builder's twin is `SEC-API-11`; and the size labels these units pin
   are read on the page by `MF-FN-03`.
 
-20 cases: 16 in `apps/api` (`01`…`03`, `08`…`10`, `11`…`20`) and 4 in `apps/web` (`04`…`07`). Every
+21 cases: 17 in `apps/api` (`01`…`03`, `08`…`10`, `11`…`21`) and 4 in `apps/web` (`04`…`07`). Every
 module under test is pure — no `server-only`, no Prisma, no network — which is what keeps them inside
 the pre-commit floor while the rest of this feature is asserted over HTTP.
 
@@ -63,6 +63,7 @@ reaches it, which is a vacuous assertion wearing a green tick.
 | MF-UT-18 | P0       | `upload` refuses the eleventh file, not the tenth                     | `domain/meeting-file`               |
 | MF-UT-19 | P0       | `restore` validates nothing                                           | `domain/meeting-file`               |
 | MF-UT-20 | P1       | six domain errors, six distinct `kind`s, no status on any             | `domain/meeting-file`               |
+| MF-UT-21 | P1       | `CryptoUuidSource` yields a fresh v4 UUID on every call               | `infrastructure/crypto-uuid-source` |
 
 ## `apps/api/src/meeting-files/domain/value-objects.spec.ts`
 
@@ -184,6 +185,18 @@ response header.
   `FileLimitReached`, `MeetingFileNotFound` are each `instanceof MeetingFileError` and `Error`, their
   six `kind`s are pairwise distinct, and none has a `status`, `statusCode` or `getStatus` member: the
   filter maps by `kind` and owns every status (`FACT-3706`).
+
+## `apps/api/src/meeting-files/infrastructure/crypto-uuid-source.spec.ts`
+
+The one adapter whose output carries a rule of the contract: the entity trusts whatever UUID it is
+given (the id case of `domain/meeting-file.spec.ts`), so the v4 shape and the freshness of the value are this adapter's to keep. It is
+pure — `node:crypto` and nothing else — so it stays inside the pre-commit floor.
+
+- `MF-UT-21` P1 — `new CryptoUuidSource().next()` matches
+  `^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$` (version digit `4`,
+  variant `8`, `9`, `a` or `b`), and 100 calls on one instance yield 100 distinct values. A
+  source returning a constant, an empty string or a non-v4 UUID fails it (`FACT-3670`,
+  `FACT-3718`).
 
 ## `apps/web/src/lib/format-file-size.spec.ts`
 

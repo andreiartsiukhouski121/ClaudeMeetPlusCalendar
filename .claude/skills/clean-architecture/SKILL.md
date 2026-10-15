@@ -51,7 +51,10 @@ re-check a limit that a framework layer enforces earlier and could never fire he
 get them through ports, entities get them as arguments (`FACT-3719`, ports in `FACT-3718`). The use
 case calls `Clock` and `UuidSource` and hands the results to `MeetingFile.upload`, which composes
 `fil-` + the uuid it is given, so the id format stays in the domain (`FACT-3670`). No file under
-`domain/` imports `node:crypto`; no use case calls `new Date()` or `Date.now()`.
+`domain/` or `application/` imports `node:crypto` or calls `new Date()`, `Date.now()`,
+`performance.now()`, `Math.random()`, `randomUUID` or `getRandomValues`; `AR-API-19` fails the run
+naming the file and the form (`FACT-0071`). Spec files are exempt. `new Date(value)` parses a value
+and is allowed.
 
 **The entity is thin on purpose.** `MeetingFile` stores primitives, the fields the response is cut
 from (`FACT-1063`), and `upload` takes the meeting's file count as a number, because the ten-file cap

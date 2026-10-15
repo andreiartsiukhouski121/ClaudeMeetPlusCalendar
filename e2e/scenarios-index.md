@@ -31,6 +31,7 @@ One row per scenario declared in a Summary table, across every level and module 
 | api | architecture | `AR-API-16` | every retired fact names a successor that exists, or a sourced withdrawal |
 | api | architecture | `AR-API-17` | the retirement register parses, so the two rules above are not vacuous |
 | api | architecture | `AR-API-18` | `domain/` and `application/` import only what the allow-list admits |
+| api | architecture | `AR-API-19` | `domain/` and `application/` read no clock and no randomness |
 | api | ledger | `LG-API-01` | both ledger files exist and are not empty |
 | api | ledger | `LG-API-02` | IDs are unique and match `FT-`/`CH-`/`FX-`/`BL-` |
 | api | ledger | `LG-API-03` | every changelog entry has its commit filled in |
@@ -191,6 +192,7 @@ One row per scenario declared in a Summary table, across every level and module 
 | unit | regression/meeting-files | `MF-UT-18` | P0 |
 | unit | regression/meeting-files | `MF-UT-19` | P0 |
 | unit | regression/meeting-files | `MF-UT-20` | P1 |
+| unit | regression/meeting-files | `MF-UT-21` | P1 |
 | api | regression/meetings-detail | `MD-API-01` | GET /meetings/:id returns the full meeting for its owner |
 | api | regression/meetings-detail | `MD-API-02` | GET /meetings/:id without a token gives 401 |
 | api | regression/meetings-detail | `MD-API-03` | a non-existent id and another owner's id give byte-identical 404 |

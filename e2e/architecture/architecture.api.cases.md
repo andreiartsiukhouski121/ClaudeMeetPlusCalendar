@@ -46,6 +46,7 @@ human checks meaning — the same line the ledger and suite meta-tests draw (`AD
 | AR-API-16 | every retired fact names a successor that exists, or a sourced withdrawal | P0       |
 | AR-API-17 | the retirement register parses, so the two rules above are not vacuous    | P1       |
 | AR-API-18 | `domain/` and `application/` import only what the allow-list admits       | P0       |
+| AR-API-19 | `domain/` and `application/` read no clock and no randomness              | P0       |
 
 A walk self-check runs before all of them: if the scanner finds no ADRs, no routes, no agents or no
 Routes table, every rule below would pass having checked nothing. That failure mode is not
@@ -323,3 +324,36 @@ hypothetical — it is how `suite-integrity` once went green under any violation
   `../infrastructure/…`; a real `application/` file importing `../meeting-files.module.js`; a real
   non-spec `domain/` file importing `vitest` beside an `@nestjs/common` import and
   `import('express')` — each red in Step 4 naming file and specifier, each reverted.
+
+### AR-API-19 — `domain/` and `application/` read no clock and no randomness
+
+- **Priority:** P0
+- **Rule (`FACT-3719`, `FACT-0071`):** in a file under `apps/api/src/<module>/domain/` or
+  `application/` that does not end `.spec.ts`, none of these appears outside a comment: an import of
+  `node:crypto`; `new Date()` with no argument; `Date.now(`; `performance.now(`; `Math.random(`;
+  the name `randomUUID`; the name `getRandomValues`. The current instant and randomness reach a use
+  case through its `Clock` and `UuidSource` ports and an entity as arguments. `new Date(value)` with
+  an argument parses a value and reads no clock, so it is allowed. Comments are blanked by the same
+  helper `AR-API-18` uses.
+- **Step 1 — the fixture.** In-memory sources with pretended paths, kept in the spec:
+  - forbidden in `apps/api/src/meeting-files/domain/x.ts` — `import { randomUUID } from 'node:crypto'`
+    (two objections: the import and the name); `const t = new Date();`; `const t = Date.now();`;
+    `const t = performance.now();`; `const r = Math.random();`;
+    `const id = crypto.randomUUID();`; `crypto.getRandomValues(buffer);`;
+  - forbidden in `apps/api/src/meeting-files/application/x.ts` — `const now = new Date ( );`;
+  - allowed — `new Date(stored.uploadedAt)` and `input.now.toISOString()` in `domain/x.ts`; a
+    comment `// never Date.now() here` in `domain/x.ts`; `new Date()` and `Math.random()` in
+    `domain/x.spec.ts`.
+  - **Expected:** the first forbidden source raises exactly two objections and every other forbidden
+    source exactly one, each naming the pretended file and the form found; the allowed sources raise
+    nothing.
+- **Step 2 — the judgment.** Walk the same files `AR-API-18` walks, spec files skipped.
+  **Expected:** at least one non-spec file is judged, and no file raises an objection; a failure names
+  the file and the form.
+- **Why:** before this case `FACT-3719` was held by review alone — `AR-API-18`'s allow-list admits
+  every `node:` built-in, and no import names a call to `new Date()`. Agents copy the pilot module
+  as the canonical example (`clean-architecture` skill), so a rule held only by review is a rule the
+  next copy may drop (`CH-034`).
+- **Control experiment (run once, not kept):** in a real non-spec `domain/` file add
+  `import { randomUUID } from 'node:crypto'`; in a real `application/` file replace
+  `this.clock.now()` with `new Date()` — each red in Step 2 naming file and form, each reverted.

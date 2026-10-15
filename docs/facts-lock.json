@@ -359,6 +359,11 @@
       "document": "docs/architecture.md",
       "hash": "3ab711af1484b810db84d963c74c5a8b9f068836fb5f6fe811cadbb2b11fefd5"
     },
+    "FACT-0071": {
+      "status": "active",
+      "document": "docs/architecture.md",
+      "hash": "f9c50efac548c9ee6d2a5d7fca833c6ad2e5403c81fee59e0d32cf51d9117029"
+    },
     "FACT-1000": {
       "status": "active",
       "document": "docs/data-model.md",
@@ -4339,9 +4344,11 @@
       "hash": "476a20f31c34bfa27d5360d75749b5ec65628cb96ecc26f13d1f758f9b4eb34d"
     },
     "FACT-3723": {
-      "status": "active",
+      "status": "retired",
       "document": "docs/adr",
-      "hash": "deabba8e7333c64691a4bbf856259d17d11b4814cf914f500bc191e62c63577a"
+      "hash": "8df6b29d12d57f9817e7058198cd09157b8b0c6ba59da9af94fc3363988013e8",
+      "supersededBy": "FACT-0071",
+      "recordedIn": "`CH-034`"
     },
     "FACT-3724": {
       "status": "active",

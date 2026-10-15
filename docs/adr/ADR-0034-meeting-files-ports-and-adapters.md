@@ -173,9 +173,6 @@ Rejected:
   `users` and `auth`, and this record retires only the facts it falsifies, the way `ADR-0029`
   retired one fact of `ADR-0006` and `ADR-0031` one of `ADR-0027` while both stayed `accepted`. —
   `ADR-0006`, `ADR-0027`, `ADR-0029`, `ADR-0031`
-- `FACT-3723` `FACT-3719` is held by review, not by the meta-test of `FACT-3702`: the import rule of
-  `FACT-3701` admits every `node:` built-in, `node:crypto` included, and no import names a call to
-  `new Date()`. — this record, `FACT-3701`, `FACT-3702`
 - `FACT-3724` `ADR-0031`'s identifier facts stay true and are not retired: an upload still issues
   `fil-` followed by a `randomUUID()` body, now drawn through `UuidSource`'s adapter rather than in
   the code that composes the id. — this record, `FACT-3669`, `FACT-3670`, `FACT-3718`
@@ -186,3 +183,12 @@ Rejected:
 > wrong layer — a use case that grows an `if` on a business rule passes it and is review's to catch.
 > A use case has no test of its own below HTTP; if one ever needs a branch the HTTP cases cannot
 > reach, that is the moment to decide on a database-backed harness, not to write a fake.
+
+## Retired facts
+
+The register of the keys this record has allocated and no longer states (`ADR-0022`). The decision
+itself stands; the row below is a consequence that a later change made untrue.
+
+| Key         | Stated                                                                                                                                                                                                | Status                 | Recorded in |
+| ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------- | ----------- |
+| `FACT-3723` | `FACT-3719` is held by review, not by the meta-test of `FACT-3702`: the import rule of `FACT-3701` admits every `node:` built-in, `node:crypto` included, and no import names a call to `new Date()`. | `retired by FACT-0071` | `CH-034`    |

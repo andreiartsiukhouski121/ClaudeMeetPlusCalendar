@@ -103,6 +103,8 @@ Three properties follow from that picture, and every one of them is checked by a
 | `FACT-0069` | Error filter                | module root       | map each domain error `kind` to one `HttpException` and hand it to `BaseExceptionFilter`                                                                                                                | catch anything but the module's domain errors; write the response itself                                                                                                   |
 | `FACT-0070` | Controller                  | module root       | turn request parts into a use-case input; map the result out; convert bytes for the download                                                                                                            | call Prisma, a port or another module's service directly; throw for a business rule                                                                                        |
 
+- `FACT-0071` In a file under `apps/api/src/*/domain/` or `apps/api/src/*/application/` that is not a `*.spec.ts`, no import of `node:crypto` and no read of the clock or of randomness appears — `new Date()` with no argument, `Date.now()`, `performance.now()`, `Math.random()`, `randomUUID`, `getRandomValues`; `AR-API-19` fails the run naming the file and the form, so `FACT-3719` is held by a meta-test, not by review. — `e2e/architecture/architecture.api.spec.ts`, `CH-034`
+
 ### `apps/web` — the BFF, with a session check on every layer that can be reached directly
 
 **Source:** `ADR-0002`, `ADR-0004` — the BFF boundary and the three session checks.
