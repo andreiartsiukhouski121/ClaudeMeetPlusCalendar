@@ -305,14 +305,14 @@ store; the two that remain are still deliberate rather than leftover.)
 reference it: four diverging copies of this paragraph already produced `FX-027`. When the numbers
 change, change them here and set a new measurement date.
 
-**The current row.** Measured **2026-10-14**, Windows 11, Docker up on a reset-and-reseeded
-database, after the `clean-architecture-pilot` verify run:
+**The current row.** Measured **2026-10-16**, Windows 11, Docker up on a reset-and-reseeded
+database, after the `web-e2e-flake` fix (`FX-052`), on three consecutive `pnpm verify` runs:
 
 | Date       | e2e tests | e2e files | Units | `pnpm verify` end to end |
 | ---------- | --------- | --------- | ----- | ------------------------ |
-| 2026-10-14 | 171       | 16        | 54    | **2 min 23 s (one run)** |
+| 2026-10-16 | 173       | 16        | 54    | **91 s / 97 s / 99 s**   |
 
-Units are 37 in `apps/api` and 17 in `apps/web`, plus one supertest module-boot check. These counts are taken from the verify run's own output rather than recounted file by file (`grep -c` over every `test(`/`it(`, which earlier rows used). The 2 min 23 s is a single run that followed three red ones whose web project hit a load flake (`BL-058`); the timing table below keeps the 2026-10-06 three-run measurements.
+Units are 37 in `apps/api` and 17 in `apps/web`, plus one supertest module-boot check. These counts are taken from the verify run's own output rather than recounted file by file (`grep -c` over every `test(`/`it(`, which earlier rows used). Each of the three runs passed 173 e2e tests; the e2e step took 53.8 s, 1.0 min and 57.8 s. The serial `globalSetup` warm-up (`FX-052`, `e2e/fixtures/warm-up.ts`) costs about 6.2 s per run on an unloaded, freshly built `.next`. The previous row recorded 171 tests and 2 min 23 s, a single run that followed three red ones lost to the `BL-058` load flake; the timing table below keeps the 2026-10-06 three-run measurements.
 **This is the only row.** When the numbers change, replace it and set a new date; the earlier counts
 are in git history (`git log -p -- e2e/README.md`), and a running narrative of them here is how the
 count came to disagree across four documents (`FX-027`, `FX-035`).

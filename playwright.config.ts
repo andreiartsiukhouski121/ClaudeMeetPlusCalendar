@@ -46,6 +46,9 @@ export default defineConfig<ApiOptions>({
     actionTimeout: 15_000,
     navigationTimeout: 30_000,
   },
+  // BL-058: compiles every web route once, serially, after both webServer entries answer and before
+  // the first test. Without it the workers' first requests compile routes concurrently under load.
+  globalSetup: './e2e/fixtures/warm-up.ts',
   // baseURL is set per project only, or api would inherit web's address.
   projects: [
     // Files are grouped by feature (e2e/regression/<feature>/), so the project is chosen by the
