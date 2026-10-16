@@ -1,4 +1,4 @@
-import type { Meeting } from './meeting.types.js';
+import type { StoredMeeting } from './domain/meeting.js';
 
 /**
  * Meeting seed. `e2e/fixtures/seed.ts` mirrors these values (`TEACHER_MEETINGS`); any drift is
@@ -16,7 +16,7 @@ import type { Meeting } from './meeting.types.js';
  *    totals, so its presence does not disturb the sandbox;
  *  - `usr-organizer` — 1 meeting, mutation sandbox for `*.functional.spec.ts`.
  */
-export const SEED_MEETINGS: readonly Meeting[] = [
+export const SEED_MEETINGS: readonly StoredMeeting[] = [
   {
     id: 'mtg-teacher-1',
     ownerId: 'usr-teacher',

@@ -841,6 +841,19 @@ function violationsFactsInRationale(root: string): string[] {
   return problems;
 }
 
+/** A register row opens with its key in the first cell, the shape `parseRetiredRegister` reads. */
+const FACT_REGISTER_ROW = /^\s*\|\s*`FACT-(\d{4})`\s*\|/;
+
+/**
+ * Whether a line is the register's own record of a retired key — in either form a register can
+ * take — rather than a reference to it. Its statement is kept exactly as it last stood (`ADR-0022`),
+ * so the keys it cites may be retired too (`BL-062`).
+ */
+function isRegisterRow(line: string, retired: Map<number, unknown>): boolean {
+  const key = FACT_DEFINITION_LIST.exec(line)?.[1] ?? FACT_REGISTER_ROW.exec(line)?.[1];
+  return key !== undefined && retired.has(Number(key));
+}
+
 /**
  * A reference must resolve. In a living document it must resolve to a *stated* fact: pointing at a
  * retired key is how a document goes on relying on something the corpus withdrew. A historical
@@ -859,7 +872,7 @@ function violationsFactReferences(root: string): string[] {
 
       for (let i = 0; i < lines.length; i += 1) {
         // A register row is the record of a retired key, not a reference to it.
-        if (retired.has(Number(FACT_DEFINITION_LIST.exec(lines[i])?.[1] ?? -1))) {
+        if (isRegisterRow(lines[i], retired)) {
           continue;
         }
 
@@ -977,7 +990,7 @@ const RETIREMENT_FIXTURE = [
   '',
 ].join('\n');
 
-/* ------------------- Import boundary of domain/ and application/ (FACT-3701, FACT-3702) ------------------- */
+/* ------------------- Import boundary of domain/ and application/ (FACT-3732, FACT-3733) ------------------- */
 
 const SOURCE_ROOT = 'apps/api/src';
 const BOUNDED_LAYERS = ['domain', 'application'] as const;
@@ -1031,7 +1044,7 @@ function withoutComments(source: string): string {
   return out;
 }
 
-/** The one extractor: the walk and the fixture both go through it (FACT-3702). */
+/** The one extractor: the walk and the fixture both go through it (FACT-3733). */
 function importSpecifiers(source: string): string[] {
   const specifiers: string[] = [];
 
@@ -1075,17 +1088,22 @@ function importObjection(file: string, specifier: string): string | null {
     const resolved = path.posix.normalize(
       path.posix.join(path.posix.dirname(normalFile), normalSpecifier),
     );
-    const inside = reachable.some((dir) => {
-      const base = `${SOURCE_ROOT}/${moduleName}/${dir}`;
-      return resolved === base || resolved.startsWith(`${base}/`);
-    });
+    // FACT-3732: each shared prefix is admitted only from its own layer, and compared as the
+    // directory plus '/', so `shared/application-x/` is not inside `shared/application/`.
+    const sharedKernel = layer === 'domain' ? ['domain'] : ['domain', 'application'];
+    const bases = [
+      ...reachable.map((dir) => `${SOURCE_ROOT}/${moduleName}/${dir}`),
+      ...sharedKernel.map((dir) => `${SOURCE_ROOT}/shared/${dir}`),
+    ];
+    const inside = bases.some((base) => resolved === base || resolved.startsWith(`${base}/`));
 
     if (inside) {
       return null;
     }
     return (
       `${normalFile} imports '${specifier}' (resolves to ${resolved}), outside this module's ` +
-      `${reachable.map((dir) => `${dir}/`).join(' and ')}`
+      `${reachable.map((dir) => `${dir}/`).join(' and ')} and the shared ` +
+      `${sharedKernel.map((dir) => `${dir}/`).join(' and ')}`
     );
   }
 
@@ -1103,7 +1121,7 @@ function importObjections(file: string, source: string): string[] {
 }
 
 /**
- * What reads the clock or randomness (FACT-3719, FACT-0071). `new Date(value)` parses a value and
+ * What reads the clock or randomness (FACT-3738, FACT-0071). `new Date(value)` parses a value and
  * reads no clock, so only the empty call is listed. Matched on the comment-blanked source.
  */
 const CLOCK_AND_RANDOMNESS: { form: string; pattern: RegExp }[] = [
@@ -1241,7 +1259,7 @@ interface BoundaryControl {
 
 /**
  * In-memory sources with pretended paths, kept here and never under `apps/api/src`, so the
- * mechanism is proved with or without real files (`FACT-3504`). Thirteen forbidden, five allowed.
+ * mechanism is proved with or without real files (`FACT-3504`). Seventeen forbidden, nine allowed (FACT-3733).
  */
 const BOUNDARY_CONTROLS: BoundaryControl[] = [
   {
@@ -1336,6 +1354,34 @@ const BOUNDARY_CONTROLS: BoundaryControl[] = [
     forbidden: true,
   },
   {
+    name: 'domain: relative import of the application kernel',
+    file: `${MF}/domain/x.ts`,
+    source: "import { Port } from '../../shared/application/port';",
+    specifier: '../../shared/application/port',
+    forbidden: true,
+  },
+  {
+    name: 'application: relative import of the infrastructure kernel',
+    file: `${MF}/application/x.ts`,
+    source: "import { SystemClock } from '../../shared/infrastructure/system-clock';",
+    specifier: '../../shared/infrastructure/system-clock',
+    forbidden: true,
+  },
+  {
+    name: 'shared domain kernel: relative import into application/',
+    file: `${SOURCE_ROOT}/shared/domain/x.ts`,
+    source: "import { Port } from '../application/port';",
+    specifier: '../application/port',
+    forbidden: true,
+  },
+  {
+    name: 'shared application kernel: relative import into infrastructure/',
+    file: `${SOURCE_ROOT}/shared/application/x.ts`,
+    source: "import { SystemClock } from '../infrastructure/system-clock';",
+    specifier: '../infrastructure/system-clock',
+    forbidden: true,
+  },
+  {
     name: 'domain: node: built-in',
     file: `${MF}/domain/x.ts`,
     source: "import { randomUUID } from 'node:crypto';",
@@ -1368,6 +1414,34 @@ const BOUNDARY_CONTROLS: BoundaryControl[] = [
     file: `${MF}/domain/x.spec.ts`,
     source: "import { expect } from 'vitest';",
     specifier: 'vitest',
+    forbidden: false,
+  },
+  {
+    name: 'domain: import from the domain kernel',
+    file: `${MF}/domain/x.ts`,
+    source: "import { Id } from '../../shared/domain/id';",
+    specifier: '../../shared/domain/id',
+    forbidden: false,
+  },
+  {
+    name: 'application: import from the domain kernel',
+    file: `${MF}/application/x.ts`,
+    source: "import { Id } from '../../shared/domain/id';",
+    specifier: '../../shared/domain/id',
+    forbidden: false,
+  },
+  {
+    name: 'shared application kernel: relative import of the domain kernel',
+    file: `${SOURCE_ROOT}/shared/application/x.ts`,
+    source: "import { Id } from '../domain/id';",
+    specifier: '../domain/id',
+    forbidden: false,
+  },
+  {
+    name: 'application: import from the application kernel',
+    file: `${MF}/application/x.ts`,
+    source: "import { Port } from '../../shared/application/port';",
+    specifier: '../../shared/application/port',
     forbidden: false,
   },
 ];
@@ -1522,6 +1596,14 @@ test.describe('Architecture corpus', { tag: '@architecture' }, () => {
   });
 
   test('AR-API-14 — every FACT- reference resolves, and living documents cite living facts', () => {
+    const retired = new Map([[1901, {}]]);
+    expect(
+      isRegisterRow('| `FACT-1901` | cites `FACT-1902` | `retired by FACT-1903` | x |', retired),
+    ).toBe(true);
+    expect(isRegisterRow('- `FACT-1901` cites `FACT-1902`', retired)).toBe(true);
+    expect(isRegisterRow('| `FACT-1904` | a live row | x |', retired)).toBe(false);
+    expect(isRegisterRow('| Pattern | cites `FACT-1901` | x |', retired)).toBe(false);
+
     expect(
       violationsFactReferences(repoRoot()),
       'A reference to a withdrawn or mistyped key is indistinguishable from a good one by eye ' +
@@ -1582,7 +1664,7 @@ test.describe('Architecture corpus', { tag: '@architecture' }, () => {
 
     await test.step('fixture: every forbidden form is objected to, naming file and specifier', () => {
       const forbidden = BOUNDARY_CONTROLS.filter((control) => control.forbidden);
-      expect(forbidden, 'the fixture holds thirteen forbidden sources').toHaveLength(13);
+      expect(forbidden, 'the fixture holds seventeen forbidden sources').toHaveLength(17);
 
       for (const control of forbidden) {
         const objections = importObjections(control.file, control.source);
@@ -1599,7 +1681,7 @@ test.describe('Architecture corpus', { tag: '@architecture' }, () => {
 
     await test.step('fixture: every allowed form raises nothing', () => {
       const allowed = BOUNDARY_CONTROLS.filter((control) => !control.forbidden);
-      expect(allowed, 'the fixture holds five allowed sources').toHaveLength(5);
+      expect(allowed, 'the fixture holds nine allowed sources').toHaveLength(9);
 
       for (const control of allowed) {
         expect(importObjections(control.file, control.source), `"${control.name}"`).toEqual([]);
@@ -1635,12 +1717,19 @@ test.describe('Architecture corpus', { tag: '@architecture' }, () => {
       ).toBeGreaterThan(0);
     });
 
+    await test.step('the walk reaches the shared kernel', () => {
+      expect(
+        files.filter((file) => file.startsWith(`${SOURCE_ROOT}/shared/application/`)).length,
+        `the walk found no file under ${SOURCE_ROOT}/shared/application/`,
+      ).toBeGreaterThan(0);
+    });
+
     await test.step('judgment: every walked file stays inside the allow-list', () => {
       const objections = files.flatMap((file) => importObjections(file, read(root, file)));
 
       expect(
         objections,
-        'domain/ and application/ may import only node: built-ins and their own layers (FACT-3701)',
+        'domain/ and application/ may import only node: built-ins and their own layers (FACT-3732)',
       ).toEqual([]);
     });
   });
@@ -1664,8 +1753,16 @@ test.describe('Architecture corpus', { tag: '@architecture' }, () => {
       }
     });
 
+    const judged = boundedFiles(root).filter((file) => !file.endsWith('.spec.ts'));
+
+    await test.step('the walk reaches the shared kernel', () => {
+      expect(
+        judged.filter((file) => file.startsWith(`${SOURCE_ROOT}/shared/application/`)).length,
+        `the walk found no file under ${SOURCE_ROOT}/shared/application/`,
+      ).toBeGreaterThan(0);
+    });
+
     await test.step('judgment: no walked file reads the clock or randomness', () => {
-      const judged = boundedFiles(root).filter((file) => !file.endsWith('.spec.ts'));
       expect(judged.length, 'no non-spec domain/ or application/ file was judged').toBeGreaterThan(
         0,
       );
@@ -1673,7 +1770,7 @@ test.describe('Architecture corpus', { tag: '@architecture' }, () => {
       expect(
         judged.flatMap((file) => clockObjections(file, read(root, file))),
         'domain/ and application/ get the instant and randomness through ports or arguments ' +
-          '(FACT-3719): use Clock / UuidSource',
+          '(FACT-3738): use Clock / UuidSource',
       ).toEqual([]);
     });
   });

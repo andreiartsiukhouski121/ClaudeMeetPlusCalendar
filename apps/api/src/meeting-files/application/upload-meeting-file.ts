@@ -1,11 +1,11 @@
+import type { Clock } from '../../shared/application/clock.js';
+import type { UuidSource } from '../../shared/application/uuid-source.js';
 import { ContentType } from '../domain/content-type.js';
 import { FileName } from '../domain/file-name.js';
 import { FileRequired, MeetingNotFound } from '../domain/meeting-file.errors.js';
 import { MeetingFile } from '../domain/meeting-file.js';
-import type { Clock } from './clock.js';
 import type { MeetingAccess } from './meeting-access.js';
 import type { MeetingFileRepository } from './meeting-file.repository.js';
-import type { UuidSource } from './uuid-source.js';
 
 export interface UploadMeetingFileCommand {
   ownerId: string;

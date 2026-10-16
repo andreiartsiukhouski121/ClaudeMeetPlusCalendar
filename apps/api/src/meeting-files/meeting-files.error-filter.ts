@@ -8,7 +8,7 @@ import {
 } from '@nestjs/common';
 import { BaseExceptionFilter } from '@nestjs/core';
 
-import { MEETING_NOT_FOUND_MESSAGE } from '../meetings/meetings.controller.js';
+import { MEETING_NOT_FOUND_MESSAGE } from '../meetings/meetings.error-filter.js';
 import { FILENAME_RULE_MESSAGE } from './domain/file-name.js';
 import { MAX_FILES_PER_MEETING } from './domain/limits.js';
 import { MeetingFileError } from './domain/meeting-file.errors.js';

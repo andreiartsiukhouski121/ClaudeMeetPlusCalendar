@@ -235,6 +235,11 @@ hypothetical — it is how `suite-integrity` once went green under any violation
 - **Expected:** every reference resolves, and a **living** document resolves to a _stated_ fact. A
   change folder or a profiling record may cite a retired key — it records what was true when it was
   written, and editing it would falsify the record (`ADR-0011`).
+- **Register rows are exempt**, in both forms a register takes — a list item or a table row opening
+  with the retired key in its first cell: the row keeps the retired statement exactly as it last
+  stood (`ADR-0022`), so the keys that statement cites may themselves be retired. A fixture in the
+  spec drives the row matcher: a table row and a list item of a retired key are exempt; a row of a
+  live key, and a table row citing the retired key in a later cell, are not (`BL-062`, `FX-051`).
 - **Why:** a reference to a withdrawn or mistyped key is indistinguishable by eye from a good one.
   That is how a retired fact goes on being relied upon long after the corpus stopped saying it.
 - **Not checked, and cannot be:** the other direction across the repository boundary. An agent's
@@ -286,25 +291,43 @@ hypothetical — it is how `suite-integrity` once went green under any violation
 ### AR-API-18 — `domain/` and `application/` import only what the allow-list admits
 
 - **Priority:** P0
-- **Rule (`FACT-3701`, `ADR-0034`):** a file under `apps/api/src/<module>/domain/` imports only
-  `node:` built-ins and relative specifiers resolving inside that module's `domain/`; under
-  `application/`, inside that module's `domain/` or `application/`; a `*.spec.ts` may also import
-  `vitest`. One extractor covers `import … from`, `import type`, bare `import '…'`, `export … from`
-  (named and `*`) and `import(…)`, multi-line included; walk and fixture share it (`FACT-3702`).
+- **Rule (`FACT-3732`, `FACT-3733`, `ADR-0034`, `ADR-0035`):** a file under
+  `apps/api/src/<module>/domain/` imports only `node:` built-ins and relative specifiers resolving
+  inside that module's `domain/` or inside `apps/api/src/shared/domain/`; under
+  `<module>/application/`, inside that module's `domain/` or `application/`, or inside
+  `apps/api/src/shared/domain/` or `apps/api/src/shared/application/`. The kernel takes the same
+  rule with `shared` as the module: `apps/api/src/shared/domain/` imports only itself and `node:`;
+  `apps/api/src/shared/application/` imports `apps/api/src/shared/domain/`, itself and `node:`.
+  `apps/api/src/shared/infrastructure/` is admitted from no `domain/` or `application/` file. A
+  `*.spec.ts` may also import `vitest`. Every prefix is compared as the directory plus `/`, so
+  `shared/application-x/` is not inside it. One extractor covers `import … from`, `import type`,
+  bare `import '…'`, `export … from` (named and `*`) and `import(…)`, multi-line included; walk and
+  fixture share it (`FACT-3733`).
 - **Step 1 — the fixture.** In-memory sources with pretended paths under
-  `apps/api/src/meeting-files/`, kept in the spec and never under `apps/api/src`:
+  `apps/api/src/meeting-files/` and `apps/api/src/shared/`, kept in the spec and never under
+  `apps/api/src`:
   - forbidden from `domain/x.ts` — `import { Injectable } from '@nestjs/common'`;
     `import type { Response } from 'express'`; `export * from '@nestjs/common'`;
     `export { PrismaClient } from '@prisma/client'`; `import 'reflect-metadata'`; a multi-line
     `import {⏎ Injectable,⏎ Inject,⏎ } from '@nestjs/common'`; `import('express')`;
     `../infrastructure/…`; `../application/…`; `../../meetings/domain/…` (another module's
-    `domain/`); `vitest` in a file not ending `.spec.ts`;
+    `domain/`); `vitest` in a file not ending `.spec.ts`; `../../shared/application/…` (the
+    application kernel from `domain/`);
   - forbidden from `application/x.ts` — `../infrastructure/…`; `../meeting-files.module`;
-  - allowed — `node:crypto` and `./file-name` from `domain/`; `../domain/…` and
-    `./meeting-file.repository` from `application/`; `vitest` in `domain/x.spec.ts`.
-  - **Expected:** each source yields exactly the one specifier it holds; the thirteen forbidden ones
-    are objected to, each objection naming the pretended file and the specifier; the five allowed
-    ones raise nothing.
+    `../../shared/infrastructure/…` (a use case would reach `CryptoUuidSource` or `SystemClock`
+    itself, `FACT-3743`);
+  - forbidden from `apps/api/src/shared/domain/x.ts` — `../application/…` (the application kernel
+    from the domain kernel);
+  - forbidden from `apps/api/src/shared/application/x.ts` — `../infrastructure/…` (the kernel's
+    adapters from its own application layer);
+  - allowed — `node:crypto`, `./file-name` and `../../shared/domain/…` from `domain/`;
+    `../domain/…`, `./meeting-file.repository`, `../../shared/domain/…` and
+    `../../shared/application/…` from `application/`; `../domain/…` from
+    `apps/api/src/shared/application/x.ts`; `vitest` in `domain/x.spec.ts`.
+  - **Expected:** each source yields exactly the one specifier it holds; the seventeen forbidden
+    ones are objected to, each objection naming the pretended file and the specifier; the nine
+    allowed ones raise nothing. The shared-domain rows run against pretended paths, so they hold
+    whether or not `apps/api/src/shared/domain/` exists on disk.
 - **Step 2 — the walk's file list.** Walk every `.ts` file under `apps/api/src/*/domain/` and
   `apps/api/src/*/application/`, spec files included, and attach the list — each file with its
   extracted specifiers — to the report, so a reader sees what was judged.
@@ -312,7 +335,11 @@ hypothetical — it is how `suite-integrity` once went green under any violation
   file and at least one `application/` file, and the walked files yield at least one import
   specifier in total; until both hold this step alone is red — "no `domain/`/`application/` files
   found", or "no import specifiers extracted from the walked files".
-- **Step 4 — the judgment.** **Expected:** no walked file's specifier falls outside the allow-list;
+- **Step 4 — the walk reaches the shared kernel (`FACT-3727`, `FACT-3733`).** **Expected:** the list
+  holds at least one file under `apps/api/src/shared/application/`; until it does this step alone is
+  red, naming `apps/api/src/shared/application/`. `apps/api/src/shared/domain/` is not required: it
+  holds nothing yet, and Step 1 covers its rule.
+- **Step 5 — the judgment.** **Expected:** no walked file's specifier falls outside the allow-list;
   a failure names the file and the specifier. Relative specifiers resolve against the file's own
   directory whichever path separator the OS uses.
 - **Why the fixture is first and the self-check separate:** the fixture proves the mechanism with or
@@ -320,15 +347,20 @@ hypothetical — it is how `suite-integrity` once went green under any violation
   nothing. Step 3 catches exactly two things: a walk that found no `domain/` or no `application/`
   file, and an extractor that returns nothing on the real files even though it passes the fixture —
   each goes red in Step 3, not green on Step 1.
+- **Why Step 4:** the walk covers every directory one level below `apps/api/src`, whatever it is
+  called, so it should already reach `shared/` — but that was proven once by a throwaway probe and
+  is otherwise an assumption. A walk narrowed to "modules" would silently stop judging the kernel
+  every module imports, and Steps 3 and 5 would stay green on the other modules' files.
 - **Control experiment (run once, not kept):** a real `domain/` file importing
   `../infrastructure/…`; a real `application/` file importing `../meeting-files.module.js`; a real
-  non-spec `domain/` file importing `vitest` beside an `@nestjs/common` import and
-  `import('express')` — each red in Step 4 naming file and specifier, each reverted.
+  `meetings/application/` file importing `../../shared/infrastructure/…`; a real non-spec `domain/`
+  file importing `vitest` beside an `@nestjs/common` import and `import('express')` — each red in
+  Step 5 naming file and specifier, each reverted.
 
 ### AR-API-19 — `domain/` and `application/` read no clock and no randomness
 
 - **Priority:** P0
-- **Rule (`FACT-3719`, `FACT-0071`):** in a file under `apps/api/src/<module>/domain/` or
+- **Rule (`FACT-3738`, `FACT-0071`):** in a file under `apps/api/src/<module>/domain/` or
   `application/` that does not end `.spec.ts`, none of these appears outside a comment: an import of
   `node:crypto`; `new Date()` with no argument; `Date.now(`; `performance.now(`; `Math.random(`;
   the name `randomUUID`; the name `getRandomValues`. The current instant and randomness reach a use
@@ -347,13 +379,17 @@ hypothetical — it is how `suite-integrity` once went green under any violation
   - **Expected:** the first forbidden source raises exactly two objections and every other forbidden
     source exactly one, each naming the pretended file and the form found; the allowed sources raise
     nothing.
-- **Step 2 — the judgment.** Walk the same files `AR-API-18` walks, spec files skipped.
-  **Expected:** at least one non-spec file is judged, and no file raises an objection; a failure names
-  the file and the form.
-- **Why:** before this case `FACT-3719` was held by review alone — `AR-API-18`'s allow-list admits
+- **Step 2 — the walk reaches the shared kernel (`FACT-3727`, `FACT-3733`).** Take the files
+  `AR-API-18` walks, spec files skipped. **Expected:** at least one of them is under
+  `apps/api/src/shared/application/`; until one is this step alone is red, naming
+  `apps/api/src/shared/application/`. `FACT-3733` states that this rule reaches the kernel; this step
+  is what makes that checked rather than stated, for the reason `AR-API-18`'s Step 4 gives.
+- **Step 3 — the judgment.** Over the same files. **Expected:** at least one non-spec file is
+  judged, and no file raises an objection; a failure names the file and the form.
+- **Why:** before this case `FACT-3738` was held by review alone — `AR-API-18`'s allow-list admits
   every `node:` built-in, and no import names a call to `new Date()`. Agents copy the pilot module
   as the canonical example (`clean-architecture` skill), so a rule held only by review is a rule the
   next copy may drop (`CH-034`).
 - **Control experiment (run once, not kept):** in a real non-spec `domain/` file add
   `import { randomUUID } from 'node:crypto'`; in a real `application/` file replace
-  `this.clock.now()` with `new Date()` — each red in Step 2 naming file and form, each reverted.
+  `this.clock.now()` with `new Date()` — each red in Step 3 naming file and form, each reverted.

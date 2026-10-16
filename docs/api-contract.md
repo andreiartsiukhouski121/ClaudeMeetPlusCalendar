@@ -131,21 +131,21 @@ and 8.
 - `FACT-2035` Query: `limit?`, integer, `1..100`. — `apps/api/src/meetings/dto/list-meetings.dto.ts`
 - `FACT-2036` `@IsOptional()` on `limit` is mandatory: without it a request with no `limit` runs
   through `@IsInt/@Min/@Max` and answers `400`. — invariant 2, `HD-API-10`
-- `FACT-2037` The default of `3` is supplied by the service, not the DTO. —
-  `apps/api/src/meetings/meetings.service.ts`
+- `FACT-2125` The default of `3` is supplied by `ListMeetings`, not the DTO. —
+  `apps/api/src/meetings/application/list-meetings.ts`
 - `FACT-2038` Body: `{ items: MeetingDto[], total: number }`; each item carries the same five keys
   `GET /meetings/:id` returns, `participants` included. — `HD-API-01`, `FACT-1012`
 - `FACT-2039` Logic: filter by `ownerId` from the token → sort `startsAt` descending with `id`
   ascending as the secondary key → slice by `limit`. — invariant 7,
-  `apps/api/src/meetings/meetings.service.ts`
+  `apps/api/src/meetings/infrastructure/prisma-meeting.repository.ts`
 - `FACT-2040` `total` is `countByOwner`, the owner's full count, never `items.length`. —
   invariant 4, `HD-API-05`
 - `FACT-2041` Comparison is on parsed milliseconds rather than on strings. —
   `apps/api/src/meetings/meetings.service.ts`
 
 > **Rationale — not a fact.** Registering the guard globally would break `GET /` and
-> `POST /auth/login`. A DTO default does not survive `plainToInstance` predictably, which is why the
-> service supplies it. The secondary sort key is not decoration: with equal dates the order would
+> `POST /auth/login`. A DTO default does not survive `plainToInstance` predictably, which is why
+> `ListMeetings` supplies it. The secondary sort key is not decoration: with equal dates the order would
 > fall back to insertion and `HD-FN-05` would flake. Milliseconds rather than strings, because a
 > client may send an offset date (`+03:00`) that sorts wrongly as text.
 
@@ -156,14 +156,14 @@ and 8.
 - `FACT-2043` Request: `{ title, startsAt, durationMinutes?, participants? }`. —
   `apps/api/src/meetings/dto/create-meeting.dto.ts`
 
-**Source:** `apps/api/src/meetings/dto/create-meeting.dto.ts`, `meetings.service.ts`.
+**Source:** `apps/api/src/meetings/dto/create-meeting.dto.ts`, `apps/api/src/meetings/domain/meeting.ts`.
 
-| Key         | Field             | Rule                                                                                                  |
-| ----------- | ----------------- | ----------------------------------------------------------------------------------------------------- |
-| `FACT-2044` | `title`           | string, 3–100 characters                                                                              |
-| `FACT-2045` | `startsAt`        | ISO 8601                                                                                              |
-| `FACT-2046` | `durationMinutes` | optional integer 15–480; the service defaults it to 60                                                |
-| `FACT-2047` | `participants`    | optional array of strings, at most 20 entries, each 1–100 characters; the service defaults it to `[]` |
+| Key         | Field             | Rule                                                                                                                                  |
+| ----------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `FACT-2044` | `title`           | string, 3–100 characters                                                                                                              |
+| `FACT-2045` | `startsAt`        | ISO 8601                                                                                                                              |
+| `FACT-2126` | `durationMinutes` | optional integer 15–480; the `Meeting` entity defaults it to 60                                                                       |
+| `FACT-2127` | `participants`    | optional array of strings, at most 20 entries, each 1–100 characters; the `Meeting` entity defaults an absent or `null` value to `[]` |
 
 - `FACT-2048` There is no `ownerId` field, and `forbidNonWhitelisted` rejects an attempt to send one
   with `400 property ownerId should not exist`. — invariant 5, `HD-API-16`, `HD-API-17`
@@ -195,7 +195,7 @@ and 8.
 - `FACT-2123` Logic: generate an `mtg-` + `randomUUID()` id (`ADR-0031`), take `ownerId` from `@CurrentUser()`, normalize
   `startsAt` to canonical UTC via `new Date(...).toISOString()`, default the duration, default
   `participants` to `[]`, store, and return through `toMeetingDto`, which strips `ownerId`. —
-  `apps/api/src/meetings/meetings.service.ts`
+  `apps/api/src/meetings/application/create-meeting.ts`, `apps/api/src/meetings/domain/meeting.ts`
 
 > **Rationale — not a fact.** A body may carry more than one of the rejection messages at once, which
 > is why the cases assert membership. Normalizing `startsAt` on the way in keeps the store from ever
@@ -332,9 +332,10 @@ and 8.
   `apps/api/src/meeting-files/infrastructure/prisma-meeting-file.repository.ts`, `MF-API-04`
 - `FACT-2111` A meeting the caller owns that holds no files answers `200` with an empty `items`,
   never a `404`. — `MF-API-05`
-- `FACT-2112` An unknown meeting and one owned by another user answer the byte-identical
-  `Meeting not found` `404` of `FACT-2016` — one code path, resolved through
-  `MeetingsService.findById` rather than a query of its own. — `ADR-0018`, `MF-API-03`
+- `FACT-2124` An unknown meeting and one owned by another user answer the byte-identical
+  `Meeting not found` `404` of `FACT-2016` — one code path, resolved through `meetings`' exported
+  `GetMeeting`, the lookup `GET /meetings/:id` uses, rather than a query of its own. — `ADR-0018`,
+  `MF-API-03`
 
 ## `GET /meetings/:id/files/:fileId/content` — the bytes
 
@@ -432,7 +433,11 @@ and 8.
 The register of the keys this document has allocated and no longer states (`ADR-0022`). A fact is
 never edited in place and never deleted; it is closed here, naming the key that replaced it.
 
-| Key         | Stated                                                                                                                                                                                                                                                                      | Status                 | Recorded in |
-| ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------- | ----------- |
-| `FACT-2017` | `message` is an array on a 400 and a string on a 401 and on a 404.                                                                                                                                                                                                          | `retired by FACT-2086` | `ADR-0029`  |
-| `FACT-2060` | Logic: generate a `randomUUID()` id, take `ownerId` from `@CurrentUser()`, normalize `startsAt` to canonical UTC via `new Date(...).toISOString()`, default the duration, default `participants` to `[]`, store, and return through `toMeetingDto`, which strips `ownerId`. | `retired by FACT-2123` | `ADR-0031`  |
+| Key         | Stated                                                                                                                                                                                                                                                                      | Status                 | Recorded in          |
+| ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------- | -------------------- |
+| `FACT-2017` | `message` is an array on a 400 and a string on a 401 and on a 404.                                                                                                                                                                                                          | `retired by FACT-2086` | `ADR-0029`           |
+| `FACT-2060` | Logic: generate a `randomUUID()` id, take `ownerId` from `@CurrentUser()`, normalize `startsAt` to canonical UTC via `new Date(...).toISOString()`, default the duration, default `participants` to `[]`, store, and return through `toMeetingDto`, which strips `ownerId`. | `retired by FACT-2123` | `ADR-0031`           |
+| `FACT-2037` | The default of `3` is supplied by the service, not the DTO.                                                                                                                                                                                                                 | `retired by FACT-2125` | `ADR-0035`, `FT-009` |
+| `FACT-2046` | `durationMinutes` — optional integer 15–480; the service defaults it to 60.                                                                                                                                                                                                 | `retired by FACT-2126` | `ADR-0035`, `FT-009` |
+| `FACT-2047` | `participants` — optional array of strings, at most 20 entries, each 1–100 characters; the service defaults it to `[]`.                                                                                                                                                     | `retired by FACT-2127` | `ADR-0035`, `FT-009` |
+| `FACT-2112` | An unknown meeting and one owned by another user answer the byte-identical `Meeting not found` `404` of `FACT-2016` — one code path, resolved through `MeetingsService.findById` rather than a query of its own.                                                            | `retired by FACT-2124` | `ADR-0035`, `FT-009` |

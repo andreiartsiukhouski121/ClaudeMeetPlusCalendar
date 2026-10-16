@@ -48,7 +48,7 @@
   belongs to another owner. 403 is not used. — `FACT-2065`, `MD-API-03`, `MD-API-04`
 - `FACT-3381` The response body, status, headers and code path are identical in both cases: one
   lookup scoped by the owner from the token, one `undefined` result, and the handler never learns
-  which of the two happened. — `apps/api/src/meetings/meetings.service.ts`
+  which of the two happened. — `apps/api/src/meetings/infrastructure/prisma-meeting.repository.ts`
 - `FACT-3382` The body is exactly
   `{ "message": "Meeting not found", "error": "Not Found", "statusCode": 404 }`, produced by
   `new NotFoundException('Meeting not found')`. — `FACT-2065`, probe B1

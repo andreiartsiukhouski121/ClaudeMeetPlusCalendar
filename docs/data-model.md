@@ -34,7 +34,7 @@ what each field is for.
 
 ### `Meeting`
 
-**Source:** `apps/api/src/meetings/meetings.types.ts`; the key set is asserted by `HD-API-01`.
+**Source:** `apps/api/src/meetings/domain/meeting.ts`; the key set is asserted by `HD-API-01`.
 
 | Key         | Field             | Type       | Format / constraint                                                                       | Leaves the API?                      |
 | ----------- | ----------------- | ---------- | ----------------------------------------------------------------------------------------- | ------------------------------------ |
@@ -45,7 +45,7 @@ what each field is for.
 | `FACT-1009` | `durationMinutes` | `number`   | integer, 15–480; optional on input, default 60                                            | yes                                  |
 | `FACT-1010` | `participants`    | `string[]` | 0–20 free-form strings, 1–100 characters each; optional on input, default `[]`            | yes                                  |
 
-- `FACT-1011` `MeetingDto = Omit<Meeting, 'ownerId'>`. — `apps/api/src/meetings/meetings.types.ts`,
+- `FACT-1011` `MeetingDto = Omit<Meeting, 'ownerId'>`. — `apps/api/src/meetings/meetings.mapper.ts`,
   `HD-API-01`
 
 > **Rationale — not a fact.** `startsAt` is a string rather than a `Date` deliberately: it survives
@@ -80,10 +80,10 @@ what each field is for.
 
 ### Response wrappers
 
-**Source:** `apps/api/src/meetings/meetings.types.ts`, `apps/api/src/auth/auth.types.ts`.
+**Source:** `apps/api/src/meetings/meetings.mapper.ts`, `apps/api/src/auth/auth.types.ts`.
 
 - `FACT-1012` `MeetingsPageDto` = `{ items: MeetingDto[], total: number }`. —
-  `apps/api/src/meetings/meetings.types.ts`
+  `apps/api/src/meetings/meetings.mapper.ts`
 - `FACT-1013` `total` is the owner's full record count, never `items.length` — `items` is cut by the
   limit. — invariant 4, `HD-API-05`, `HD-FN-03`
 - `FACT-1014` `LoginResult` = `{ accessToken: string, user: PublicUser }`. —
@@ -129,7 +129,7 @@ what each field is for.
   `FACT-3595`
 - `FACT-1067` Each service reads and writes through one injected Prisma client and keeps no
   in-process copy of the data. — `ADR-0027`, `apps/api/src/prisma/prisma.service.ts`,
-  `apps/api/src/meetings/meetings.service.ts`, `apps/api/src/users/users.service.ts`
+  `apps/api/src/users/users.service.ts`
 
 **Source:** `ADR-0027`; the cookie's lifetime is set in `apps/web/src/lib/session-cookie.ts`.
 
@@ -231,9 +231,9 @@ Browser  GET / ──► proxy.ts        cookie present? no → 307 /auth/login 
                           401 from either ──► /auth/session-expired → clears the cookie → /auth/login
 ```
 
-- `FACT-1046` The three most recent meetings are chosen by the service, sorting on `startsAt` with
-  `id` as a secondary key. — invariant 7, `HD-FN-05`,
-  `apps/api/src/meetings/meetings.service.ts`
+- `FACT-1083` The three most recent meetings are chosen by the repository adapter's query, sorting on
+  `startsAt` with `id` as a secondary key. — invariant 7, `HD-FN-05`,
+  `apps/api/src/meetings/infrastructure/prisma-meeting.repository.ts`
 
 > **Rationale — not a fact.** `total` comes from the API rather than from counting `items`
 > (`FACT-1013`). With equal dates the order would otherwise be undefined and the case would flake,
@@ -314,14 +314,15 @@ Browser  GET /meetings/<id>/files/<fileId> ──► Next Route Handler
 The register of the keys this document has allocated and no longer states (`ADR-0022`). A fact is
 never edited in place and never deleted; it is closed here, naming the key that replaced it.
 
-| Key         | Stated                                                                                                         | Status                 | Recorded in |
-| ----------- | -------------------------------------------------------------------------------------------------------------- | ---------------------- | ----------- |
-| `FACT-1025` | There is no database.                                                                                          | `retired by FACT-1066` | `ADR-0027`  |
-| `FACT-1026` | Each service owns an array, seeded at module initialization.                                                   | `retired by FACT-1067` | `ADR-0027`  |
-| `FACT-1027` | Users and meetings live in in-memory arrays and die when the API process restarts.                             | `retired by FACT-1068` | `ADR-0027`  |
-| `FACT-1028` | Password hashes are computed at startup from the seed and die with the process.                                | `retired by FACT-1069` | `ADR-0027`  |
-| `FACT-1032` | The seed is `users.seed.ts` and `meetings.seed.ts`, mirrored in `e2e/fixtures/seed.ts`.                        | `retired by FACT-1070` | `ADR-0027`  |
-| `FACT-1036` | `planner@purpleschool.test` owns one meeting and is the mutation sandbox for `*.api.spec.ts`.                  | `retired by FACT-1071` | `ADR-0029`  |
-| `FACT-1005` | `Meeting.id`: `string`, `mtg-<owner>-<n>` in the seed.                                                         | `retired by FACT-1080` | `ADR-0031`  |
-| `FACT-1017` | Identifiers: opaque strings with a type prefix (`usr-`, `mtg-`). Never a number, never guessable-by-increment. | `retired by FACT-1082` | `ADR-0031`  |
-| `FACT-1056` | `MeetingFile.id`: `string`, `text`, `fil-<owner>-<n>-<k>` in the seed, `randomUUID()` from an upload.          | `retired by FACT-1081` | `ADR-0031`  |
+| Key         | Stated                                                                                                         | Status                 | Recorded in          |
+| ----------- | -------------------------------------------------------------------------------------------------------------- | ---------------------- | -------------------- |
+| `FACT-1025` | There is no database.                                                                                          | `retired by FACT-1066` | `ADR-0027`           |
+| `FACT-1026` | Each service owns an array, seeded at module initialization.                                                   | `retired by FACT-1067` | `ADR-0027`           |
+| `FACT-1027` | Users and meetings live in in-memory arrays and die when the API process restarts.                             | `retired by FACT-1068` | `ADR-0027`           |
+| `FACT-1028` | Password hashes are computed at startup from the seed and die with the process.                                | `retired by FACT-1069` | `ADR-0027`           |
+| `FACT-1032` | The seed is `users.seed.ts` and `meetings.seed.ts`, mirrored in `e2e/fixtures/seed.ts`.                        | `retired by FACT-1070` | `ADR-0027`           |
+| `FACT-1036` | `planner@purpleschool.test` owns one meeting and is the mutation sandbox for `*.api.spec.ts`.                  | `retired by FACT-1071` | `ADR-0029`           |
+| `FACT-1005` | `Meeting.id`: `string`, `mtg-<owner>-<n>` in the seed.                                                         | `retired by FACT-1080` | `ADR-0031`           |
+| `FACT-1017` | Identifiers: opaque strings with a type prefix (`usr-`, `mtg-`). Never a number, never guessable-by-increment. | `retired by FACT-1082` | `ADR-0031`           |
+| `FACT-1056` | `MeetingFile.id`: `string`, `text`, `fil-<owner>-<n>-<k>` in the seed, `randomUUID()` from an upload.          | `retired by FACT-1081` | `ADR-0031`           |
+| `FACT-1046` | The three most recent meetings are chosen by the service, sorting on `startsAt` with `id` as a secondary key.  | `retired by FACT-1083` | `ADR-0035`, `FT-009` |

@@ -1,6 +1,8 @@
 import { Type } from 'class-transformer';
 import { IsInt, IsOptional, Max, Min } from 'class-validator';
 
+import { LIMIT_MAX, LIMIT_MIN } from '../domain/limits.js';
+
 /**
  * Query of `GET /meetings?limit=`.
  *
@@ -12,15 +14,14 @@ import { IsInt, IsOptional, Max, Min } from 'class-validator';
  * The upper bound is 100, not 50: `limit=100` is used as "give me everything" in `HD-API-17` and
  * `SM-API-03`.
  *
- * The default (3) is supplied by the **service**, not the DTO: a DTO default does not survive
- * `plainToInstance` predictably, and `findRecent` needs its own default for direct calls anyway
- * (`HD-UT-06`).
+ * The default (3) is supplied by `ListMeetings`, not the DTO: a DTO default does not survive
+ * `plainToInstance` predictably.
  */
 export class ListMeetingsQueryDto {
   @IsOptional()
   @Type(() => Number)
   @IsInt()
-  @Min(1)
-  @Max(100)
+  @Min(LIMIT_MIN)
+  @Max(LIMIT_MAX)
   limit?: number;
 }

@@ -13,9 +13,15 @@
   and `MF-API-19`; the header builder's twin is `SEC-API-11`; and the size labels these units pin
   are read on the page by `MF-FN-03`.
 
-21 cases: 17 in `apps/api` (`01`…`03`, `08`…`10`, `11`…`21`) and 4 in `apps/web` (`04`…`07`). Every
+21 cases: 17 in `apps/api` (`01`…`03`, `08`…`20`, `22`) and 4 in `apps/web` (`04`…`07`). Every
 module under test is pure — no `server-only`, no Prisma, no network — which is what keeps them inside
 the pre-commit floor while the rest of this feature is asserted over HTTP.
+
+**`MF-UT-21` moved to `MF-UT-22` and its number is never reused.** Its spec moved with
+`CryptoUuidSource` into the shared kernel (`ADR-0035`), and the assertion moved with it unchanged.
+The moved line sits here, above the first spec path, because rule 7 would otherwise demand the old
+ID inside the moved spec. The case stays in this file rather than under a shared prefix so that
+`pnpm test:meeting-files` still runs it; a new prefix would need its own `test:` script.
 
 **These rules are asked directly here; over HTTP they are asked about a value the parser has
 already rewritten.** Which inputs reach our rules and which the parser filters out first is
@@ -41,29 +47,29 @@ reaches it, which is a vacuous assertion wearing a green tick.
 
 ## Summary
 
-| ID       | Priority | What it checks                                                        | Where automated                     |
-| -------- | -------- | --------------------------------------------------------------------- | ----------------------------------- |
-| MF-UT-01 | P0       | the filename predicate accepts the legal forms                        | `domain/value-objects`              |
-| MF-UT-02 | P0       | the filename predicate rejects every header-unsafe form               | `domain/value-objects`              |
-| MF-UT-03 | P0       | the content type is normalized, then compared to the four             | `domain/value-objects`              |
-| MF-UT-04 | P1       | under 1024 bytes: the exact integer and ` B`, no decimals             | `format-file-size`                  |
-| MF-UT-05 | P1       | the KiB and MiB bands, one decimal each                               | `format-file-size`                  |
-| MF-UT-06 | P1       | no `Intl`, no locale, no thousands separator, no `NaN`                | `format-file-size`                  |
-| MF-UT-07 | P1       | 1 048 575 bytes renders `1024.0 KiB`, and that is deliberate          | `format-file-size`                  |
-| MF-UT-08 | P0       | the `filename*` parameter escapes more than `encodeURIComponent` does | `meeting-files.content-disposition` |
-| MF-UT-09 | P0       | the ASCII `filename` parameter is lossy and cannot be escaped out of  | `meeting-files.content-disposition` |
-| MF-UT-10 | P0       | the builder strips the path again on the way out                      | `meeting-files.content-disposition` |
-| MF-UT-11 | P0       | `FileName` holds a legal name verbatim                                | `domain/value-objects`              |
-| MF-UT-12 | P0       | `FileName` refuses an illegal name with `InvalidFileName`             | `domain/value-objects`              |
-| MF-UT-13 | P0       | `ContentType`'s value is the normalized media type                    | `domain/value-objects`              |
-| MF-UT-14 | P0       | `ContentType` refuses the rest with `UnsupportedContentType`          | `domain/value-objects`              |
-| MF-UT-15 | P1       | `upload` stores primitives and exactly the `now` passed in, as ISO    | `domain/meeting-file`               |
-| MF-UT-16 | P1       | `upload` makes the id `fil-` + the uuid passed in, verbatim           | `domain/meeting-file`               |
-| MF-UT-17 | P1       | `sizeBytes` is the byte length; the ceiling is declared, not enforced | `domain/meeting-file`               |
-| MF-UT-18 | P0       | `upload` refuses the eleventh file, not the tenth                     | `domain/meeting-file`               |
-| MF-UT-19 | P0       | `restore` validates nothing                                           | `domain/meeting-file`               |
-| MF-UT-20 | P1       | six domain errors, six distinct `kind`s, no status on any             | `domain/meeting-file`               |
-| MF-UT-21 | P1       | `CryptoUuidSource` yields a fresh v4 UUID on every call               | `infrastructure/crypto-uuid-source` |
+| ID       | Priority | What it checks                                                        | Where automated                            |
+| -------- | -------- | --------------------------------------------------------------------- | ------------------------------------------ |
+| MF-UT-01 | P0       | the filename predicate accepts the legal forms                        | `domain/value-objects`                     |
+| MF-UT-02 | P0       | the filename predicate rejects every header-unsafe form               | `domain/value-objects`                     |
+| MF-UT-03 | P0       | the content type is normalized, then compared to the four             | `domain/value-objects`                     |
+| MF-UT-04 | P1       | under 1024 bytes: the exact integer and ` B`, no decimals             | `format-file-size`                         |
+| MF-UT-05 | P1       | the KiB and MiB bands, one decimal each                               | `format-file-size`                         |
+| MF-UT-06 | P1       | no `Intl`, no locale, no thousands separator, no `NaN`                | `format-file-size`                         |
+| MF-UT-07 | P1       | 1 048 575 bytes renders `1024.0 KiB`, and that is deliberate          | `format-file-size`                         |
+| MF-UT-08 | P0       | the `filename*` parameter escapes more than `encodeURIComponent` does | `meeting-files.content-disposition`        |
+| MF-UT-09 | P0       | the ASCII `filename` parameter is lossy and cannot be escaped out of  | `meeting-files.content-disposition`        |
+| MF-UT-10 | P0       | the builder strips the path again on the way out                      | `meeting-files.content-disposition`        |
+| MF-UT-11 | P0       | `FileName` holds a legal name verbatim                                | `domain/value-objects`                     |
+| MF-UT-12 | P0       | `FileName` refuses an illegal name with `InvalidFileName`             | `domain/value-objects`                     |
+| MF-UT-13 | P0       | `ContentType`'s value is the normalized media type                    | `domain/value-objects`                     |
+| MF-UT-14 | P0       | `ContentType` refuses the rest with `UnsupportedContentType`          | `domain/value-objects`                     |
+| MF-UT-15 | P1       | `upload` stores primitives and exactly the `now` passed in, as ISO    | `domain/meeting-file`                      |
+| MF-UT-16 | P1       | `upload` makes the id `fil-` + the uuid passed in, verbatim           | `domain/meeting-file`                      |
+| MF-UT-17 | P1       | `sizeBytes` is the byte length; the ceiling is declared, not enforced | `domain/meeting-file`                      |
+| MF-UT-18 | P0       | `upload` refuses the eleventh file, not the tenth                     | `domain/meeting-file`                      |
+| MF-UT-19 | P0       | `restore` validates nothing                                           | `domain/meeting-file`                      |
+| MF-UT-20 | P1       | six domain errors, six distinct `kind`s, no status on any             | `domain/meeting-file`                      |
+| MF-UT-22 | P1       | `CryptoUuidSource` yields a fresh v4 UUID on every call               | `shared/infrastructure/crypto-uuid-source` |
 
 ## `apps/api/src/meeting-files/domain/value-objects.spec.ts`
 
@@ -186,17 +192,19 @@ response header.
   six `kind`s are pairwise distinct, and none has a `status`, `statusCode` or `getStatus` member: the
   filter maps by `kind` and owns every status (`FACT-3706`).
 
-## `apps/api/src/meeting-files/infrastructure/crypto-uuid-source.spec.ts`
+## `apps/api/src/shared/infrastructure/crypto-uuid-source.spec.ts`
 
-The one adapter whose output carries a rule of the contract: the entity trusts whatever UUID it is
-given (the id case of `domain/meeting-file.spec.ts`), so the v4 shape and the freshness of the value are this adapter's to keep. It is
-pure — `node:crypto` and nothing else — so it stays inside the pre-commit floor.
+The one adapter whose output carries a rule of the contract: every entity that composes a prefixed
+id trusts whatever UUID it is given (the id case of `domain/meeting-file.spec.ts` here, and the
+`Meeting` entity's in `home-dashboard.unit.cases.md`), so the v4 shape and the freshness of the value
+are this adapter's to keep. It lives in the shared kernel and serves both modules; it is pure —
+`node:crypto` and nothing else — so it stays inside the pre-commit floor.
 
-- `MF-UT-21` P1 — `new CryptoUuidSource().next()` matches
+- `MF-UT-22` P1 — `new CryptoUuidSource().next()` matches
   `^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$` (version digit `4`,
   variant `8`, `9`, `a` or `b`), and 100 calls on one instance yield 100 distinct values. A
   source returning a constant, an empty string or a non-v4 UUID fails it (`FACT-3670`,
-  `FACT-3718`).
+  `FACT-3734`).
 
 ## `apps/web/src/lib/format-file-size.spec.ts`
 

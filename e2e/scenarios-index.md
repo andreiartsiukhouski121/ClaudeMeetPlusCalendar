@@ -138,6 +138,11 @@ One row per scenario declared in a Summary table, across every level and module 
 | unit | regression/home-dashboard | `HD-UT-11` | P1 |
 | unit | regression/home-dashboard | `HD-UT-15` | P0 |
 | unit | regression/home-dashboard | `HD-UT-16` | P1 |
+| unit | regression/home-dashboard | `HD-UT-17` | P1 |
+| unit | regression/home-dashboard | `HD-UT-18` | P1 |
+| unit | regression/home-dashboard | `HD-UT-19` | P1 |
+| unit | regression/home-dashboard | `HD-UT-20` | P1 |
+| unit | regression/home-dashboard | `HD-UT-21` | P1 |
 | api | regression/meeting-files | `MF-API-01` | POST uploads a file and returns 201 with the five DTO keys |
 | api | regression/meeting-files | `MF-API-02` | all three file routes without a token give 401 |
 | api | regression/meeting-files | `MF-API-03` | an unknown meeting and another owner's meeting give the same 404 |
@@ -192,7 +197,7 @@ One row per scenario declared in a Summary table, across every level and module 
 | unit | regression/meeting-files | `MF-UT-18` | P0 |
 | unit | regression/meeting-files | `MF-UT-19` | P0 |
 | unit | regression/meeting-files | `MF-UT-20` | P1 |
-| unit | regression/meeting-files | `MF-UT-21` | P1 |
+| unit | regression/meeting-files | `MF-UT-22` | P1 |
 | api | regression/meetings-detail | `MD-API-01` | GET /meetings/:id returns the full meeting for its owner |
 | api | regression/meetings-detail | `MD-API-02` | GET /meetings/:id without a token gives 401 |
 | api | regression/meetings-detail | `MD-API-03` | a non-existent id and another owner's id give byte-identical 404 |

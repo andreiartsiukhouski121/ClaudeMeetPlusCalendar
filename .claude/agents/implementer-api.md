@@ -25,8 +25,8 @@ an inline object (`FACT-0014`, `docs/architecture.md`), and the package is pure 
 extension on every relative import (`apps/api/CLAUDE.md`, "How this package differs from ordinary
 Nest").
 
-For a module migrated under `ADR-0034` (today `meeting-files` only), follow the `clean-architecture`
-skill; `meetings`, `users` and `auth` stay on `ADR-0006` until a change migrates them.
+For a module migrated under `ADR-0035` (today `meeting-files` and `meetings`), follow the
+`clean-architecture` skill; `users` and `auth` stay on `ADR-0006` until a change migrates them.
 
 ## Boundaries
 

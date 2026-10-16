@@ -10,9 +10,9 @@ export interface UploadMeetingFileInput {
   bytes: Uint8Array;
   /** How many files the meeting already holds. */
   existingCount: number;
-  /** Passed in so the entity reads no clock (`FACT-3718`). */
+  /** Passed in so the entity reads no clock (`FACT-3734`). */
   now: Date;
-  /** Passed in so the entity generates no randomness (`FACT-3719`). */
+  /** Passed in so the entity generates no randomness (`FACT-3738`). */
   uuid: string;
 }
 

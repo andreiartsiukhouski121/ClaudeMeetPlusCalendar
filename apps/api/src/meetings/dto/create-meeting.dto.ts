@@ -11,6 +11,16 @@ import {
   Min,
 } from 'class-validator';
 
+import {
+  DURATION_MAX_MINUTES,
+  DURATION_MIN_MINUTES,
+  PARTICIPANT_MAX_LENGTH,
+  PARTICIPANT_MIN_LENGTH,
+  PARTICIPANTS_MAX_COUNT,
+  TITLE_MAX_LENGTH,
+  TITLE_MIN_LENGTH,
+} from '../domain/limits.js';
+
 /**
  * Body of `POST /meetings`.
  *
@@ -24,7 +34,7 @@ import {
  */
 export class CreateMeetingDto {
   @IsString()
-  @Length(3, 100)
+  @Length(TITLE_MIN_LENGTH, TITLE_MAX_LENGTH)
   title: string;
 
   /** ISO 8601. The web layer normalizes the `<input type="datetime-local">` value itself. */
@@ -34,19 +44,19 @@ export class CreateMeetingDto {
   @IsOptional()
   @Type(() => Number)
   @IsInt()
-  @Min(15)
-  @Max(480)
+  @Min(DURATION_MIN_MINUTES)
+  @Max(DURATION_MAX_MINUTES)
   durationMinutes?: number;
 
   /**
    * Free-form strings — a name or an email, never a `User.id` (`ADR-0017`). Optional, at most 20
    * entries, each 1-100 characters. `@IsOptional()` is not optional here either: invariant 2 holds
-   * for arrays exactly as it does for `durationMinutes` (design §3, probe A2).
+   * for arrays exactly as it does for `durationMinutes`.
    */
   @IsOptional()
   @IsArray()
-  @ArrayMaxSize(20)
+  @ArrayMaxSize(PARTICIPANTS_MAX_COUNT)
   @IsString({ each: true })
-  @Length(1, 100, { each: true })
+  @Length(PARTICIPANT_MIN_LENGTH, PARTICIPANT_MAX_LENGTH, { each: true })
   participants?: string[];
 }
