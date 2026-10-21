@@ -135,5 +135,5 @@ unreadable.
   password that is valid **for a real seeded user** removes that cover: if the lookup resolves
   anybody at all, the hash verifies, the login succeeds and this case fails. The near misses are
   there because a partial match is the likely shape of the fault, not a randomly foreign address.
-  The seed deliberately shares one password across all four users (`e2e/fixtures/seed.ts`), which
+  The seed deliberately shares one password across all five users (`e2e/fixtures/seed.ts`), which
   is what makes a single literal enough here.

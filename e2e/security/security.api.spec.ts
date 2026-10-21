@@ -5,6 +5,7 @@ import { dirname, join, relative, sep } from 'node:path';
 import { expect, test, type APIRequestContext } from '@playwright/test';
 
 import { loginApi, authHeaders } from '../fixtures/auth.api.js';
+import { MEETING_NOT_FOUND_BODY, withCleanup, type ErrorBody } from '../fixtures/cleanup.api.js';
 import { buildMultipartBody } from '../fixtures/multipart.js';
 import {
   FUTURE_STARTS_AT_ISO,
@@ -45,6 +46,13 @@ const PROTECTED_ROUTES = [
   { method: 'POST' as const, path: '/meetings/:id/files' },
   { method: 'GET' as const, path: '/meetings/:id/files' },
   { method: 'GET' as const, path: '/meetings/:id/files/:fileId/content' },
+  /*
+   * The two delete routes, guarded by the class-level `JwtAuthGuard` on `MeetingsController` and
+   * `MeetingFilesController`. Literal parameters for the same reason as above: the guard answers
+   * before either use case runs, so no row is ever at risk from this walk.
+   */
+  { method: 'DELETE' as const, path: '/meetings/:id' },
+  { method: 'DELETE' as const, path: '/meetings/:id/files/:fileId' },
 ];
 
 /**
@@ -73,12 +81,17 @@ const SECRET_MARKERS = ['scrypt', 'passwordHash', 'password', SEED_USERS.teacher
 
 async function callRoute(
   request: APIRequestContext,
-  route: { method: 'GET' | 'POST'; path: string },
+  route: { method: 'GET' | 'POST' | 'DELETE'; path: string },
   headers: Record<string, string> = {},
 ) {
-  return route.method === 'GET'
-    ? request.get(route.path, { headers })
-    : request.post(route.path, { headers, data: {} });
+  switch (route.method) {
+    case 'GET':
+      return request.get(route.path, { headers });
+    case 'POST':
+      return request.post(route.path, { headers, data: {} });
+    case 'DELETE':
+      return request.delete(route.path, { headers });
+  }
 }
 
 test.describe('Security: API', { tag: '@security' }, () => {
@@ -552,6 +565,71 @@ test.describe('Security: API', { tag: '@security' }, () => {
       }
     },
   );
+
+  test(
+    "SEC-API-12 — another user's token cannot delete a meeting or its file",
+    { tag: ['@p0', '@mutating'] },
+    async ({ request }) => {
+      const plannerToken = await loginApi(request, 'planner');
+      const plannerHeaders = authHeaders(plannerToken);
+      // `student` only makes requests here and is never mutated.
+      const studentHeaders = authHeaders(await loginApi(request, 'student'));
+
+      /*
+       * The cleanup is the control: both paths are tracked with `null`, so once the `student`
+       * requests have been refused the owner's own file delete and then meeting delete must answer
+       * 204 — a route answering 404 to everyone, `planner` included, fails here instead of passing
+       * vacuously. The file is registered after the meeting, so it is removed first.
+       *
+       * When a step has already failed, the cleanup still walks both paths and removes whatever is
+       * left, and `withCleanup` reports the step's failure rather than the cleanup's: a 404 there
+       * cannot turn a red case green, whatever its body.
+       */
+      await withCleanup(request, plannerHeaders, async (track) => {
+        const meetingId = await createOwnMeeting(request, plannerToken);
+        track(`/meetings/${meetingId}`, null);
+
+        const file = await uploadOwnFile(request, plannerHeaders, meetingId);
+        track(`/meetings/${meetingId}/files/${file.id}`, null);
+
+        // The file first: a meeting route that wrongly deletes would otherwise take the file with
+        // it and hide the file route's own result.
+        const foreignDeletes = [
+          await request.delete(`/meetings/${meetingId}/files/${file.id}`, {
+            headers: studentHeaders,
+          }),
+          await request.delete(`/meetings/${meetingId}`, { headers: studentHeaders }),
+        ];
+
+        for (const response of foreignDeletes) {
+          const where = `DELETE ${new URL(response.url()).pathname} with the student token`;
+          const text = await response.text();
+
+          expect(response.status(), where).toBe(404);
+          expect(JSON.parse(text) as ErrorBody, where).toEqual(MEETING_NOT_FOUND_BODY);
+          // A 404 that quotes the record still confirms it exists.
+          expect(text, `${where} echoes the meeting id`).not.toContain(meetingId);
+          expect(text, `${where} echoes the file id`).not.toContain(file.id);
+        }
+
+        const meeting = await request.get(`/meetings/${meetingId}`, { headers: plannerHeaders });
+        expect(meeting.status(), 'the owner still reaches the meeting').toBe(200);
+        expect(((await meeting.json()) as { id: string }).id).toBe(meetingId);
+
+        const listed = await filesOfMeeting(request, plannerHeaders, meetingId);
+        expect(
+          listed.map((item) => item.id),
+          'the owner listing still holds the file',
+        ).toEqual([file.id]);
+
+        const content = await request.get(`/meetings/${meetingId}/files/${file.id}/content`, {
+          headers: plannerHeaders,
+        });
+        expect(content.status(), 'the owner still downloads the file').toBe(200);
+        expect((await content.body()).toString('utf8')).toBe(SEC_API_12_FILE.content);
+      });
+    },
+  );
 });
 
 /**
@@ -578,16 +656,43 @@ function brokenAuthorizationHeaders(validToken: string): string[] {
  * suffix: `fullyParallel` is on, and a fixed title would let two concurrent runs collide.
  */
 async function createOwnMeeting(request: APIRequestContext, token: string): Promise<string> {
-  const title = `E2E security upload ${String(Date.now())}-${String(Math.floor(Math.random() * 1e6))}`;
+  const title = `E2E security sandbox ${String(Date.now())}-${String(Math.floor(Math.random() * 1e6))}`;
 
   const response = await request.post('/meetings', {
     headers: authHeaders(token),
     data: { title, startsAt: FUTURE_STARTS_AT_ISO },
   });
 
-  expect(response.status(), 'creating the sandbox meeting for SEC-API-07 must succeed').toBe(201);
+  expect(response.status(), 'creating the sandbox meeting must succeed').toBe(201);
 
   return ((await response.json()) as { id: string }).id;
+}
+
+/** The one small legal file `SEC-API-12` uploads into its own meeting. */
+const SEC_API_12_FILE = {
+  filename: 'sec-api-12.txt',
+  contentType: 'text/plain',
+  content: 'bytes the owner must still be able to download',
+};
+
+const SEC_API_12_BOUNDARY = 'secApi12Boundary7c2e91a4';
+
+async function uploadOwnFile(
+  request: APIRequestContext,
+  headers: Record<string, string>,
+  meetingId: string,
+): Promise<SeededFileRef> {
+  const response = await request.post(`/meetings/${meetingId}/files`, {
+    headers: {
+      ...headers,
+      'content-type': `multipart/form-data; boundary=${SEC_API_12_BOUNDARY}`,
+    },
+    data: buildMultipartBody([{ name: 'file', ...SEC_API_12_FILE }], SEC_API_12_BOUNDARY),
+  });
+
+  expect(response.status(), 'uploading the SEC-API-12 file must succeed').toBe(201);
+
+  return (await response.json()) as SeededFileRef;
 }
 
 // The multipart body builder this case needs — a part with an arbitrary field name alongside a

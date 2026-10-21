@@ -1,4 +1,4 @@
-# Meeting files: API contract (`POST`/`GET /meetings/:id/files`, `GET …/:fileId/content`)
+# Meeting files: API contract (`POST`/`GET /meetings/:id/files`, `GET …/:fileId/content`, `DELETE …/:fileId`)
 
 - **Paired spec:** `e2e/regression/meeting-files/meeting-files.api.spec.ts`
 - **Playwright project:** `api` (the `request` fixture, `baseURL = http://127.0.0.1:3101`, no browser)
@@ -26,7 +26,7 @@
     rewriting them into a generic string, because they are specific and actionable —
     `createMeetingAction` rewrites only because its 400 is a validation array about a title and a
     date, which nobody can act on. So a case asserting a body byte-for-byte here is also asserting
-    what a user reads, and the bar for any new message on these three routes is **a sentence
+    what a user reads, and the bar for any new message on these four routes is **a sentence
     somebody can act on**. The **413** is the single exception: the framework authors `File too
 large`, which names no limit, so the web surface substitutes its own line — asserted on the
     functional side, never here.
@@ -39,32 +39,47 @@ large`, which names no limit, so the web surface substitutes its own line — as
     return and double quote, and discards a part whose filename is falsy. Which inputs reach our own
     rules and which the parser filters first is design §3's table; where it matters, the case says
     so.
+  - **The delete cases (`MF-API-20`…`25`) send a `DELETE` only to a meeting the case itself just
+    created** as `planner`, dated `FUTURE_STARTS_AT_ISO` under a unique title, and only to files it
+    uploaded there. No seeded meeting or file — none of `teacher`'s, not `mtg-planner-2` — is ever
+    a delete target, by the owner or by `student`, the foreign token, which is never mutated.
+  - **Cleanup:** every case that creates a meeting deletes it through `DELETE /meetings/:id` as
+    `planner` when it ends, **also on failure**; the cascade takes its files. A cleanup `404` is
+    tolerated only when its body is exactly `FACT-2016` (meeting) or `FACT-2083` (file); any other
+    `404` — Express's `Cannot DELETE …` included — fails the case. The case's own assertion failure
+    is reported before a cleanup failure.
 
-19 cases.
+25 cases.
 
 ## Summary
 
-| ID        | Title                                                             | Priority | Tags                                            |
-| --------- | ----------------------------------------------------------------- | -------- | ----------------------------------------------- |
-| MF-API-01 | POST uploads a file and returns 201 with the five DTO keys        | P0       | `@regression @meeting-files @api @p0 @mutating` |
-| MF-API-02 | all three file routes without a token give 401                    | P0       | `@regression @meeting-files @api @p0`           |
-| MF-API-03 | an unknown meeting and another owner's meeting give the same 404  | P0       | `@regression @meeting-files @api @p0`           |
-| MF-API-04 | GET lists the seeded files as `{ items }`, newest first, no bytes | P0       | `@regression @meeting-files @api @p0`           |
-| MF-API-05 | a meeting with no files lists an empty `items`, not a 404         | P1       | `@regression @meeting-files @api`               |
-| MF-API-06 | the download carries the four documented headers                  | P0       | `@regression @meeting-files @api @p0`           |
-| MF-API-07 | upload → list → download round-trips the bytes unchanged          | P0       | `@regression @meeting-files @api @p0 @mutating` |
-| MF-API-08 | an unknown file id and another meeting's file id give 404         | P0       | `@regression @meeting-files @api @p0 @mutating` |
-| MF-API-09 | an upload with no `file` part gives 400                           | P1       | `@regression @meeting-files @api @mutating`     |
-| MF-API-10 | the filename rule: what the parser already changed, and the 400   | P1       | `@regression @meeting-files @api @mutating`     |
-| MF-API-11 | an extra text part gives 400 `property … should not exist`        | P1       | `@regression @meeting-files @api @mutating`     |
-| MF-API-12 | a file part under another field name gives a **string** 400       | P1       | `@regression @meeting-files @api @mutating`     |
-| MF-API-13 | a file over 1 048 576 bytes gives 413                             | P1       | `@regression @meeting-files @api @mutating`     |
-| MF-API-14 | the allow-list after normalization: accepted and refused types    | P1       | `@regression @meeting-files @api @mutating`     |
-| MF-API-15 | the eleventh file on a meeting is refused with 400                | P1       | `@regression @meeting-files @api @mutating`     |
-| MF-API-16 | evaluation order: a stranger with an oversized file gets 413      | P0       | `@regression @meeting-files @api @p0`           |
-| MF-API-17 | the stored content type is normalized, never the client's header  | P0       | `@regression @meeting-files @api @p0 @mutating` |
-| MF-API-18 | no `filename` and `application/octet-stream`: file is required    | P1       | `@regression @meeting-files @api @mutating`     |
-| MF-API-19 | no `filename` and any other type: the part arrives as a field     | P1       | `@regression @meeting-files @api @mutating`     |
+| ID        | Title                                                                  | Priority | Tags                                            |
+| --------- | ---------------------------------------------------------------------- | -------- | ----------------------------------------------- |
+| MF-API-01 | POST uploads a file and returns 201 with the five DTO keys             | P0       | `@regression @meeting-files @api @p0 @mutating` |
+| MF-API-02 | all three file routes without a token give 401                         | P0       | `@regression @meeting-files @api @p0`           |
+| MF-API-03 | an unknown meeting and another owner's meeting give the same 404       | P0       | `@regression @meeting-files @api @p0`           |
+| MF-API-04 | GET lists the seeded files as `{ items }`, newest first, no bytes      | P0       | `@regression @meeting-files @api @p0`           |
+| MF-API-05 | a meeting with no files lists an empty `items`, not a 404              | P1       | `@regression @meeting-files @api`               |
+| MF-API-06 | the download carries the four documented headers                       | P0       | `@regression @meeting-files @api @p0`           |
+| MF-API-07 | upload → list → download round-trips the bytes unchanged               | P0       | `@regression @meeting-files @api @p0 @mutating` |
+| MF-API-08 | an unknown file id and another meeting's file id give 404              | P0       | `@regression @meeting-files @api @p0 @mutating` |
+| MF-API-09 | an upload with no `file` part gives 400                                | P1       | `@regression @meeting-files @api @mutating`     |
+| MF-API-10 | the filename rule: what the parser already changed, and the 400        | P1       | `@regression @meeting-files @api @mutating`     |
+| MF-API-11 | an extra text part gives 400 `property … should not exist`             | P1       | `@regression @meeting-files @api @mutating`     |
+| MF-API-12 | a file part under another field name gives a **string** 400            | P1       | `@regression @meeting-files @api @mutating`     |
+| MF-API-13 | a file over 1 048 576 bytes gives 413                                  | P1       | `@regression @meeting-files @api @mutating`     |
+| MF-API-14 | the allow-list after normalization: accepted and refused types         | P1       | `@regression @meeting-files @api @mutating`     |
+| MF-API-15 | the eleventh file on a meeting is refused with 400                     | P1       | `@regression @meeting-files @api @mutating`     |
+| MF-API-16 | evaluation order: a stranger with an oversized file gets 413           | P0       | `@regression @meeting-files @api @p0`           |
+| MF-API-17 | the stored content type is normalized, never the client's header       | P0       | `@regression @meeting-files @api @p0 @mutating` |
+| MF-API-18 | no `filename` and `application/octet-stream`: file is required         | P1       | `@regression @meeting-files @api @mutating`     |
+| MF-API-19 | no `filename` and any other type: the part arrives as a field          | P1       | `@regression @meeting-files @api @mutating`     |
+| MF-API-20 | DELETE a file answers 204 empty; that file is gone, its sibling is not | P0       | `@regression @meeting-files @api @p0 @mutating` |
+| MF-API-21 | another meeting's file and an absent file id give the file-level 404   | P0       | `@regression @meeting-files @api @p0 @mutating` |
+| MF-API-22 | a foreign meeting and an absent one give the same 404, checked first   | P0       | `@regression @meeting-files @api @p0 @mutating` |
+| MF-API-23 | DELETE a file without a token gives 401 and the file survives          | P0       | `@regression @meeting-files @api @p0 @mutating` |
+| MF-API-24 | deleting one of ten files frees exactly one slot                       | P1       | `@regression @meeting-files @api @mutating`     |
+| MF-API-25 | deleting a meeting takes its files with it                             | P0       | `@regression @meeting-files @api @p0 @mutating` |
 
 ## Cases
 
@@ -338,3 +353,90 @@ large`, which names no limit, so the web surface substitutes its own line — as
   paths through the parser and answer with two different bodies. An **empty** `filename=""` lands
   here too, for the reason `MF-API-10` records. Like `MF-API-11`'s, this body is unreachable through
   our own form and is asserted at this level precisely because another client can produce it.
+
+### MF-API-20 — DELETE a file answers 204 empty; that file is gone, its sibling is not
+
+- **Priority:** P0
+- **Data:** one meeting `planner` creates for this case, with two small legal files uploaded into it.
+- **Steps:** as `planner`, `DELETE /meetings/{id}/files/{firstFileId}`; then list the meeting's
+  files; then `GET …/{firstFileId}/content` and `GET …/{secondFileId}/content`; then
+  `DELETE /meetings/{id}/files/{firstFileId}` a second time.
+- **Expected:** the first `DELETE` answers **204** with an empty body (zero-length text) — a Nest
+  `@Delete` defaults to 200, so the status pins the `@HttpCode`. The listing holds exactly one item,
+  the second file's id; the first file's content answers 404 with exactly `FACT-2083`, the second's
+  answers 200 with the bytes uploaded. The second `DELETE` answers the same `FACT-2083` 404, not 204
+  — a deleted file is indistinguishable from one that never existed (`ADR-0018`, `FACT-3392`).
+- **Cleanup:** `DELETE /meetings/{id}` as `planner`.
+
+### MF-API-21 — another meeting's file and an absent file id give the file-level 404
+
+- **Priority:** P0
+- **Data:** two meetings `planner` creates for this case, A and B; one file uploaded into A.
+- **Steps:** as `planner`, `DELETE /meetings/{B}/files/{fileOfA}`, then
+  `DELETE /meetings/{A}/files/{fileOfA}-does-not-exist`; then list A's files and download the file.
+- **Expected:** both `DELETE`s answer 404 with exactly `FACT-2083`, the two parsed bodies compared in
+  **one** `toEqual`: both meetings are owned, so this is the file-level 404 and never
+  `FACT-2016`. A's listing still holds the file and its content still downloads with the bytes
+  uploaded — the delete is scoped to the meeting in the path, not to the file id alone. A `where`
+  reduced to `{ id: fileId }` turns this case red.
+- **Cleanup:** `DELETE /meetings/{A}` and `DELETE /meetings/{B}` as `planner`.
+
+### MF-API-22 — a foreign meeting and an absent one give the same 404, checked first
+
+- **Priority:** P0
+- **Data:** one meeting `planner` creates for this case, one file uploaded into it; `student` as the
+  foreign token.
+- **Steps:** as `student`, `DELETE /meetings/{id}/files/{fileId}` and
+  `DELETE /meetings/{id}/files/{fileId}-does-not-exist`. As `planner`,
+  `DELETE /meetings/{id}-does-not-exist/files/{fileId}`. Then, as `planner`, list the files and
+  download the file.
+- **Expected:** all three `DELETE`s answer 404 with exactly `FACT-2016`, and the three parsed bodies
+  are equal in **one** `toEqual`. Ownership is evaluated before the file (`FACT-2124`), so a foreign
+  meeting answers the same body whether the file id exists on it or not, and never `FACT-2083` —
+  the route cannot be used to probe another user's file ids. The listing still holds the file and
+  its content downloads unchanged.
+- **Cleanup:** `DELETE /meetings/{id}` as `planner`.
+
+### MF-API-23 — DELETE a file without a token gives 401 and the file survives
+
+- **Priority:** P0
+- **Data:** one meeting `planner` creates for this case, one file uploaded into it.
+- **Steps:** `DELETE /meetings/{id}/files/{fileId}` with no `Authorization`, then with
+  `Authorization: Bearer` carrying no value; then list the files as `planner`.
+- **Expected:** both answer 401 with exactly `FACT-2015`
+  (`{ message: 'Authentication required', error: 'Unauthorized', statusCode: 401 }`), and the
+  listing still holds the file. `MF-API-02` stays about the three read and upload routes; this is
+  the write route's own guard.
+- **Cleanup:** `DELETE /meetings/{id}` as `planner`.
+
+### MF-API-24 — deleting one of ten files frees exactly one slot
+
+- **Priority:** P1
+- **Data:** one meeting `planner` creates for this case.
+- **Steps:** as `planner`, upload ten small legal files **one after another**; `DELETE` one of
+  them; upload an eleventh; then upload a twelfth.
+- **Expected:** the ten uploads and the `DELETE` succeed (201, 204); the eleventh upload answers
+  **201**, because the cap counts the files a meeting holds when the upload arrives (`FACT-2096`)
+  and the delete brought that count to nine. The twelfth answers `MF-API-15`'s 400 with exactly
+  `{ message: ['a meeting may hold at most 10 files'], error: 'Bad Request', statusCode: 400 }`, and
+  the listing holds ten without the deleted id: one delete freed one slot, and the cap is still
+  live rather than switched off.
+- **Cleanup:** `DELETE /meetings/{id}` as `planner`.
+
+### MF-API-25 — deleting a meeting takes its files with it
+
+- **Priority:** P0
+- **Data:** one meeting `planner` creates for this case, two small legal files uploaded into it.
+- **Steps:** as `planner`, `DELETE /meetings/{id}`; then `GET /meetings/{id}/files`, and
+  `GET /meetings/{id}/files/{fileId}/content` for each of the two file ids.
+- **Expected:** the `DELETE` answers **204** with an empty body; the listing and both contents
+  answer 404 with exactly `FACT-2016` — the meeting is gone, and with it every route to its files.
+  The files go by the schema's `onDelete: Cascade` (`FACT-1057`), which `meetings` relies on rather
+  than deleting `MeetingFile` rows itself.
+- **What makes this discriminating:** an orphaned file is invisible over HTTP, because every file
+  route checks the meeting first, so the 404s alone cannot prove the rows went. The `204` does: with
+  the cascade removed the foreign key restricts and this `DELETE` answers 500, while `MD-API-09` —
+  the same `DELETE` on a meeting with no files — stays green. That pairing is the proof.
+- **Cleanup:** `DELETE` each of the two files, then `DELETE /meetings/{id}`, as `planner` — files
+  first, so that a broken cascade still leaves no rows; here every one of them is expected to answer
+  the tolerated `FACT-2016` 404.

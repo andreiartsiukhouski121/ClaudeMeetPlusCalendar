@@ -1,5 +1,5 @@
 /**
- * The seed writes four accounts sharing one password that is committed to git (`users.seed.ts`,
+ * The seed writes five accounts sharing one password that is committed to git (`users.seed.ts`,
  * mirrored in `e2e/fixtures/seed.ts`). That is acceptable for a development or an e2e database and
  * never for a production one, so `apps/api/prisma/seed.ts` refuses to run when `NODE_ENV` says
  * production — the same signal the session cookie's `secure` flag reads (invariant 12).

@@ -52,6 +52,7 @@ seed file would be replaced by a migration with pre-computed hashes (`BL-004`).
 | `student@purpleschool.test`   | `Passw0rd!` | 0        | 0     | read-only; the "no meetings" edge case                                                |
 | `planner@purpleschool.test`   | `Passw0rd!` | 2        | 5     | mutation sandbox for the API tests, plus `SEC-API-11`'s never-mutated fixture meeting |
 | `organizer@purpleschool.test` | `Passw0rd!` | 1        | 0     | mutation sandbox for the functional tests                                             |
+| `eraser@purpleschool.test`    | `Passw0rd!` | 0        | 0     | used only by `HD-API-23` and `SM-API-02`; nothing else moves its total                |
 
 `teacher` and `student` **must never be mutated**: absolute assertions depend on them. Separate
 owners for the API and UI tests are needed because Playwright runs the projects in parallel against

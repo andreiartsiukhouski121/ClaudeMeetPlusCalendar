@@ -7,6 +7,7 @@ import type { Clock } from '../shared/application/clock.js';
 import type { UuidSource } from '../shared/application/uuid-source.js';
 import { CryptoUuidSource } from '../shared/infrastructure/crypto-uuid-source.js';
 import { SystemClock } from '../shared/infrastructure/system-clock.js';
+import { DeleteMeetingFile } from './application/delete-meeting-file.js';
 import { GetMeetingFileContent } from './application/get-meeting-file-content.js';
 import { ListMeetingFiles } from './application/list-meeting-files.js';
 import type { MeetingAccess } from './application/meeting-access.js';
@@ -56,6 +57,12 @@ import {
       provide: GetMeetingFileContent,
       useFactory: (files: MeetingFileRepository, access: MeetingAccess) =>
         new GetMeetingFileContent(files, access),
+      inject: [MEETING_FILE_REPOSITORY, MEETING_ACCESS],
+    },
+    {
+      provide: DeleteMeetingFile,
+      useFactory: (files: MeetingFileRepository, access: MeetingAccess) =>
+        new DeleteMeetingFile(files, access),
       inject: [MEETING_FILE_REPOSITORY, MEETING_ACCESS],
     },
   ],

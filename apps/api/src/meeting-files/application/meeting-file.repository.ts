@@ -11,4 +11,7 @@ export interface MeetingFileRepository {
 
   /** `undefined` when the file is absent or belongs to another meeting (`FACT-2117`). */
   findByIdForMeeting(meetingId: string, fileId: string): Promise<MeetingFile | undefined>;
+
+  /** `false` when the file is absent or belongs to another meeting, as `findByIdForMeeting`. */
+  deleteByIdForMeeting(meetingId: string, fileId: string): Promise<boolean>;
 }

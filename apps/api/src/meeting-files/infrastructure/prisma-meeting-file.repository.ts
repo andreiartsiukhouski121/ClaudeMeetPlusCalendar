@@ -56,4 +56,13 @@ export class PrismaMeetingFileRepository implements MeetingFileRepository {
 
     return row && row.meetingId === meetingId ? MeetingFile.restore(row) : undefined;
   }
+
+  /** The meeting is in the `where`, so a file id on another meeting deletes nothing. */
+  async deleteByIdForMeeting(meetingId: string, fileId: string): Promise<boolean> {
+    const { count } = await this.prisma.meetingFile.deleteMany({
+      where: { id: fileId, meetingId },
+    });
+
+    return count === 1;
+  }
 }

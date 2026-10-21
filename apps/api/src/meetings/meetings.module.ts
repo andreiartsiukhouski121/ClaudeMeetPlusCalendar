@@ -5,6 +5,7 @@ import { PrismaModule } from '../prisma/prisma.module.js';
 import type { UuidSource } from '../shared/application/uuid-source.js';
 import { CryptoUuidSource } from '../shared/infrastructure/crypto-uuid-source.js';
 import { CreateMeeting } from './application/create-meeting.js';
+import { DeleteMeeting } from './application/delete-meeting.js';
 import { GetMeeting } from './application/get-meeting.js';
 import { ListMeetings } from './application/list-meetings.js';
 import type { MeetingRepository } from './application/meeting.repository.js';
@@ -39,6 +40,11 @@ import { MEETING_REPOSITORY, UUID_SOURCE } from './meetings.tokens.js';
     {
       provide: GetMeeting,
       useFactory: (meetings: MeetingRepository) => new GetMeeting(meetings),
+      inject: [MEETING_REPOSITORY],
+    },
+    {
+      provide: DeleteMeeting,
+      useFactory: (meetings: MeetingRepository) => new DeleteMeeting(meetings),
       inject: [MEETING_REPOSITORY],
     },
   ],

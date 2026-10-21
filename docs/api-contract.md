@@ -29,17 +29,19 @@ key is reasoning and must not be cited as fact (`ADR-0021`).
 this one table because `AR-API-09` reads the `Cases` column by position
 (`e2e/architecture/architecture.api.spec.ts`, `violationsCasesCitations`).
 
-| Method | Path                                  | Guard    | Success | Errors                        | Cases                                                | Key         |
-| ------ | ------------------------------------- | -------- | ------- | ----------------------------- | ---------------------------------------------------- | ----------- |
-| `GET`  | `/`                                   | none     | `200`   | —                             | `SM-API-01`                                          | `FACT-2006` |
-| `POST` | `/auth/login`                         | none     | `200`   | `400`,`401`                   | `AL-API-01`…`04`, `AL-API-07`…`08`, `AL-API-10`…`11` | `FACT-2007` |
-| `GET`  | `/auth/me`                            | `Bearer` | `200`   | `401`                         | `AL-API-10`, `AL-API-13`…`15`                        | `FACT-2008` |
-| `GET`  | `/meetings`                           | `Bearer` | `200`   | `400`,`401`                   | `HD-API-01`…`10`                                     | `FACT-2009` |
-| `POST` | `/meetings`                           | `Bearer` | `201`   | `400`,`401`                   | `HD-API-13`…`17`, `HD-API-20`                        | `FACT-2010` |
-| `GET`  | `/meetings/:id`                       | `Bearer` | `200`   | `401`,`404`                   | `MD-API-01`…`07`                                     | `FACT-2011` |
-| `POST` | `/meetings/:id/files`                 | `Bearer` | `201`   | `400`,`401`,`404`,`413`,`415` | `MF-API-01`, `MF-API-07`, `MF-API-09`…`19`           | `FACT-2080` |
-| `GET`  | `/meetings/:id/files`                 | `Bearer` | `200`   | `401`,`404`                   | `MF-API-02`…`05`                                     | `FACT-2081` |
-| `GET`  | `/meetings/:id/files/:fileId/content` | `Bearer` | `200`   | `401`,`404`                   | `MF-API-06`, `MF-API-08`, `SEC-API-11`               | `FACT-2082` |
+| Method   | Path                                  | Guard    | Success | Errors                        | Cases                                                | Key         |
+| -------- | ------------------------------------- | -------- | ------- | ----------------------------- | ---------------------------------------------------- | ----------- |
+| `GET`    | `/`                                   | none     | `200`   | —                             | `SM-API-01`                                          | `FACT-2006` |
+| `POST`   | `/auth/login`                         | none     | `200`   | `400`,`401`                   | `AL-API-01`…`04`, `AL-API-07`…`08`, `AL-API-10`…`11` | `FACT-2007` |
+| `GET`    | `/auth/me`                            | `Bearer` | `200`   | `401`                         | `AL-API-10`, `AL-API-13`…`15`                        | `FACT-2008` |
+| `GET`    | `/meetings`                           | `Bearer` | `200`   | `400`,`401`                   | `HD-API-01`…`10`                                     | `FACT-2009` |
+| `POST`   | `/meetings`                           | `Bearer` | `201`   | `400`,`401`                   | `HD-API-13`…`17`, `HD-API-20`                        | `FACT-2010` |
+| `GET`    | `/meetings/:id`                       | `Bearer` | `200`   | `401`,`404`                   | `MD-API-01`…`07`                                     | `FACT-2011` |
+| `POST`   | `/meetings/:id/files`                 | `Bearer` | `201`   | `400`,`401`,`404`,`413`,`415` | `MF-API-01`, `MF-API-07`, `MF-API-09`…`19`           | `FACT-2080` |
+| `GET`    | `/meetings/:id/files`                 | `Bearer` | `200`   | `401`,`404`                   | `MF-API-02`…`05`                                     | `FACT-2081` |
+| `GET`    | `/meetings/:id/files/:fileId/content` | `Bearer` | `200`   | `401`,`404`                   | `MF-API-06`, `MF-API-08`, `SEC-API-11`               | `FACT-2082` |
+| `DELETE` | `/meetings/:id`                       | `Bearer` | `204`   | `401`,`404`                   | `MD-API-09`…`11`, `HD-API-23`, `SEC-API-12`          | `FACT-2128` |
+| `DELETE` | `/meetings/:id/files/:fileId`         | `Bearer` | `204`   | `401`,`404`                   | `MF-API-20`…`25`, `SEC-API-12`                       | `FACT-2129` |
 
 ## Error shapes
 
@@ -236,6 +238,25 @@ and 8.
 > validating pipe would 400 the seed instead of 404-ing an unknown id — and its 400 would carry a
 > string `message`, contradicting `FACT-2086`. A malformed id is simply an id no meeting has.
 
+## `DELETE /meetings/:id` — delete a meeting
+
+- `FACT-2130` Guard: the class-level `JwtAuthGuard`; no body DTO and no pipe on `:id`, so a request
+  body is ignored. Answers `204` with an empty body, which needs `@HttpCode(HttpStatus.NO_CONTENT)`
+  because Nest answers a DELETE with `200` otherwise. The `404` of `FACT-2016` is the one answer for
+  an absent, a foreign and an already-deleted id, so a second `DELETE` is `404` (`ADR-0018`). The
+  meeting's files are removed with it by the foreign key's `onDelete: Cascade`, not by `meetings`. —
+  `apps/api/src/meetings/meetings.controller.ts`, `apps/api/src/meetings/application/delete-meeting.ts`,
+  `FACT-1057`, `MD-API-09`, `MD-API-10`, `MF-API-25`
+
+## `DELETE /meetings/:id/files/:fileId` — delete one file
+
+- `FACT-2131` Guard: the `JwtAuthGuard` on `MeetingFilesController`; answers `204`, empty, under
+  `@HttpCode(HttpStatus.NO_CONTENT)`. Evaluation order: guard, then ownership of the meeting (`404`
+  of `FACT-2016` for an absent or foreign meeting, so a foreign meeting never reveals whether the file
+  id exists on it), then the file (`404` of `FACT-2083` when it is absent, already deleted or on
+  another meeting). A second `DELETE` is therefore `404`. — `FACT-2124`,
+  `apps/api/src/meeting-files/application/delete-meeting-file.ts`, `MF-API-20`…`23`
+
 ## `POST /meetings/:id/files` — attach a file to a meeting
 
 - `FACT-2087` Guard: `JwtAuthGuard` on the whole `MeetingFilesController` class. Answers `201` —
@@ -278,6 +299,8 @@ and 8.
 - `FACT-2096` An upload is refused when the meeting **already holds ten files**. The check is a count
   followed by an insert rather than a transaction, so the contract promises the refusal, not an exact
   ceiling under concurrency. — `FACT-3642`, `MF-API-15`
+- `FACT-2132` The count of `FACT-2096` is of the files the meeting holds when the upload arrives, so
+  deleting a file frees exactly one slot. — `FACT-2131`, `MF-API-24`
 
 **Evaluation order.** It decides which body a request with two faults receives.
 

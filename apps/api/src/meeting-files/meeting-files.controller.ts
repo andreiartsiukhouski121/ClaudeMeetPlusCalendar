@@ -1,7 +1,10 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
+  HttpCode,
+  HttpStatus,
   Param,
   Post,
   Res,
@@ -17,6 +20,7 @@ import type { Response } from 'express';
 import type { AuthenticatedUser } from '../auth/auth.types.js';
 import { CurrentUser } from '../auth/current-user.decorator.js';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard.js';
+import { DeleteMeetingFile } from './application/delete-meeting-file.js';
 import { GetMeetingFileContent } from './application/get-meeting-file-content.js';
 import { ListMeetingFiles } from './application/list-meeting-files.js';
 import { UploadMeetingFile } from './application/upload-meeting-file.js';
@@ -27,7 +31,7 @@ import { MeetingFilesErrorFilter } from './meeting-files.error-filter.js';
 import { type MeetingFileDto, toMeetingFileDto } from './meeting-files.mapper.js';
 
 /**
- * Three routes nested under a meeting, guarded the same way as `MeetingsController` (invariant 16).
+ * Four routes nested under a meeting, guarded the same way as `MeetingsController` (invariant 16).
  * Each handler turns request parts into a use-case input, calls the use case and maps the result
  * out; a broken rule surfaces as a domain error that `MeetingFilesErrorFilter` translates
  * (`FACT-3706`).
@@ -40,6 +44,7 @@ export class MeetingFilesController {
     private readonly uploadMeetingFile: UploadMeetingFile,
     private readonly listMeetingFiles: ListMeetingFiles,
     private readonly getMeetingFileContent: GetMeetingFileContent,
+    private readonly deleteMeetingFile: DeleteMeetingFile,
   ) {}
 
   /**
@@ -118,5 +123,16 @@ export class MeetingFilesController {
     });
 
     return new StreamableFile(content);
+  }
+
+  /** `@HttpCode` is required: Nest answers a DELETE with 200 by default. */
+  @Delete(':id/files/:fileId')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async remove(
+    @CurrentUser() current: AuthenticatedUser,
+    @Param('id') meetingId: string,
+    @Param('fileId') fileId: string,
+  ): Promise<void> {
+    await this.deleteMeetingFile.execute({ ownerId: current.id, meetingId, fileId });
   }
 }

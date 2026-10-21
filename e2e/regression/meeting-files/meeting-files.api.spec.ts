@@ -1,6 +1,12 @@
 import { expect, test, type APIRequestContext } from '@playwright/test';
 
 import { authHeadersFor } from '../../fixtures/auth.api.js';
+import {
+  FILE_NOT_FOUND_BODY,
+  MEETING_NOT_FOUND_BODY,
+  withCleanup,
+  type Track,
+} from '../../fixtures/cleanup.api.js';
 import { buildMultipartBody, type MultipartField } from '../../fixtures/multipart.js';
 import {
   EMPTY_FILES_MEETING_TITLE,
@@ -10,8 +16,8 @@ import {
 } from '../../fixtures/seed.js';
 
 /**
- * Contract of `POST /meetings/:id/files`, `GET /meetings/:id/files` and
- * `GET /meetings/:id/files/:fileId/content`. Cases live in the paired
+ * Contract of `POST /meetings/:id/files`, `GET /meetings/:id/files`,
+ * `GET /meetings/:id/files/:fileId/content` and `DELETE /meetings/:id/files/:fileId`. Cases live in the paired
  * `meeting-files.api.cases.md`; every test title starts with its case ID.
  *
  * Project `api`: the `request` fixture, `baseURL = http://127.0.0.1:3101`, no browser.
@@ -93,6 +99,19 @@ async function createMeeting(
   return body.id;
 }
 
+/** `createMeeting` plus the cleanup registration, so a case cannot create one and forget it. */
+async function createTrackedMeeting(
+  request: APIRequestContext,
+  headers: Record<string, string>,
+  track: Track,
+  titlePrefix: string,
+): Promise<string> {
+  const meetingId = await createMeeting(request, headers, titlePrefix);
+  track(`/meetings/${meetingId}`, MEETING_NOT_FOUND_BODY);
+
+  return meetingId;
+}
+
 /** One real meeting id belonging to `teacher`, found by its seeded title — never a literal. */
 async function meetingIdByTitle(
   request: APIRequestContext,
@@ -143,6 +162,23 @@ function legalFilePart(overrides: Partial<MultipartField> = {}): MultipartField 
     content: 'legal upload content',
     ...overrides,
   };
+}
+
+/** Uploads one legal file and returns its DTO; the 201 is asserted here, not left to the case. */
+async function uploadLegalFile(
+  request: APIRequestContext,
+  headers: Record<string, string>,
+  meetingId: string,
+  filename: string,
+  content: string,
+): Promise<MeetingFileDto> {
+  const response = await uploadFile(request, headers, meetingId, [
+    legalFilePart({ filename, content }),
+  ]);
+
+  expect(response.status(), `seeding "${filename}" must succeed`).toBe(201);
+
+  return (await response.json()) as MeetingFileDto;
 }
 
 async function readFilesListing(
@@ -912,6 +948,280 @@ test.describe(
 
         const listing = await readFilesListing(request, headers, meetingId);
         expect(listing.body.items ?? []).toEqual([]);
+      },
+    );
+
+    // The delete cases send a DELETE only to a meeting the case created, and only to files it
+    // uploaded there; `student` is the foreign token and is never mutated.
+    test(
+      'MF-API-20 — DELETE a file answers 204 empty; that file is gone, its sibling is not',
+      { tag: ['@p0', '@mutating'] },
+      async ({ request }) => {
+        const headers = await authHeadersFor(request, 'planner');
+
+        await withCleanup(request, headers, async (track) => {
+          const meetingId = await createTrackedMeeting(request, headers, track, 'E2E delete file');
+          const first = await uploadLegalFile(
+            request,
+            headers,
+            meetingId,
+            'first.txt',
+            'first bytes',
+          );
+          const second = await uploadLegalFile(
+            request,
+            headers,
+            meetingId,
+            'second.txt',
+            'second bytes',
+          );
+
+          const deleted = await request.delete(`/meetings/${meetingId}/files/${first.id}`, {
+            headers,
+          });
+          // A Nest `@Delete` defaults to 200: the status pins the `@HttpCode`.
+          expect(deleted.status()).toBe(204);
+          expect(await deleted.text()).toBe('');
+
+          const listing = await readFilesListing(request, headers, meetingId);
+          expect((listing.body.items ?? []).map((item) => item.id)).toEqual([second.id]);
+
+          const firstContent = await request.get(
+            `/meetings/${meetingId}/files/${first.id}/content`,
+            { headers },
+          );
+          expect(firstContent.status()).toBe(404);
+          expect((await firstContent.json()) as ErrorBody).toEqual(FILE_NOT_FOUND_BODY);
+
+          const secondContent = await request.get(
+            `/meetings/${meetingId}/files/${second.id}/content`,
+            { headers },
+          );
+          expect(secondContent.status()).toBe(200);
+          expect(await secondContent.text()).toBe('second bytes');
+
+          const again = await request.delete(`/meetings/${meetingId}/files/${first.id}`, {
+            headers,
+          });
+          expect(again.status(), 'a deleted file is indistinguishable from an absent one').toBe(
+            404,
+          );
+          expect((await again.json()) as ErrorBody).toEqual(FILE_NOT_FOUND_BODY);
+        });
+      },
+    );
+
+    test(
+      "MF-API-21 — another meeting's file and an absent file id give the file-level 404",
+      { tag: ['@p0', '@mutating'] },
+      async ({ request }) => {
+        const headers = await authHeadersFor(request, 'planner');
+
+        await withCleanup(request, headers, async (track) => {
+          const meetingA = await createTrackedMeeting(request, headers, track, 'E2E file scope A');
+          const meetingB = await createTrackedMeeting(request, headers, track, 'E2E file scope B');
+          const fileOfA = await uploadLegalFile(
+            request,
+            headers,
+            meetingA,
+            'scoped.txt',
+            'bytes of A',
+          );
+
+          const crossMeeting = await request.delete(`/meetings/${meetingB}/files/${fileOfA.id}`, {
+            headers,
+          });
+          const absentFile = await request.delete(
+            `/meetings/${meetingA}/files/${fileOfA.id}-does-not-exist`,
+            { headers },
+          );
+
+          expect(crossMeeting.status(), "A's file through B").toBe(404);
+          expect(absentFile.status(), 'a derived, never-issued file id').toBe(404);
+
+          const crossBody = (await crossMeeting.json()) as ErrorBody;
+          const absentBody = (await absentFile.json()) as ErrorBody;
+          // Both meetings are owned, so this is the file-level 404 and never the meeting-level one.
+          expect(absentBody).toEqual(FILE_NOT_FOUND_BODY);
+          expect(crossBody).toEqual(absentBody);
+
+          const listing = await readFilesListing(request, headers, meetingA);
+          expect((listing.body.items ?? []).map((item) => item.id)).toEqual([fileOfA.id]);
+
+          const content = await request.get(`/meetings/${meetingA}/files/${fileOfA.id}/content`, {
+            headers,
+          });
+          expect(content.status()).toBe(200);
+          expect(await content.text()).toBe('bytes of A');
+        });
+      },
+    );
+
+    test(
+      'MF-API-22 — a foreign meeting and an absent one give the same 404, checked first',
+      { tag: ['@p0', '@mutating'] },
+      async ({ request }) => {
+        const headers = await authHeadersFor(request, 'planner');
+        const studentHeaders = await authHeadersFor(request, 'student');
+
+        await withCleanup(request, headers, async (track) => {
+          const meetingId = await createTrackedMeeting(request, headers, track, 'E2E foreign file');
+          const file = await uploadLegalFile(request, headers, meetingId, 'kept.txt', 'kept bytes');
+
+          const foreignRealFile = await request.delete(`/meetings/${meetingId}/files/${file.id}`, {
+            headers: studentHeaders,
+          });
+          const foreignAbsentFile = await request.delete(
+            `/meetings/${meetingId}/files/${file.id}-does-not-exist`,
+            { headers: studentHeaders },
+          );
+          const absentMeeting = await request.delete(
+            `/meetings/${meetingId}-does-not-exist/files/${file.id}`,
+            { headers },
+          );
+
+          expect(foreignRealFile.status(), "student, owner's real file id").toBe(404);
+          expect(foreignAbsentFile.status(), 'student, absent file id').toBe(404);
+          expect(absentMeeting.status(), 'owner, absent meeting id').toBe(404);
+
+          const bodies = [
+            (await foreignRealFile.json()) as ErrorBody,
+            (await foreignAbsentFile.json()) as ErrorBody,
+            (await absentMeeting.json()) as ErrorBody,
+          ];
+          // Ownership is evaluated before the file: never the file-level body, whatever the file id.
+          expect(bodies).toEqual([
+            MEETING_NOT_FOUND_BODY,
+            MEETING_NOT_FOUND_BODY,
+            MEETING_NOT_FOUND_BODY,
+          ]);
+
+          const listing = await readFilesListing(request, headers, meetingId);
+          expect((listing.body.items ?? []).map((item) => item.id)).toEqual([file.id]);
+
+          const content = await request.get(`/meetings/${meetingId}/files/${file.id}/content`, {
+            headers,
+          });
+          expect(content.status()).toBe(200);
+          expect(await content.text()).toBe('kept bytes');
+        });
+      },
+    );
+
+    test(
+      'MF-API-23 — DELETE a file without a token gives 401 and the file survives',
+      { tag: ['@p0', '@mutating'] },
+      async ({ request }) => {
+        const headers = await authHeadersFor(request, 'planner');
+
+        await withCleanup(request, headers, async (track) => {
+          const meetingId = await createTrackedMeeting(request, headers, track, 'E2E unauth file');
+          const file = await uploadLegalFile(request, headers, meetingId, 'guarded.txt', 'guarded');
+
+          const variants: { label: string; headers: Record<string, string> }[] = [
+            { label: 'no Authorization header', headers: {} },
+            { label: 'Authorization: Bearer with no value', headers: { Authorization: 'Bearer' } },
+          ];
+
+          for (const variant of variants) {
+            const response = await request.delete(`/meetings/${meetingId}/files/${file.id}`, {
+              headers: variant.headers,
+            });
+
+            expect(response.status(), variant.label).toBe(401);
+            expect((await response.json()) as ErrorBody, variant.label).toEqual({
+              message: UNAUTHORIZED,
+              error: 'Unauthorized',
+              statusCode: 401,
+            });
+          }
+
+          const listing = await readFilesListing(request, headers, meetingId);
+          expect((listing.body.items ?? []).map((item) => item.id)).toEqual([file.id]);
+        });
+      },
+    );
+
+    test(
+      'MF-API-24 — deleting one of ten files frees exactly one slot',
+      { tag: '@mutating' },
+      async ({ request }) => {
+        const headers = await authHeadersFor(request, 'planner');
+
+        await withCleanup(request, headers, async (track) => {
+          const meetingId = await createTrackedMeeting(request, headers, track, 'E2E slot freed');
+          const uploaded: MeetingFileDto[] = [];
+
+          for (let index = 0; index < 10; index += 1) {
+            uploaded.push(
+              await uploadLegalFile(request, headers, meetingId, `slot-${String(index)}.txt`, 'x'),
+            );
+          }
+
+          const deletedId = uploaded[0]?.id as string;
+          const deleted = await request.delete(`/meetings/${meetingId}/files/${deletedId}`, {
+            headers,
+          });
+          expect(deleted.status()).toBe(204);
+
+          // The cap counts what the meeting holds when the upload arrives: nine now, so one fits.
+          const eleventh = await uploadFile(request, headers, meetingId, [
+            legalFilePart({ filename: 'slot-10.txt' }),
+          ]);
+          expect(eleventh.status(), 'the freed slot accepts one more file').toBe(201);
+
+          const twelfth = await uploadFile(request, headers, meetingId, [
+            legalFilePart({ filename: 'slot-11.txt' }),
+          ]);
+          expect(twelfth.status(), 'the cap is still live').toBe(400);
+          expect((await twelfth.json()) as ErrorBody).toEqual({
+            message: ['a meeting may hold at most 10 files'],
+            error: 'Bad Request',
+            statusCode: 400,
+          });
+
+          const listing = await readFilesListing(request, headers, meetingId);
+          const ids = (listing.body.items ?? []).map((item) => item.id);
+          expect(ids).toHaveLength(10);
+          expect(ids).not.toContain(deletedId);
+        });
+      },
+    );
+
+    test(
+      'MF-API-25 — deleting a meeting takes its files with it',
+      { tag: ['@p0', '@mutating'] },
+      async ({ request }) => {
+        const headers = await authHeadersFor(request, 'planner');
+
+        await withCleanup(request, headers, async (track) => {
+          const meetingId = await createTrackedMeeting(request, headers, track, 'E2E cascade');
+          const first = await uploadLegalFile(request, headers, meetingId, 'one.txt', 'one');
+          const second = await uploadLegalFile(request, headers, meetingId, 'two.txt', 'two');
+          // Registered after the meeting, so cleanup removes files first: a broken cascade still
+          // leaves no rows. Each is expected to answer the tolerated meeting-level 404.
+          track(`/meetings/${meetingId}/files/${first.id}`, MEETING_NOT_FOUND_BODY);
+          track(`/meetings/${meetingId}/files/${second.id}`, MEETING_NOT_FOUND_BODY);
+
+          const deleted = await request.delete(`/meetings/${meetingId}`, { headers });
+          // With the schema's cascade removed the foreign key restricts and this answers 500.
+          expect(deleted.status()).toBe(204);
+          expect(await deleted.text()).toBe('');
+
+          const listing = await request.get(`/meetings/${meetingId}/files`, { headers });
+          expect(listing.status()).toBe(404);
+          expect((await listing.json()) as ErrorBody).toEqual(MEETING_NOT_FOUND_BODY);
+
+          for (const file of [first, second]) {
+            const content = await request.get(`/meetings/${meetingId}/files/${file.id}/content`, {
+              headers,
+            });
+            expect(content.status(), `content of ${file.filename}`).toBe(404);
+            expect((await content.json()) as ErrorBody, file.filename).toEqual(
+              MEETING_NOT_FOUND_BODY,
+            );
+          }
+        });
       },
     );
   },

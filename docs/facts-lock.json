@@ -558,8 +558,8 @@
       "status": "retired",
       "document": "docs/data-model.md",
       "hash": "ad1263f3b06ceb948633cc2f1d65dcea7e0dcfbfc50676be625fac173e22395c",
-      "supersededBy": "FACT-1068",
-      "recordedIn": "`ADR-0027`"
+      "supersededBy": "FACT-1084",
+      "recordedIn": "`ADR-0027`, `FT-010`"
     },
     "FACT-1028": {
       "status": "retired",
@@ -618,9 +618,11 @@
       "hash": "1115880447031fd67d1295e8c91c32f719c49d01d5a1a9634214aa039f743cd8"
     },
     "FACT-1038": {
-      "status": "active",
+      "status": "retired",
       "document": "docs/data-model.md",
-      "hash": "29f23f5876bbc5a534a1745f9027f611bb5008afda0b26042cf436c7c71dc58a"
+      "hash": "270f2ca6328638bf35eb83c929af1d8e76115e0d3431614a03132e78c821f800",
+      "supersededBy": "FACT-1086",
+      "recordedIn": "`ADR-0022`, `FT-010`"
     },
     "FACT-1039": {
       "status": "active",
@@ -628,9 +630,11 @@
       "hash": "1357f1bd9e8c615f8985f455521f02baa818ecd8b82045e411e3d05ef690a036"
     },
     "FACT-1040": {
-      "status": "active",
+      "status": "retired",
       "document": "docs/data-model.md",
-      "hash": "ab1a58599e6e0004d9458c7640a384545807f43a33484711b052cc34a1fb2a32"
+      "hash": "6f56df233368d0d7e4812932198ca0c0d4ec551052395963deb4fd88bb61f55d",
+      "supersededBy": "FACT-1087",
+      "recordedIn": "`ADR-0022`, `FT-010`"
     },
     "FACT-1041": {
       "status": "active",
@@ -772,9 +776,11 @@
       "hash": "01b92d8e2c57bebb616354b0cd0dc17af14eb85a7e20d0db45cfbb7f407c5fc1"
     },
     "FACT-1068": {
-      "status": "active",
+      "status": "retired",
       "document": "docs/data-model.md",
-      "hash": "133863e1976f8bcb27cd0f3cb4925e81aa1a22e164bc7f506733498828a96e39"
+      "hash": "1c1fb096c8789eb2bd67c1aaefcc4529abd5c378e06419d864ee0b8f6ca91e10",
+      "supersededBy": "FACT-1084",
+      "recordedIn": "`ADR-0022`, `FT-010`"
     },
     "FACT-1069": {
       "status": "active",
@@ -850,6 +856,26 @@
       "status": "active",
       "document": "docs/data-model.md",
       "hash": "4d331c4c1e7d2abf8625535f4e53dc7ec197d4f6f220d599b1d3e9db02910a9c"
+    },
+    "FACT-1084": {
+      "status": "active",
+      "document": "docs/data-model.md",
+      "hash": "786c15bd8cf69591c510de01af2abd3adf834a2a9e0eb3870c43776d7a90f1a9"
+    },
+    "FACT-1085": {
+      "status": "active",
+      "document": "docs/data-model.md",
+      "hash": "704c129cc9ea9ec32bdf08683e7fbf48fdbcd36b0ca2b5bd7a293fd55857df0f"
+    },
+    "FACT-1086": {
+      "status": "active",
+      "document": "docs/data-model.md",
+      "hash": "b2fe5e1e5dc987fce2cdfd6b0a289a872062cab20fcae907e020c21b2a75844e"
+    },
+    "FACT-1087": {
+      "status": "active",
+      "document": "docs/data-model.md",
+      "hash": "360d0e716cfefd6ebbdf73b26ef084ae7ea50b4a4a46e9a713ed0d936e30decd"
     },
     "FACT-2000": {
       "status": "active",
@@ -1503,6 +1529,31 @@
       "document": "docs/api-contract.md",
       "hash": "e3dae48a30237407c9c86d941675802f9933b2bfb74ce159071901143c0c2f31"
     },
+    "FACT-2128": {
+      "status": "active",
+      "document": "docs/api-contract.md",
+      "hash": "655cc8ca13577203cb69191f3ae66f41657925486e29dd388ffeaabaa4d5f8e4"
+    },
+    "FACT-2129": {
+      "status": "active",
+      "document": "docs/api-contract.md",
+      "hash": "c40c7ea59528a4e6a0bd1451b748947ea873fa2b697802c8460e8d4e05a4133b"
+    },
+    "FACT-2130": {
+      "status": "active",
+      "document": "docs/api-contract.md",
+      "hash": "dbc2e72da0c3993b26a871812cdc2d257c9c9016c7bd20735ddc2b5cd5166653"
+    },
+    "FACT-2131": {
+      "status": "active",
+      "document": "docs/api-contract.md",
+      "hash": "b2ff05eeb40c73c5280540d4efa260db4c28644481c677aec98a1e927cdc58ac"
+    },
+    "FACT-2132": {
+      "status": "active",
+      "document": "docs/api-contract.md",
+      "hash": "97a9cec256f78c56b1c6ee638b81ee2e21fefc1fcfad5080570a6d281e82f48e"
+    },
     "FACT-3000": {
       "status": "active",
       "document": "docs/adr",
@@ -1847,7 +1898,7 @@
     "FACT-3126": {
       "status": "active",
       "document": "docs/adr",
-      "hash": "228b436874721ecac3375926cd315860d7a18cd0aca0cec3dbc570a63e0c9da4"
+      "hash": "392a7d5abd2e420242acaea3c9e639c86f35de723987300e141f6c53c1aed18e"
     },
     "FACT-3127": {
       "status": "retired",

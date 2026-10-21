@@ -8,7 +8,7 @@
  * `users.seed.ts`/`meetings.seed.ts`/`meeting-files.seed.ts` is caught by `e2e/smoke/seed.api.spec.ts`.
  */
 
-export type SeedUserKey = 'teacher' | 'student' | 'planner' | 'organizer';
+export type SeedUserKey = 'teacher' | 'student' | 'planner' | 'organizer' | 'eraser';
 
 export interface SeedUser {
   email: string;
@@ -22,9 +22,10 @@ export interface SeedUser {
 const SEED_PASSWORD = 'Passw0rd!';
 
 /**
- * Four users rather than two, because of `fullyParallel: true` and the mutating `POST /meetings`:
+ * Five users rather than two, because of `fullyParallel: true` and the mutating `POST /meetings`:
  * the store is shared, so every mutating spec file needs its own owner or the `api` and `web`
- * projects race each other's counters.
+ * projects race each other's counters. The fifth, `eraser`, exists for `HD-API-23` alone: it reads
+ * `total` after a delete, which needs an owner whose count nothing else moves.
  *
  * `teacher` and `student` must NEVER be mutated: exact numbers are only checked against them.
  */
@@ -55,6 +56,13 @@ export const SEED_USERS: Record<SeedUserKey, SeedUser> = {
     password: SEED_PASSWORD,
     name: 'Peter Organizer',
     meetingsCount: 1,
+  },
+  // Used by `HD-API-23` and by no other case; no seeded meetings, every one it creates it deletes.
+  eraser: {
+    email: 'eraser@purpleschool.test',
+    password: SEED_PASSWORD,
+    name: 'Erin Eraser',
+    meetingsCount: 0,
   },
 };
 

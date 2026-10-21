@@ -42,6 +42,16 @@ export class PrismaMeetingRepository implements MeetingRepository {
     return row && row.ownerId === ownerId ? Meeting.restore(row) : undefined;
   }
 
+  /**
+   * One statement carrying the owner in its `where`: a foreign id deletes nothing, and the count
+   * tells absent-or-foreign from a row actually removed. The files go by the FK cascade (`FACT-1057`).
+   */
+  async deleteOwned(ownerId: string, id: string): Promise<boolean> {
+    const { count } = await this.prisma.meeting.deleteMany({ where: { id, ownerId } });
+
+    return count === 1;
+  }
+
   async save(meeting: Meeting): Promise<void> {
     await this.prisma.meeting.create({
       data: {

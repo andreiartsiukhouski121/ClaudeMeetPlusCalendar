@@ -28,19 +28,20 @@ answers without a token, including those that do not exist yet.
 
 ## Summary
 
-| ID         | Title                                                          | Priority | Tag   |
-| ---------- | -------------------------------------------------------------- | -------- | ----- |
-| SEC-API-01 | every protected endpoint requires a token                      | P0       | `@p0` |
-| SEC-API-02 | a forged signature and a junk token give 401, not 500          | P0       | `@p0` |
-| SEC-API-03 | a token signed with a different secret is rejected             | P0       | `@p0` |
-| SEC-API-04 | no response carries a hash, a salt or a plaintext password     | P0       | `@p0` |
-| SEC-API-05 | response time does not reveal that an account exists           | P0       | `@p0` |
-| SEC-API-06 | error bodies carry no stack trace, file paths or library names | P1       |       |
-| SEC-API-07 | extra body fields are rejected on every POST endpoint          | P1       |       |
-| SEC-API-08 | responses do not disclose the server stack (`X-Powered-By`)    | P1       |       |
-| SEC-API-09 | one user's data is unreachable with another user's token       | P0       | `@p0` |
-| SEC-API-10 | the repository holds no committed secrets and no `.env`        | P1       |       |
-| SEC-API-11 | a stored filename cannot break out of a response header        | P0       | `@p0` |
+| ID         | Title                                                          | Priority | Tag             |
+| ---------- | -------------------------------------------------------------- | -------- | --------------- |
+| SEC-API-01 | every protected endpoint requires a token                      | P0       | `@p0`           |
+| SEC-API-02 | a forged signature and a junk token give 401, not 500          | P0       | `@p0`           |
+| SEC-API-03 | a token signed with a different secret is rejected             | P0       | `@p0`           |
+| SEC-API-04 | no response carries a hash, a salt or a plaintext password     | P0       | `@p0`           |
+| SEC-API-05 | response time does not reveal that an account exists           | P0       | `@p0`           |
+| SEC-API-06 | error bodies carry no stack trace, file paths or library names | P1       |                 |
+| SEC-API-07 | extra body fields are rejected on every POST endpoint          | P1       |                 |
+| SEC-API-08 | responses do not disclose the server stack (`X-Powered-By`)    | P1       |                 |
+| SEC-API-09 | one user's data is unreachable with another user's token       | P0       | `@p0`           |
+| SEC-API-10 | the repository holds no committed secrets and no `.env`        | P1       |                 |
+| SEC-API-11 | a stored filename cannot break out of a response header        | P0       | `@p0`           |
+| SEC-API-12 | another user's token cannot delete a meeting or its file       | P0       | `@p0 @mutating` |
 
 ## Cases
 
@@ -228,3 +229,27 @@ answers without a token, including those that do not exist yet.
   `scrypt`, no seeded password and no seeded title — so `SEC-API-04`'s text scan is unaffected; and
   nothing uploads into it, which `meeting-files.api.cases.md` states as a precondition so that
   `SM-API-03` can assert its file list exactly.
+
+### SEC-API-12 — another user's token cannot delete a meeting or its file
+
+- **Priority:** P0
+- **Data:** one meeting `planner` creates for this case with `POST /meetings` (unique title,
+  `FUTURE_STARTS_AT_ISO`) and one small legal file uploaded into it; `student` as the foreign
+  token, which makes requests and is never mutated. **No seeded row is a target** — not `teacher`'s,
+  not `mtg-planner-2` — because the fault this case hunts would destroy whatever it was pointed at.
+- **Steps:** as `student`, `DELETE /meetings/{id}/files/{fileId}`, then `DELETE /meetings/{id}` —
+  the file first, so a meeting route that wrongly deletes cannot hide the file route's result by
+  taking the file with it. Then, as `planner`, `GET /meetings/{id}`, list its files and download
+  the file.
+- **Expected:** both `student` requests answer `404` with exactly `FACT-2016`, and neither body
+  echoes the meeting id or the file id back. The owner's `GET` answers `200`, the listing still
+  holds the file, and its content downloads with the bytes uploaded: nothing reachable with the
+  `student` token can remove a row `planner` owns. This is `SEC-API-09`'s invariant on the write
+  path — the two `DELETE` routes are the next resources it has to hold for (`ADR-0018`,
+  `FACT-3392`); byte-identity with an absent id stays in `MD-API-10` and `MF-API-22`.
+- **Cleanup — and the control:** as `planner`, `DELETE /meetings/{id}/files/{fileId}` and then
+  `DELETE /meetings/{id}`, **also on failure**, and both must answer `204`: the owner's own delete
+  is the control without which a route answering `404` to everyone would pass this case vacuously.
+  On a case that has already failed, cleanup removes whatever is left and its errors give way to
+  the case's own failure — once the meeting is gone the file route answers `FACT-2016`, not
+  `FACT-2083`, because ownership is checked first (`FACT-2124`).

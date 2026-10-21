@@ -24,7 +24,7 @@
   `FACT-1035`, `FACT-1039`
 - `FACT-3126` `planner` and `organizer` are the mutation sandboxes for the API and UI suites
   respectively, because Playwright runs both projects in parallel against one store. — `FACT-1071`,
-  `FACT-1037`, `FACT-1040`
+  `FACT-1037`, `FACT-1087`
 
 Rejected:
 

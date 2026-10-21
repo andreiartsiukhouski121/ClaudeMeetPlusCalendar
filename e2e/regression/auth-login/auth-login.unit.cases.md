@@ -34,7 +34,7 @@ and still answers 401, for the wrong reason.
 
 The sibling fault — a lookup returning the **wrong** user for a **known** address — is caught by
 `AL-API-13` and `AL-API-10`, which read the profile back and compare its email against the seed. It
-is **not** caught by the password check: the seed shares one password across all four users, so
+is **not** caught by the password check: the seed shares one password across all five users, so
 another user's hash verifies happily and the login succeeds; the email in the profile is the only
 thing that disagrees.
 

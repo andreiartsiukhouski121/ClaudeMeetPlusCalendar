@@ -116,6 +116,7 @@ One row per scenario declared in a Summary table, across every level and module 
 | api | regression/home-dashboard | `HD-API-20` | POST /meetings without durationMinutes gives 201 and 60 |
 | api | regression/home-dashboard | `HD-API-21` | the created id is `mtg-` + a randomUUID, not a seeded literal |
 | api | regression/home-dashboard | `HD-API-22` | equal startsAt still orders by id ascending |
+| api | regression/home-dashboard | `HD-API-23` | total follows a delete, relative to a baseline |
 | functional | regression/home-dashboard | `HD-FN-01` | an unauthenticated visitor on / goes to login |
 | functional | regression/home-dashboard | `HD-FN-02` | the greeting contains the user email |
 | functional | regression/home-dashboard | `HD-FN-03` | the meeting count matches the API data |
@@ -162,6 +163,12 @@ One row per scenario declared in a Summary table, across every level and module 
 | api | regression/meeting-files | `MF-API-17` | the stored content type is normalized, never the client's header |
 | api | regression/meeting-files | `MF-API-18` | no `filename` and `application/octet-stream`: file is required |
 | api | regression/meeting-files | `MF-API-19` | no `filename` and any other type: the part arrives as a field |
+| api | regression/meeting-files | `MF-API-20` | DELETE a file answers 204 empty; that file is gone, its sibling is not |
+| api | regression/meeting-files | `MF-API-21` | another meeting's file and an absent file id give the file-level 404 |
+| api | regression/meeting-files | `MF-API-22` | a foreign meeting and an absent one give the same 404, checked first |
+| api | regression/meeting-files | `MF-API-23` | DELETE a file without a token gives 401 and the file survives |
+| api | regression/meeting-files | `MF-API-24` | deleting one of ten files frees exactly one slot |
+| api | regression/meeting-files | `MF-API-25` | deleting a meeting takes its files with it |
 | functional | regression/meeting-files | `MF-FN-01` | a dashboard meeting title links to its detail page |
 | functional | regression/meeting-files | `MF-FN-02` | the detail page has one `h1` with the title and one `main` |
 | functional | regression/meeting-files | `MF-FN-03` | the attachment list names both seeded files, newest first |
@@ -206,6 +213,9 @@ One row per scenario declared in a Summary table, across every level and module 
 | api | regression/meetings-detail | `MD-API-06` | POST /meetings normalizes an absent, empty or null participants to [] |
 | api | regression/meetings-detail | `MD-API-07` | POST /meetings rejects invalid participants shapes with 400, no meeting created |
 | api | regression/meetings-detail | `MD-API-08` | padded and duplicated participants are neither trimmed nor deduplicated |
+| api | regression/meetings-detail | `MD-API-09` | DELETE /meetings/:id answers 204 empty, and the meeting is gone |
+| api | regression/meetings-detail | `MD-API-10` | another owner's DELETE gives the absent id's 404 and the meeting survives |
+| api | regression/meetings-detail | `MD-API-11` | DELETE /meetings/:id without a token gives 401 and the meeting survives |
 | api | security | `SEC-API-01` | every protected endpoint requires a token |
 | api | security | `SEC-API-02` | a forged signature and a junk token give 401, not 500 |
 | api | security | `SEC-API-03` | a token signed with a different secret is rejected |
@@ -217,6 +227,7 @@ One row per scenario declared in a Summary table, across every level and module 
 | api | security | `SEC-API-09` | one user's data is unreachable with another user's token |
 | api | security | `SEC-API-10` | the repository holds no committed secrets and no `.env` |
 | api | security | `SEC-API-11` | a stored filename cannot break out of a response header |
+| api | security | `SEC-API-12` | another user's token cannot delete a meeting or its file |
 | functional | security | `SEC-FN-01` | the session cookie is httpOnly, sameSite=lax, path=/, JS-invisible |
 | functional | security | `SEC-FN-02` | the token never reaches the HTML, the markup or client scripts |
 | functional | security | `SEC-FN-03` | the browser never calls the API directly nor exposes the token |

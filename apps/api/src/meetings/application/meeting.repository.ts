@@ -12,4 +12,7 @@ export interface MeetingRepository {
   findOwnedById(ownerId: string, id: string): Promise<Meeting | undefined>;
 
   save(meeting: Meeting): Promise<void>;
+
+  /** `false` for an absent and a foreign meeting alike, one code path (`ADR-0018`). */
+  deleteOwned(ownerId: string, id: string): Promise<boolean>;
 }

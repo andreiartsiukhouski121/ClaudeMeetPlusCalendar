@@ -27,13 +27,15 @@ point at the seed, not at the feature.
 ### SM-API-02 — seeded users are in place
 
 - **Priority:** P0
-- **Preconditions:** `POST /auth/login` works; all four `SEED_USER_KEYS` are described in
+- **Preconditions:** `POST /auth/login` works; all five `SEED_USER_KEYS` are described in
   `e2e/fixtures/seed.ts`.
-- **Steps:** for each of the four seeded users (`teacher`, `student`, `planner`, `organizer`)
-  perform `POST /auth/login` with the email and password from `e2e/fixtures/seed.ts`.
-- **Expected:** all four logins return 200 and an `accessToken` of three dot-separated segments. On
+- **Steps:** for each of the five seeded users (`teacher`, `student`, `planner`, `organizer`,
+  `eraser`) perform `POST /auth/login` with the email and password from `e2e/fixtures/seed.ts`.
+- **Expected:** all five logins return 200 and an `accessToken` of three dot-separated segments. On
   failure the message names the user and says the seed is what to compare
   (`apps/api/src/users/users.seed.ts` against `e2e/fixtures/seed.ts`), not the feature under test.
+  `eraser` is `HD-API-23`'s owner alone; this case only signs it in and reads none of its meetings,
+  whose count that case moves.
 
 ### SM-API-03 — seeded meetings and their files are in place
 

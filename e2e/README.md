@@ -236,6 +236,14 @@ than repeating it.
   that owner. `Date.now()` instead of the constant is a blocker.
 - **Absolute counter assertions in `@mutating` cases are forbidden** — a new meeting is found by its
   unique generated title rather than by `total`.
+- **A case added from `delete-meetings-and-files` on that creates a meeting deletes it when it
+  ends, also on failure.** The older mutating cases (`MD-API-05`…`MD-API-08`, `HD-API-13` onward,
+  `MF-API-01` and `MF-API-07`…`MF-API-19`) predate the rule and do not clean up. Cleanup goes through
+  `DELETE /meetings/:id` (files go with it by cascade) and tolerates a `404` only when the body is
+  exactly the contract's `Meeting not found` or `File not found`; any other `404`, Express's
+  `Cannot DELETE …` included, fails the case, and the case's own assertion failure is reported
+  before a cleanup failure. `withCleanup` in `fixtures/cleanup.api.ts` is the one implementation.
+  No seeded meeting or file is ever a delete target.
 - **The browser never reaches `:3101`.** All page traffic goes to Next; `HD-FN-11` checks it.
   Baseline data from Nest comes through the `apiRequest` fixture — from the test's Node process, not
   from the browser.

@@ -20,10 +20,11 @@ export interface SeedUser {
 const SEED_PASSWORD = 'Passw0rd!';
 
 /**
- * Four users rather than two: `POST /meetings` mutates the shared in-memory store while Playwright
- * runs `fullyParallel: true`, so each mutating spec file gets its own owner (`planner` for
+ * Five users rather than two: `POST /meetings` mutates the shared store while Playwright runs
+ * `fullyParallel: true`, so each mutating spec file gets its own owner (`planner` for
  * `*.api.spec.ts`, `organizer` for `*.functional.spec.ts`) and `teacher`/`student` stay read-only
- * baselines for exact counts.
+ * baselines for exact counts. `eraser` owns no meetings and is used by `HD-API-23` alone, the one
+ * case that needs a total nothing else moves.
  */
 export const SEED_USERS: readonly SeedUser[] = [
   {
@@ -48,6 +49,12 @@ export const SEED_USERS: readonly SeedUser[] = [
     id: 'usr-organizer',
     email: 'organizer@purpleschool.test',
     name: 'Peter Organizer',
+    password: SEED_PASSWORD,
+  },
+  {
+    id: 'usr-eraser',
+    email: 'eraser@purpleschool.test',
+    name: 'Erin Eraser',
     password: SEED_PASSWORD,
   },
 ];

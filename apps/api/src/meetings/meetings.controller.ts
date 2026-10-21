@@ -1,9 +1,22 @@
-import { Body, Controller, Get, Param, Post, Query, UseFilters, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  Post,
+  Query,
+  UseFilters,
+  UseGuards,
+} from '@nestjs/common';
 
 import type { AuthenticatedUser } from '../auth/auth.types.js';
 import { CurrentUser } from '../auth/current-user.decorator.js';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard.js';
 import { CreateMeeting } from './application/create-meeting.js';
+import { DeleteMeeting } from './application/delete-meeting.js';
 import { GetMeeting } from './application/get-meeting.js';
 import { ListMeetings } from './application/list-meetings.js';
 import { CreateMeetingDto } from './dto/create-meeting.dto.js';
@@ -27,6 +40,7 @@ export class MeetingsController {
     private readonly listMeetings: ListMeetings,
     private readonly createMeeting: CreateMeeting,
     private readonly getMeeting: GetMeeting,
+    private readonly deleteMeeting: DeleteMeeting,
   ) {}
 
   @Get()
@@ -61,5 +75,15 @@ export class MeetingsController {
     @Param('id') id: string,
   ): Promise<MeetingDto> {
     return toMeetingDto(await this.getMeeting.execute({ ownerId: current.id, id }));
+  }
+
+  /**
+   * `@HttpCode` is required: Nest answers a DELETE with 200 by default. Like `findById` the param
+   * carries no pipe, and an absent, foreign or already-deleted id is the one 404 (`ADR-0018`).
+   */
+  @Delete(':id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async remove(@CurrentUser() current: AuthenticatedUser, @Param('id') id: string): Promise<void> {
+    await this.deleteMeeting.execute({ ownerId: current.id, id });
   }
 }

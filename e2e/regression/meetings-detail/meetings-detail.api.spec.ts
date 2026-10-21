@@ -1,10 +1,12 @@
 import { expect, test, type APIRequestContext } from '@playwright/test';
 
 import { authHeadersFor } from '../../fixtures/auth.api.js';
+import { MEETING_NOT_FOUND_BODY, withCleanup } from '../../fixtures/cleanup.api.js';
 import { FUTURE_STARTS_AT_ISO } from '../../fixtures/seed.js';
 
 /**
- * Contract of `GET /meetings/:id` and of the `participants` field on `POST /meetings`. Cases live
+ * Contract of `GET /meetings/:id`, `DELETE /meetings/:id` and of the `participants` field on
+ * `POST /meetings`. Cases live
  * in the paired `meetings-detail.api.cases.md`; every test title starts with its case ID.
  *
  * Project `api`: the `request` fixture, `baseURL = http://127.0.0.1:3101`, no browser. Paths are
@@ -50,6 +52,22 @@ const MEETING_KEYS = ['durationMinutes', 'id', 'participants', 'startsAt', 'titl
  */
 function uniqueTitle(prefix: string): string {
   return `${prefix} ${String(Date.now())}-${String(Math.floor(Math.random() * 1e6))}`;
+}
+
+/** Creates a meeting as the given owner at the shared future date and returns its id. */
+async function createMeeting(
+  request: APIRequestContext,
+  headers: Record<string, string>,
+  title: string,
+): Promise<string> {
+  const response = await request.post('/meetings', {
+    headers,
+    data: { title, startsAt: FUTURE_STARTS_AT_ISO },
+  });
+
+  expect(response.status(), 'creating the delete target for this case must succeed').toBe(201);
+
+  return ((await response.json()) as MeetingItem).id;
 }
 
 async function readPage(
@@ -340,6 +358,115 @@ test.describe(
 
         const byIdBody = (await byId.json()) as MeetingItem;
         expect(byIdBody.participants).toEqual(participants);
+      },
+    );
+
+    // The delete cases target only meetings they create themselves, never a seeded row: a broken
+    // ownership `where` must fail one case, not destroy the read-only seed.
+    test(
+      'MD-API-09 — DELETE /meetings/:id answers 204 empty, and the meeting is gone',
+      { tag: ['@p0', '@mutating'] },
+      async ({ request }) => {
+        const headers = await authHeadersFor(request, 'planner');
+
+        await withCleanup(request, headers, async (track) => {
+          const title = uniqueTitle('E2E delete meeting');
+          const id = await createMeeting(request, headers, title);
+          track(`/meetings/${id}`, MEETING_NOT_FOUND_BODY);
+
+          const deleted = await request.delete(`/meetings/${id}`, { headers });
+          // A Nest `@Delete` defaults to 200: the status pins the `@HttpCode`.
+          expect(deleted.status()).toBe(204);
+          expect(await deleted.text()).toBe('');
+
+          const byId = await request.get(`/meetings/${id}`, { headers });
+          expect(byId.status()).toBe(404);
+          expect((await byId.json()) as ErrorBody).toEqual(MEETING_NOT_FOUND_BODY);
+
+          const page = await readPage(request, headers, '?limit=100');
+          expect((page.items ?? []).map((item) => item.id)).not.toContain(id);
+          expect((page.items ?? []).map((item) => item.title)).not.toContain(title);
+
+          const second = await request.delete(`/meetings/${id}`, { headers });
+          expect(second.status(), 'a deleted record is indistinguishable from an absent one').toBe(
+            404,
+          );
+          expect((await second.json()) as ErrorBody).toEqual(MEETING_NOT_FOUND_BODY);
+        });
+      },
+    );
+
+    test(
+      "MD-API-10 — another owner's DELETE gives the absent id's 404 and the meeting survives",
+      { tag: ['@p0', '@mutating'] },
+      async ({ request }) => {
+        const headers = await authHeadersFor(request, 'planner');
+        const studentHeaders = await authHeadersFor(request, 'student');
+
+        await withCleanup(request, headers, async (track) => {
+          const id = await createMeeting(request, headers, uniqueTitle('E2E foreign delete'));
+          // The owner's own delete is the control that a route answering 404 to everyone fails.
+          track(`/meetings/${id}`, null);
+
+          const before = await request.get(`/meetings/${id}`, { headers });
+          expect(before.status()).toBe(200);
+          const beforeBody = (await before.json()) as MeetingItem;
+
+          const foreign = await request.delete(`/meetings/${id}`, { headers: studentHeaders });
+          const absent = await request.delete(`/meetings/${id}-does-not-exist`, {
+            headers: studentHeaders,
+          });
+
+          expect(foreign.status(), "another owner's meeting").toBe(404);
+          expect(absent.status(), 'a derived, never-issued id').toBe(404);
+
+          const foreignBody = (await foreign.json()) as ErrorBody;
+          const absentBody = (await absent.json()) as ErrorBody;
+          expect(absentBody).toEqual(MEETING_NOT_FOUND_BODY);
+          // Unowned is indistinguishable from absent on the write path too (`ADR-0018`).
+          expect(foreignBody).toEqual(absentBody);
+
+          const after = await request.get(`/meetings/${id}`, { headers });
+          expect(after.status(), 'the foreign DELETE removed nothing').toBe(200);
+          expect((await after.json()) as MeetingItem).toEqual(beforeBody);
+        });
+      },
+    );
+
+    test(
+      'MD-API-11 — DELETE /meetings/:id without a token gives 401 and the meeting survives',
+      { tag: ['@p0', '@mutating'] },
+      async ({ request }) => {
+        const headers = await authHeadersFor(request, 'planner');
+
+        await withCleanup(request, headers, async (track) => {
+          const id = await createMeeting(
+            request,
+            headers,
+            uniqueTitle('E2E unauthenticated delete'),
+          );
+          track(`/meetings/${id}`, null);
+
+          const variants: { label: string; headers: Record<string, string> }[] = [
+            { label: 'no Authorization header', headers: {} },
+            { label: 'Authorization: Bearer with no value', headers: { Authorization: 'Bearer' } },
+          ];
+
+          for (const variant of variants) {
+            const response = await request.delete(`/meetings/${id}`, { headers: variant.headers });
+
+            expect(response.status(), variant.label).toBe(401);
+            expect((await response.json()) as ErrorBody, variant.label).toEqual({
+              message: UNAUTHORIZED,
+              error: 'Unauthorized',
+              statusCode: 401,
+            });
+          }
+
+          const after = await request.get(`/meetings/${id}`, { headers });
+          expect(after.status(), 'the guard refused before anything was deleted').toBe(200);
+          expect(((await after.json()) as MeetingItem).id).toBe(id);
+        });
       },
     );
   },

@@ -1,6 +1,7 @@
 import { expect, test, type APIRequestContext } from '@playwright/test';
 
 import { authHeadersFor } from '../../fixtures/auth.api.js';
+import { MEETING_NOT_FOUND_BODY, withCleanup } from '../../fixtures/cleanup.api.js';
 import { FUTURE_STARTS_AT_ISO, SEED_USERS, TEACHER_MEETINGS } from '../../fixtures/seed.js';
 
 /**
@@ -492,6 +493,78 @@ test.describe(
           .filter((id) => createdIds.includes(id));
 
         expect(orderedCreatedIds).toEqual([...createdIds].sort());
+      },
+    );
+  },
+);
+
+/**
+ * `HD-API-23` runs as `eraser`, the one owner no other case signs in as: it reads `total` after a
+ * delete, which `planner` (mutated concurrently by two files) cannot give. Counts stay relative to
+ * a baseline read first, never absolute.
+ */
+test.describe(
+  'Dashboard: API contract as eraser',
+  { tag: ['@regression', '@home-dashboard'] },
+  () => {
+    test(
+      'HD-API-23 — total follows a delete, relative to a baseline',
+      { tag: ['@p0', '@mutating'] },
+      async ({ request }) => {
+        const headers = await authHeadersFor(request, 'eraser');
+
+        await withCleanup(request, headers, async (track) => {
+          const baseline = (await readPage(request, headers, '?limit=1')).total as number;
+
+          const createdIds: string[] = [];
+          for (const label of ['first', 'second']) {
+            const created = await request.post('/meetings', {
+              headers,
+              data: {
+                title: uniqueTitle(`E2E total follows delete ${label}`),
+                startsAt: FUTURE_STARTS_AT_ISO,
+              },
+            });
+            expect(created.status()).toBe(201);
+
+            const { id } = (await created.json()) as MeetingItem;
+            track(`/meetings/${id}`, MEETING_NOT_FOUND_BODY);
+            createdIds.push(id);
+          }
+          const [firstId, secondId] = createdIds as [string, string];
+
+          const afterCreates = await readPage(request, headers, '?limit=1');
+          const afterCreatesFull = await readPage(request, headers, '?limit=100');
+          // One item against a `total` of at least two: `total = items.length` cannot pass.
+          expect(afterCreates.items).toHaveLength(1);
+          expect(afterCreates.total).toBe(baseline + 2);
+          expect((afterCreatesFull.items ?? []).map((item) => item.id)).toEqual(
+            expect.arrayContaining([firstId, secondId]),
+          );
+
+          const deletedFirst = await request.delete(`/meetings/${firstId}`, { headers });
+          expect(deletedFirst.status()).toBe(204);
+
+          const afterFirst = await readPage(request, headers, '?limit=1');
+          const afterFirstIds = ((await readPage(request, headers, '?limit=100')).items ?? []).map(
+            (item) => item.id,
+          );
+          // A `total` that ignores deletes stays at `baseline + 2` and fails here.
+          expect(afterFirst.total).toBe(baseline + 1);
+          expect(afterFirstIds).not.toContain(firstId);
+          expect(afterFirstIds).toContain(secondId);
+
+          const deletedSecond = await request.delete(`/meetings/${secondId}`, { headers });
+          expect(deletedSecond.status()).toBe(204);
+
+          const afterSecond = await readPage(request, headers, '?limit=1');
+          const afterSecondIds = ((await readPage(request, headers, '?limit=100')).items ?? []).map(
+            (item) => item.id,
+          );
+          expect(afterSecond.total).toBe(baseline);
+          expect(afterSecondIds).not.toContain(firstId);
+          expect(afterSecondIds).not.toContain(secondId);
+        });
       },
     );
   },
