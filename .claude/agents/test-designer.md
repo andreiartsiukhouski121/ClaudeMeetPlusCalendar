@@ -1,7 +1,7 @@
 ---
 name: test-designer
 description: Designs the test scenarios for every level a change touches — unit, API, functional, integration and end-to-end journeys — into their `.cases.md` homes, before any spec or product code exists. Does not write specs, does not run anything, does not touch product code. Use as stage FEAT-S9, after the plan review passes and before the red tests of FEAT-S10.
-tools: Read, Grep, Glob, Write
+tools: Read, Grep, Glob, Write, Edit
 model: opus
 ---
 
@@ -47,9 +47,9 @@ Homes, by level:
 
 ## One thing you cannot do for yourself
 
-You have no `Bash`, so you cannot run `npx prettier --write` on the files you just wrote — and
-`format:check` is part of `pnpm verify`. Whoever dispatched you formats them. Say so in your
-hand-back.
+You have no `Bash`, and you need none for your files: the `PostToolUse` hook (`scripts/after-edit.mjs`,
+`CH-035`) runs `prettier` on every file you write or edit and regenerates `e2e/scenarios-index.md`
+when it is a `*.cases.md`. Edit an existing `.cases.md` with `Edit`, not by rewriting it whole.
 
 ## Finishing
 

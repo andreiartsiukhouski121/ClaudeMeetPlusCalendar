@@ -6,6 +6,12 @@
         "matcher": "research-reviewer|design-reviewer|plan-reviewer|code-reviewer",
         "hooks": [{ "type": "command", "command": "node scripts/save-verdict.mjs" }]
       }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [{ "type": "command", "command": "node scripts/after-edit.mjs" }]
+      }
     ]
   }
 }

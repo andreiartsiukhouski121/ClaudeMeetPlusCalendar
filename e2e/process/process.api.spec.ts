@@ -23,6 +23,7 @@ const PLANS_DIR = 'docs/plans';
 const CHECKER = 'scripts/check-orientation.mjs';
 const SCAFFOLDER = 'scripts/new-change.mjs';
 const VERDICT_HOOK = 'scripts/save-verdict.mjs';
+const EDIT_HOOK = 'scripts/after-edit.mjs';
 
 /**
  * Templates are found by name, not by a list: the list is exactly what is under test here.
@@ -427,6 +428,38 @@ test.describe('Planning process', { tag: '@process' }, () => {
       expect(fromHandback[0].body).toContain(SAMPLE_VERDICT);
     } finally {
       fs.rmSync(scratch, { recursive: true, force: true });
+    }
+  });
+
+  test('PR-API-09 — the edit hook formats a file written inside the repository', () => {
+    const root = repoRoot();
+    const unformatted = ['# Probe', '', '|a|b|', '|-|-|', '|1|2|', ''].join('\n');
+    const formatted = ['# Probe', '', '| a   | b   |', '| --- | --- |', '| 1   | 2   |', ''].join(
+      '\n',
+    );
+    const inside = path.join(root, 'docs', `zz-pr-api-09-${process.pid}.md`);
+    const outsideDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pr-api-09-'));
+    const outside = path.join(outsideDir, 'probe.md');
+    const runHook = (file: string) =>
+      execFileSync('node', [path.join(root, EDIT_HOOK)], {
+        input: JSON.stringify({ tool_input: { file_path: file }, cwd: root }),
+        stdio: ['pipe', 'pipe', 'pipe'],
+      });
+
+    try {
+      fs.writeFileSync(inside, unformatted);
+      fs.writeFileSync(outside, unformatted);
+
+      runHook(inside);
+      runHook(outside);
+
+      expect(fs.readFileSync(inside, 'utf8'), 'a file inside the repository is formatted').toBe(
+        formatted,
+      );
+      expect(fs.readFileSync(outside, 'utf8'), 'a file outside it is left alone').toBe(unformatted);
+    } finally {
+      fs.rmSync(inside, { force: true });
+      fs.rmSync(outsideDir, { recursive: true, force: true });
     }
   });
 });

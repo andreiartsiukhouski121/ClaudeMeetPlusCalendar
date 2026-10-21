@@ -14,31 +14,31 @@ the documents every role works from are in `project-context`.
 
 ## The roles
 
-| Role                   | Owns                                                 | Tools                             | Model    |
-| ---------------------- | ---------------------------------------------------- | --------------------------------- | -------- |
-| `lead`                 | sequencing, dispatch, gates, reporting, git          | no `Write`/`Edit`                 | `opus`   |
-| `researcher`           | `research/README.md`; dispatches the sweeps          | `Write`, `Agent`                  | `opus`   |
-| `researcher-code`      | `research/code.md`                                   | `Write`, `Bash`, no `Agent`       | `sonnet` |
-| `researcher-contract`  | `research/contract.md`                               | `Write`, `Bash`, no `Agent`       | `sonnet` |
-| `researcher-tests`     | `research/tests.md`                                  | `Write`, `Bash`, no `Agent`       | `sonnet` |
-| `researcher-history`   | `research/history.md`                                | `Write`, `Bash`, no `Agent`       | `haiku`  |
-| `research-reviewer`    | a verdict on the research                            | `Read`, `Grep`, `Glob`            | `opus`   |
-| `designer`             | `design.md`, `docs/adr/**`                           | `Write`, no `Agent`               | `opus`   |
-| `design-reviewer`      | a verdict on the design                              | `Read`, `Grep`, `Glob`            | `opus`   |
-| `planner`              | `<slug>.plan.md`                                     | `Write`, no `Agent`               | `opus`   |
-| `plan-reviewer`        | a verdict on the plan                                | `Read`, `Grep`, `Glob`            | `opus`   |
-| `test-designer`        | `*.cases.md` — the scenario text, every level        | `Write`, no `Edit`/`Bash`/`Agent` | `opus`   |
-| `implementer-api`      | `apps/api/src/**` that is not a spec                 | `Write`, no `Agent`               | `sonnet` |
-| `implementer-web`      | `apps/web/src/**` that is not a spec                 | `Write`, no `Agent`               | `sonnet` |
-| `code-reviewer`        | a verdict on the diff                                | `Read`, `Grep`, `Glob`            | `opus`   |
-| `tester-unit`          | `**/src/**/*.spec.ts`                                | `Write`, `Bash`                   | `sonnet` |
-| `tester-api`           | `*.api.spec.ts`, `*.integration.spec.ts`             | `Write`, `Bash`                   | `sonnet` |
-| `tester-functional`    | `*.functional.spec.ts`, MCP                          | `Write`, `Bash`, `browser_*`      | `sonnet` |
-| `tester-security`      | `e2e/security/**`, the two route lists, `pnpm audit` | `Write`, `Bash`                   | `opus`   |
-| `tester-acceptance`    | the control experiment, the ledger, the profiling    | `Write`, `Bash`                   | `sonnet` |
-| `pipeline-reviewer`    | `docs/profiling/reviews/**`; evidence, no verdicts   | `Write`, no `Edit`/`Bash`         | `opus`   |
-| `pipeline-planner`     | `docs/profiling/plans/**`; proposals for the owner   | `Write`, no `Edit`/`Bash`         | `opus`   |
-| `pipeline-implementer` | the approved pipeline edits, and only those          | `Write`, `Edit`, `Bash`           | `sonnet` |
+| Role                   | Owns                                                 | Tools                              | Model    |
+| ---------------------- | ---------------------------------------------------- | ---------------------------------- | -------- |
+| `lead`                 | sequencing, dispatch, gates, reporting, git          | no `Write`/`Edit`                  | `opus`   |
+| `researcher`           | `research/README.md`; dispatches the sweeps          | `Write`, `Agent`                   | `opus`   |
+| `researcher-code`      | `research/code.md`                                   | `Write`, `Bash`, no `Agent`        | `sonnet` |
+| `researcher-contract`  | `research/contract.md`                               | `Write`, `Bash`, no `Agent`        | `sonnet` |
+| `researcher-tests`     | `research/tests.md`                                  | `Write`, `Bash`, no `Agent`        | `sonnet` |
+| `researcher-history`   | `research/history.md`                                | `Write`, `Bash`, no `Agent`        | `haiku`  |
+| `research-reviewer`    | a verdict on the research                            | `Read`, `Grep`, `Glob`             | `opus`   |
+| `designer`             | `design.md`, `docs/adr/**`                           | `Write`, no `Agent`                | `opus`   |
+| `design-reviewer`      | a verdict on the design                              | `Read`, `Grep`, `Glob`             | `opus`   |
+| `planner`              | `<slug>.plan.md`                                     | `Write`, no `Agent`                | `opus`   |
+| `plan-reviewer`        | a verdict on the plan                                | `Read`, `Grep`, `Glob`             | `opus`   |
+| `test-designer`        | `*.cases.md` — the scenario text, every level        | `Write`, `Edit`, no `Bash`/`Agent` | `opus`   |
+| `implementer-api`      | `apps/api/src/**` that is not a spec                 | `Write`, no `Agent`                | `sonnet` |
+| `implementer-web`      | `apps/web/src/**` that is not a spec                 | `Write`, no `Agent`                | `sonnet` |
+| `code-reviewer`        | a verdict on the diff                                | `Read`, `Grep`, `Glob`             | `opus`   |
+| `tester-unit`          | `**/src/**/*.spec.ts`                                | `Write`, `Bash`                    | `sonnet` |
+| `tester-api`           | `*.api.spec.ts`, `*.integration.spec.ts`             | `Write`, `Bash`                    | `sonnet` |
+| `tester-functional`    | `*.functional.spec.ts`, MCP                          | `Write`, `Bash`, `browser_*`       | `sonnet` |
+| `tester-security`      | `e2e/security/**`, the two route lists, `pnpm audit` | `Write`, `Bash`                    | `opus`   |
+| `tester-acceptance`    | the control experiment, the ledger, the profiling    | `Write`, `Bash`                    | `sonnet` |
+| `pipeline-reviewer`    | `docs/profiling/reviews/**`; evidence, no verdicts   | `Write`, no `Edit`/`Bash`          | `opus`   |
+| `pipeline-planner`     | `docs/profiling/plans/**`; proposals for the owner   | `Write`, no `Edit`/`Bash`          | `opus`   |
+| `pipeline-implementer` | the approved pipeline edits, and only those          | `Write`, `Edit`, `Bash`            | `sonnet` |
 
 `FIX-S9`, a defect's design stage, is the one place `design.md` does not always belong to `designer`:
 when the fix has no shape, `planner` writes it — one line, at `FIX-S10` — instead of a `designer`

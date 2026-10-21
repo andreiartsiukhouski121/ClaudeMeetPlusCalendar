@@ -47,6 +47,7 @@ One row per scenario declared in a Summary table, across every level and module 
 | api | process | `PR-API-06` | every research file cites something or says what it missed |
 | api | process | `PR-API-07` | the scenario index is regenerated, never hand-edited |
 | api | process | `PR-API-08` | the verdict hook saves a report handed back through a tool |
+| api | process | `PR-API-09` | the edit hook formats a file written inside the repository |
 | api | regression/auth-login | `AL-API-01` | a successful login returns a token |
 | api | regression/auth-login | `AL-API-02` | a wrong password gives 401 in the standard error shape |
 | api | regression/auth-login | `AL-API-03` | an unknown email gives 401 with the same message |

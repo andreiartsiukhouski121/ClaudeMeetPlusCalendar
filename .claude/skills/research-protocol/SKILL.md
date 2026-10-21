@@ -64,9 +64,9 @@ finding: the fact they prove lands in `research/code.md`, in `researcher-code`'s
 separate file, `research/probes.md`, is allowed alongside it — unscaffolded and unbudgeted, so no
 check and no line limit applies to it. It holds **each probe's command plus the output lines its
 fact rests on, not the full output**: the deciding output is what the reviewer checks, and raw
-compiler output nobody drew on was 657 of the 3,007 research lines in one record. The sweeps that
-hold `Bash` run `npx prettier --write` on their own file before hand-back, so a later `format:check`
-does not go red on a research file.
+compiler output nobody drew on was 657 of the 3,007 research lines in one record. The `PostToolUse`
+hook (`scripts/after-edit.mjs`, `CH-035`) runs `prettier` on every research file as it is written,
+so a later `format:check` does not go red on one.
 
 ## The four sweeps
 

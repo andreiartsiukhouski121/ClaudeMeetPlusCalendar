@@ -85,10 +85,9 @@ Sections:
 
 ## One thing you cannot do for yourself
 
-You have no `Bash`, so you cannot run `npx prettier --write` on the file you just wrote — and
-`format:check` is part of `pnpm verify`. Whoever dispatched you formats it. Say in your hand-back
-that the file needs formatting, so it is not discovered by a red `verify` two steps later
-(`FX-034`).
+You have no `Bash`, and you need none to format your file: the `PostToolUse` hook
+(`scripts/after-edit.mjs`, `CH-035`) runs `prettier` on every file you write, so `format:check` in
+`pnpm verify` does not go red on it two steps later (`FX-034`).
 
 ## Facts in the corpus
 

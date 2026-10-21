@@ -37,6 +37,7 @@ What the cases do **not** check: the meaning of the answers in section 0. That i
 | PR-API-06 | every research file cites something or says what it missed   | P0       |
 | PR-API-07 | the scenario index is regenerated, never hand-edited         | P1       |
 | PR-API-08 | the verdict hook saves a report handed back through a tool   | P1       |
+| PR-API-09 | the edit hook formats a file written inside the repository   | P1       |
 
 ## Cases
 
@@ -133,3 +134,16 @@ What the cases do **not** check: the meaning of the answers in section 0. That i
   holds no text and `last_assistant_message` arrives empty. Reading only that field saved all five
   gate verdicts of 2026-10-14 as a header with no body, filed `UNPARSED` (`FX-050`); the hook must
   fall back to the transcript. The second input is the shape observed in those five transcripts.
+
+### PR-API-09 — the edit hook formats a file written inside the repository
+
+- **Priority:** P1
+- **Steps:** write an unformatted markdown table to a scratch file inside the repository and another
+  to a scratch file outside it; run `node scripts/after-edit.mjs` once for each with a
+  `PostToolUse` input naming the file in `tool_input.file_path`; remove both files afterwards.
+- **Expected:** the file inside the repository comes back exactly as `prettier` formats it (its
+  table padded); the file outside the repository is byte-for-byte unchanged; both runs exit 0.
+- **Why:** several roles hold `Write` without `Bash` (`ADR-0014`), so their files used to reach
+  `format:check` unformatted and `pnpm verify` went red two steps later (`FX-034`); the hook
+  formats every written file instead (`CH-035`). The second file pins that the hook touches nothing
+  outside the repository.
