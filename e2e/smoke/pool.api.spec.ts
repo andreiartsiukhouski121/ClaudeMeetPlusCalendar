@@ -589,7 +589,9 @@ test.describe('Smoke: the user pool and the cleanup trackers', { tag: '@smoke' }
       const root = testInfo.outputPath('rename');
       const record = path.join(root, 'record');
       const slot = path.join(root, 'pool-01');
+      // A real slot holds owner.json: POSIX renames a directory over an EMPTY one, not a full one.
       fs.mkdirSync(record, { recursive: true });
+      fs.writeFileSync(path.join(record, 'owner.json'), '{}');
 
       const flaky = failsOnceWithEperm();
       expect(renameOrFalse(record, slot, flaky), 'a free slot is won after one EPERM').toBe(true);
@@ -597,6 +599,7 @@ test.describe('Smoke: the user pool and the cleanup trackers', { tag: '@smoke' }
 
       const second = path.join(root, 'second');
       fs.mkdirSync(second);
+      fs.writeFileSync(path.join(second, 'owner.json'), '{}');
       const started = Date.now();
       expect(renameOrFalse(second, slot), 'an existing slot is taken').toBe(false);
       expect(Date.now() - started, 'a taken slot is not retried').toBeLessThan(500);

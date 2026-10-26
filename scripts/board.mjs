@@ -314,7 +314,7 @@ th { color: var(--muted); font-weight: 600; font-size: 13px; }
   <div class="stats">
     <div class="stat"><div class="n">${inProgress.length}</div><div class="l">In progress</div></div>
     <div class="stat"><div class="n">${open.length}</div><div class="l">Open in backlog</div></div>
-    <div class="stat"><div class="n" style="color:var(--p1)">${open.filter((i) => i.priority === 'P1').length}</div><div class="l">P1 — blocking</div></div>
+    <div class="stat"><div class="n" style="color:var(--p1)">${open.filter((i) => i.priority === 'P1').length}</div><div class="l">P1 · Blocking</div></div>
     <div class="stat"><div class="n">${count('feature')}</div><div class="l">Features shipped</div></div>
     <div class="stat"><div class="n">${count('process')}</div><div class="l">Process changes</div></div>
     <div class="stat"><div class="n">${count('fix')}</div><div class="l">Defects fixed</div></div>
@@ -348,9 +348,9 @@ th { color: var(--muted); font-weight: 600; font-size: 13px; }
           '<p class="empty">No change is open: every change folder has its ledger entry.</p>'
         }
       </section>
-      ${column('P1', 'P1 · blocks production or the next feature')}
-      ${column('P2', 'P2 · needed, can wait')}
-      ${column('P3', 'P3 · improvement in passing')}
+      ${column('P1', 'P1 · Blocking')}
+      ${column('P2', 'P2 · Planned')}
+      ${column('P3', 'P3 · Nice to have')}
     </div>
   </div>
 
