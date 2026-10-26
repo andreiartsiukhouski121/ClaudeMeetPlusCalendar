@@ -130,9 +130,19 @@ export interface ApiFetchMultipartOptions {
  * discarding the empty string the browser actually sent. A truthy name passes Nest's
  * `isValidFilename` check, so the request reaches the content-type branch (415) instead of being
  * discarded as absent (400 `file is required`).
+ *
+ * The substituted name differs by Next version: `'blob'` up to 16.3.x, and the literal string
+ * `'undefined'` (an unnamed Blob's name stringified) from 16.4.1. Both are listed; the size and
+ * type guards keep a real, named file from ever matching.
  */
+const NEXT_PLACEHOLDER_NAMES = new Set(['blob', 'undefined']);
+
 function isNextEmptySelectionPlaceholder(file: File): boolean {
-  return file.name === 'blob' && file.size === 0 && file.type === 'application/octet-stream';
+  return (
+    NEXT_PLACEHOLDER_NAMES.has(file.name) &&
+    file.size === 0 &&
+    file.type === 'application/octet-stream'
+  );
 }
 
 /**
