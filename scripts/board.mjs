@@ -12,6 +12,7 @@
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 const repoRoot = path.resolve(import.meta.dirname, '..');
 const OUT = path.join(repoRoot, 'docs', 'board.html');
@@ -185,10 +186,32 @@ function collect() {
   open.sort((a, b) => a.priority.localeCompare(b.priority) || byNumber(a, b));
   closed.sort(byNumber);
 
-  return { done, open, closed, rejected, inProgress, remote: remoteUrl() };
+  return { done, open, closed, rejected, inProgress, epics: readEpics(), remote: remoteUrl() };
 }
 
-function render({ done, open, closed, rejected, inProgress, remote }) {
+/**
+ * `docs/EPICS.md`: one `## EP-NN · Name` section per epic with `Kind`, `What it gives` and
+ * `Members` lines. Every ledger and backlog ID sits in exactly one epic (`LG-API-08`).
+ */
+export function readEpics(markdown = read('docs/EPICS.md')) {
+  const epics = [];
+  for (const section of markdown.split(/^## /m).slice(1)) {
+    const head = /^(EP-\d+)\s*·\s*(.+)$/m.exec(section);
+    if (head === null) continue;
+    const field = (name) =>
+      new RegExp(`^- \\*\\*${name}:\\*\\*\\s*(.+)$`, 'm').exec(section)?.[1]?.trim() ?? '';
+    epics.push({
+      id: head[1],
+      name: head[2].trim(),
+      kind: field('Kind'),
+      gives: field('What it gives'),
+      members: [...field('Members').matchAll(/(FT|CH|FX|BL)-\d+/g)].map((m) => m[0]),
+    });
+  }
+  return epics;
+}
+
+function render({ done, open, closed, rejected, inProgress, epics, remote }) {
   const count = (kind) => done.filter((item) => item.kind === kind).length;
   const latest = done[0]?.date ?? '';
   const kindLabel = { feature: 'Feature', process: 'Process', fix: 'Fix' };
@@ -219,6 +242,52 @@ function render({ done, open, closed, rejected, inProgress, remote }) {
       ${items.map(backlogCard).join('') || '<p class="empty">Nothing here.</p>'}
     </section>`;
   };
+
+  const doneById = new Map(done.map((item) => [item.id, item]));
+  const openById = new Map(open.map((item) => [item.id, item]));
+  const closedById = new Map(closed.map((item) => [item.id, item]));
+
+  const epicCard = (epic) => {
+    const openItems = epic.members.filter((id) => openById.has(id)).map((id) => openById.get(id));
+    openItems.sort(
+      (a, b) =>
+        a.priority.localeCompare(b.priority) || Number(b.id.slice(3)) - Number(a.id.slice(3)),
+    );
+    const shipped = epic.members.filter((id) => doneById.has(id)).map((id) => doneById.get(id));
+    shipped.sort((a, b) => b.date.localeCompare(a.date));
+    const closedHere = epic.members.filter((id) => closedById.has(id)).length;
+    const doneCount = shipped.length + closedHere;
+    const total = doneCount + openItems.length;
+    const percent = total === 0 ? 100 : Math.round((doneCount / total) * 100);
+    const p1 = openItems.filter((item) => item.priority === 'P1').length;
+    const status = openItems.length === 0 ? 'Done' : p1 > 0 ? 'Has blocker' : 'Planned';
+    const last = shipped[0]?.date ?? '—';
+    const next = openItems.slice(0, 3);
+    return `
+    <details class="epic status-${status.toLowerCase().replace(/ /g, '-')}" data-search="${escape(`${epic.id} ${epic.name} ${epic.gives}`.toLowerCase())}">
+      <summary>
+        <div class="epic-head">
+          <span class="id">${epic.id}</span>
+          <span class="epic-name">${escape(epic.name)}</span>
+          <span class="badge">${status}</span>
+        </div>
+        <p class="gives">${inline(epic.gives)}</p>
+        <div class="bar" aria-label="${percent}% done"><span style="width:${percent}%"></span></div>
+        <p class="meta">${shipped.length} shipped · ${openItems.length} open${p1 ? ` · <b style="color:var(--p1)">${p1} blocking</b>` : ''} · last change ${escape(last)}</p>
+        ${next.length ? `<ul class="next">${next.map((item) => `<li><span class="pill p-${item.priority.toLowerCase()}">${item.priority}</span> ${inline(item.title)}</li>`).join('')}</ul>` : '<p class="meta">Nothing open — the epic is complete for now.</p>'}
+      </summary>
+      <div class="body">
+        ${openItems.length ? `<h4>Open (${openItems.length})</h4>${openItems.map(backlogCard).join('')}` : ''}
+        ${shipped.length ? `<h4>Shipped (${shipped.length})</h4>${shipped.map(doneRow).join('')}` : ''}
+      </div>
+    </details>`;
+  };
+
+  const epicGrid = (kind) =>
+    epics
+      .filter((epic) => epic.kind === kind)
+      .map(epicCard)
+      .join('');
 
   const doneRow = (item) => `
       <details class="row ${item.kind}" data-kind="${item.kind}" data-search="${escape(`${item.id} ${item.text}`.toLowerCase())}">
@@ -302,6 +371,28 @@ table { width: 100%; border-collapse: collapse; background: var(--surface); bord
 td, th { text-align: left; vertical-align: top; padding: 10px 12px; border-bottom: 1px solid var(--line); }
 th { color: var(--muted); font-weight: 600; font-size: 13px; }
 .hidden { display: none; }
+h2 { font-size: 17px; margin: 24px 4px 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+.epics { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 16px; align-items: start; }
+.epic { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; border-top: 4px solid var(--accent); }
+.epic.status-done { border-top-color: var(--p3); }
+.epic.status-has-blocker { border-top-color: var(--p1); }
+.epic summary { list-style: none; cursor: pointer; padding: 14px 16px; }
+.epic summary::-webkit-details-marker { display: none; }
+.epic-head { display: flex; align-items: center; gap: 8px; }
+.epic-name { font-weight: 700; font-size: 17px; flex: 1; }
+.badge { font-size: 12px; padding: 2px 10px; border-radius: 999px; background: var(--code); color: var(--accent); font-weight: 600; }
+.status-done .badge { color: var(--p3); } .status-has-blocker .badge { color: var(--p1); }
+.gives { margin: 8px 0 10px; }
+.bar { height: 8px; background: var(--line); border-radius: 999px; overflow: hidden; }
+.bar span { display: block; height: 100%; background: var(--accent); }
+.status-done .bar span { background: var(--p3); }
+.next { margin: 10px 0 0; padding: 0; list-style: none; }
+.next li { margin: 4px 0; font-size: 14px; }
+.pill { font-size: 11px; font-weight: 700; padding: 0 6px; border-radius: 6px; color: #fff; }
+.pill.p-p1 { background: var(--p1); } .pill.p-p2 { background: var(--p2); } .pill.p-p3 { background: var(--p3); }
+.epic .body h4 { margin: 14px 0 8px; font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+.epic[open] { grid-column: 1 / -1; }
+.now { background: var(--surface); border: 1px solid var(--accent); border-radius: 14px; padding: 4px 16px 10px; }
 @media (max-width: 600px) { .date { min-width: 0; } }
 </style>
 </head>
@@ -322,7 +413,8 @@ th { color: var(--muted); font-weight: 600; font-size: 13px; }
 
   <div class="toolbar">
     <div class="tabs" role="tablist">
-      <button role="tab" aria-selected="true" data-tab="board">Board</button>
+      <button role="tab" aria-selected="true" data-tab="epics">Epics</button>
+      <button role="tab" aria-selected="false" data-tab="board">Backlog</button>
       <button role="tab" aria-selected="false" data-tab="done">Done</button>
       <button role="tab" aria-selected="false" data-tab="closed">Closed backlog</button>
       <button role="tab" aria-selected="false" data-tab="rejected">Rejected</button>
@@ -330,7 +422,19 @@ th { color: var(--muted); font-weight: 600; font-size: 13px; }
     <input type="search" id="q" placeholder="Search by ID or text…" aria-label="Search">
   </div>
 
-  <div class="panel" id="board">
+  <div class="panel" id="epics">
+    ${
+      inProgress.length
+        ? `<section class="now"><h2>In progress now</h2>${inProgress.map((item) => `<p><b>${escape(item.slug)}</b> — ${inline(item.title)}</p>`).join('')}</section>`
+        : ''
+    }
+    <h2>Product</h2>
+    <div class="epics">${epicGrid('product')}</div>
+    <h2>Technical</h2>
+    <div class="epics">${epicGrid('technical')}</div>
+  </div>
+
+  <div class="panel" id="board" hidden>
     <div class="board">
       <section class="column progress">
         <h3>In progress <span class="count">${inProgress.length}</span></h3>
@@ -414,9 +518,12 @@ document.querySelectorAll('[data-kind]').forEach((b) => b.tagName === 'BUTTON' &
 `;
 }
 
-const html = render(collect());
+const isMain = import.meta.url === pathToFileURL(process.argv[1] ?? '').href;
+const html = isMain ? render(collect()) : '';
 
-if (process.argv[2] === 'check') {
+if (!isMain) {
+  // imported for readEpics (LG-API-08): build nothing
+} else if (process.argv[2] === 'check') {
   const current = fs.existsSync(OUT) ? fs.readFileSync(OUT, 'utf8') : '';
   if (current !== html) {
     console.error('docs/board.html is stale: run `pnpm board` and commit the result');

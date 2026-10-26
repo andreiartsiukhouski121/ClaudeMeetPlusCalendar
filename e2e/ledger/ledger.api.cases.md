@@ -29,6 +29,7 @@ the plan, visible in review. The machine checks the form, a human checks the con
 | LG-API-05 | every backlog item has the "Conflicts with" column filled    | P0       |
 | LG-API-06 | no references to non-existent `BL-`/`FX-`/`FT-`/`CH-`        | P0       |
 | LG-API-07 | every `FX-` row numbered 48 and above names the path it took | P1       |
+| LG-API-08 | every ledger and backlog record belongs to exactly one epic  | P1       |
 
 ## Cases
 
@@ -138,3 +139,18 @@ the plan, visible in review. The machine checks the form, a human checks the con
 - **Control experiment:** add a scratch `FX-` row numbered 48 or more with no marker and confirm the
   case goes red naming it; add the `below the threshold` marker and confirm green; then remove the
   row.
+
+### LG-API-08 — every ledger and backlog record belongs to exactly one epic
+
+- **Priority:** P1
+- **Steps:** parse `docs/EPICS.md` into its `## EP-NN · Name` sections, each with a `Kind` line and a
+  `Members` line; collect every `FT-`/`CH-`/`FX-`/`BL-` row ID of `docs/CHANGELOG.md` and
+  `docs/BACKLOG.md`.
+- **Expected:** every record is a member of exactly one epic; no epic lists an ID no row defines;
+  every `Kind` is `product` or `technical`. A failure names the record or the epic.
+- **Why:** the owner reads the task board (`docs/board.html`) by epic, as a product owner (`CH-041`).
+  A record in no epic is invisible there, so this check is what makes "add the new entry to its
+  epic" a rule rather than a habit.
+- **Vacuity guard:** a fixture in the spec — a record in two epics, a record in none, an unknown
+  member and a wrong kind — must each be reported; and the real files must parse into at least one
+  epic and one record.

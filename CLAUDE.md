@@ -235,8 +235,9 @@ noticed.
 - [`docs/BACKLOG.md`](docs/BACKLOG.md) — what is ahead (with the "Conflicts with" column) and a
   **Rejected** section with reasons: it exists so the same idea is not proposed again.
 
-[`docs/board.html`](docs/board.html) is the same two files as one page for the owner: in progress,
-the backlog by priority, what is done, what was closed and rejected. It is **generated, never
+[`docs/board.html`](docs/board.html) is the same two files as one page for the owner, read as a
+product owner: **by epic** (`docs/EPICS.md` — five product epics and six technical ones, `CH-041`),
+then the backlog by priority, what is done, what was closed and rejected. It is **generated, never
 edited** — `scripts/board.mjs` rebuilds it on every commit from `.husky/pre-commit` (`CH-040`), so
 keeping the ledger and the backlog current is the only way to keep the board current. A change is
 "in progress" while its `docs/plans/<slug>/` folder has no commit cited by a ledger row.
@@ -258,8 +259,9 @@ If the task turns out to be a duplicate, say so and stop: "already done in `FX-0
 result, not a refusal to work.
 
 **A ledger entry is mandatory when the task is done:** a feature → `FT-`, a process change → `CH-`,
-every defect found → `FX-` with what found it. A closed backlog item is marked closed with a
-reference but is **never deleted**. The structure is checked by `e2e/ledger/ledger.api.spec.ts` on
+every defect found → `FX-` with what found it. **Every new `FT-`/`CH-`/`FX-`/`BL-` row is also
+added to the `Members` line of its epic in `docs/EPICS.md`** (`LG-API-08` fails a record in no
+epic). A closed backlog item is marked closed with a reference but is **never deleted**. The structure is checked by `e2e/ledger/ledger.api.spec.ts` on
 every `pnpm verify`; the machine does not check what the entries mean — orientation and review do.
 
 ## Project invariants

@@ -375,6 +375,61 @@ function markerFixture(slug: string): string {
   ].join('\n');
 }
 
+/* ------------------------------ Epics (LG-API-08, CH-041) ------------------------------ */
+
+const EPICS = 'docs/EPICS.md';
+const EPIC_KINDS = ['product', 'technical'];
+
+interface Epic {
+  id: string;
+  kind: string;
+  members: string[];
+}
+
+/** The `## EP-NN · Name` sections of `docs/EPICS.md`, with their `Kind` and `Members` lines. */
+function parseEpics(content: string): Epic[] {
+  return content
+    .split(/^## /m)
+    .slice(1)
+    .flatMap((section) => {
+      const id = /^(EP-\d+)\s*·/.exec(section)?.[1];
+      if (id === undefined) return [];
+      const field = (name: string) =>
+        new RegExp('^- \\*\\*' + name + ':\\*\\*\\s*(.+)$', 'm').exec(section)?.[1] ?? '';
+      return [
+        {
+          id,
+          kind: field('Kind').trim(),
+          members: [...field('Members').matchAll(/\b((?:FT|CH|FX|BL)-\d{3})\b/g)].map((m) => m[1]),
+        },
+      ];
+    });
+}
+
+/** Every record in exactly one epic, no epic naming a record that does not exist, a known kind. */
+function epicProblems(epics: Epic[], records: string[]): string[] {
+  const problems: string[] = [];
+  const owners = new Map<string, string[]>();
+  const known = new Set(records);
+
+  for (const epic of epics) {
+    if (!EPIC_KINDS.includes(epic.kind)) {
+      problems.push(`${epic.id} has Kind "${epic.kind}", not product or technical`);
+    }
+    for (const id of epic.members) {
+      owners.set(id, [...(owners.get(id) ?? []), epic.id]);
+      if (!known.has(id))
+        problems.push(`${epic.id} lists ${id}, which no ledger or backlog row defines`);
+    }
+  }
+  for (const id of records) {
+    const in_ = owners.get(id) ?? [];
+    if (in_.length === 0) problems.push(`${id} belongs to no epic`);
+    if (in_.length > 1) problems.push(`${id} belongs to ${in_.length} epics: ${in_.join(', ')}`);
+  }
+  return problems;
+}
+
 test.describe('Changelog and backlog', { tag: '@ledger' }, () => {
   test('LG-API-01 — both ledger files exist and are not empty', () => {
     const root = repoRoot();
@@ -529,6 +584,37 @@ test.describe('Changelog and backlog', { tag: '@ledger' }, () => {
     expect(
       problems,
       'Every FX- row numbered 48 and above carries exactly one literal path marker (bugfix-pipeline §4)',
+    ).toEqual([]);
+  });
+
+  test('LG-API-08 — every ledger and backlog record belongs to exactly one epic', () => {
+    const sample = parseEpics(
+      [
+        '## EP-01 · A',
+        '- **Kind:** product',
+        '- **Members:** `FT-901`, `BL-901`',
+        '## EP-02 · B',
+        '- **Kind:** sideways',
+        '- **Members:** `FT-901`, `FX-999`',
+      ].join('\n'),
+    );
+    const sampleProblems = epicProblems(sample, ['FT-901', 'BL-901', 'CH-901']).join('\n');
+    expect(sampleProblems).toContain('Kind "sideways"');
+    expect(sampleProblems).toContain('FX-999, which no ledger or backlog row defines');
+    expect(sampleProblems).toContain('CH-901 belongs to no epic');
+    expect(sampleProblems).toContain('FT-901 belongs to 2 epics');
+
+    const root = repoRoot();
+    const epics = parseEpics(read(root, EPICS));
+    const records = [...entries(read(root, CHANGELOG)), ...entries(read(root, BACKLOG))].map(
+      (entry) => entry.id,
+    );
+
+    expect(epics.length, `${EPICS} must parse into epics`).toBeGreaterThan(0);
+    expect(records.length, 'the ledger and the backlog must parse into records').toBeGreaterThan(0);
+    expect(
+      epicProblems(epics, records),
+      `Every FT-/CH-/FX-/BL- record sits in exactly one epic of ${EPICS}: add a new record to its epic's Members line (the task board groups by it)`,
     ).toEqual([]);
   });
 });
