@@ -241,5 +241,6 @@ One row per scenario declared in a Summary table, across every level and module 
 | api | smoke | `SM-API-08` | a takeover purges a dead holder's user, and only that user |
 | api | smoke | `SM-API-09` | `trackAllOf` tolerates its own purge, and no other 404 |
 | api | smoke | `SM-API-10` | a tracker's `run()` deletes in reverse, records, never throws |
+| api | smoke | `SM-API-11` | a transient rename failure onto a free slot is not "taken" |
 | api | smoke | `SM-API-02` | seeded users are in place |
 | api | smoke | `SM-API-03` | seeded meetings and their files are in place |

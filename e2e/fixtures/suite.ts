@@ -141,13 +141,31 @@ function removeQuietly(target: string): void {
   fs.rmSync(target, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 });
 }
 
-/** Any failure of a rename onto a slot means "taken": `EPERM` is a loser's code and a held file's. */
-function renameOrFalse(from: string, to: string): boolean {
-  try {
-    fs.renameSync(from, to);
-    return true;
-  } catch {
-    return false;
+/** How long a rename onto a slot that does not exist yet is retried (`FX-054`). */
+const TRANSIENT_RENAME_WINDOW_MS = 1_000;
+
+/**
+ * A rename onto a slot: `true` when this caller won it, `false` when the slot already exists.
+ * `EPERM` is both a loser's code and Windows' code for a directory briefly held by an indexer or
+ * an antivirus scan, so a failure means "taken" only while the destination exists; with no
+ * destination it is transient and retried (`FX-054`). `rename` is a parameter for `SM-API-11`.
+ */
+export function renameOrFalse(
+  from: string,
+  to: string,
+  rename: (from: string, to: string) => void = fs.renameSync,
+): boolean {
+  const started = Date.now();
+  for (;;) {
+    try {
+      rename(from, to);
+      return true;
+    } catch {
+      if (fs.existsSync(to) || Date.now() - started > TRANSIENT_RENAME_WINDOW_MS) {
+        return false;
+      }
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 20);
+    }
   }
 }
 

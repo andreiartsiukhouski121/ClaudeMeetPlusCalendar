@@ -12,6 +12,7 @@ import {
   occupySlot,
   readOwner,
   releaseClaims,
+  renameOrFalse,
   slotName,
   test,
   vacateSlot,
@@ -120,6 +121,18 @@ function freeOldestHolder(race: Race, poolDir: string): void {
   const [slot, holder] = [...race.holders.entries()][0];
   vacateSlot(poolDir, holder.number);
   race.holders.delete(slot);
+}
+
+/** A rename that throws `EPERM` once, as Windows does on a briefly held directory, then renames. */
+function failsOnceWithEperm(): (from: string, to: string) => void {
+  let failed = false;
+  return (from, to) => {
+    if (!failed) {
+      failed = true;
+      throw Object.assign(new Error('EPERM: operation not permitted, rename'), { code: 'EPERM' });
+    }
+    fs.renameSync(from, to);
+  };
 }
 
 /** Pre-occupies every scratch slot except `free` with a record naming this live process. */
@@ -568,4 +581,27 @@ test.describe('Smoke: the user pool and the cleanup trackers', { tag: '@smoke' }
       }
     },
   );
+
+  test('SM-API-11 — a transient rename failure onto a free slot is not "taken"', async ({
+    cleanup,
+  }, testInfo) => {
+    try {
+      const root = testInfo.outputPath('rename');
+      const record = path.join(root, 'record');
+      const slot = path.join(root, 'pool-01');
+      fs.mkdirSync(record, { recursive: true });
+
+      const flaky = failsOnceWithEperm();
+      expect(renameOrFalse(record, slot, flaky), 'a free slot is won after one EPERM').toBe(true);
+      expect(fs.existsSync(slot)).toBe(true);
+
+      const second = path.join(root, 'second');
+      fs.mkdirSync(second);
+      const started = Date.now();
+      expect(renameOrFalse(second, slot), 'an existing slot is taken').toBe(false);
+      expect(Date.now() - started, 'a taken slot is not retried').toBeLessThan(500);
+    } finally {
+      await cleanup.run();
+    }
+  });
 });

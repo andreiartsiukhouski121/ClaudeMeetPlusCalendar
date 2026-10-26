@@ -39,6 +39,7 @@ promise is provoked on purpose.
 | SM-API-08 | a takeover purges a dead holder's user, and only that user    | P0       | `@smoke @p0 @mutating` |
 | SM-API-09 | `trackAllOf` tolerates its own purge, and no other 404        | P1       | `@smoke @mutating`     |
 | SM-API-10 | a tracker's `run()` deletes in reverse, records, never throws | P1       | `@smoke @mutating`     |
+| SM-API-11 | a transient rename failure onto a free slot is not "taken"    | P1       | `@smoke`               |
 
 ## Cases
 
@@ -142,3 +143,19 @@ promise is provoked on purpose.
   recorded. Exactly one failure is recorded, naming `/meetings/a/b` and Express's `Cannot DELETE`
   404, which is not the exact contract body (`FACT-3780`). The second `run()` sends no request and
   records nothing new: the tracker emptied itself.
+
+### SM-API-11 — a transient rename failure onto a free slot is not "taken"
+
+- **Priority:** P1
+- **Data:** none from the application; two record directories and a slot path in the test's own
+  output directory.
+- **Steps:** drive `renameOrFalse` from `e2e/fixtures/suite.ts` with a rename that throws `EPERM`
+  on its first call and renames on the second, onto a slot path that does not exist. Then drive it
+  with the real rename onto a slot path that already exists.
+- **Expected:** the first call returns `true` and the record now sits at the slot path; the second
+  returns `false` without waiting the whole retry window as if the slot were free.
+- **Why:** a claim is an atomic rename, and every failed rename used to mean "taken". On Windows a
+  freshly made directory is briefly held by an indexer or an antivirus scan and the rename fails
+  with `EPERM` though no one holds the slot, so `SM-API-09`'s scratch setup went red with "the
+  scratch slot pool-05 was already taken" in one `pnpm verify` of 2026-10-26 (`FX-054`). A failure
+  is "taken" only while the destination exists.
