@@ -13,8 +13,8 @@
   - **No meeting id and no file id is ever a literal** (`meetings-detail.api.cases.md`): a seeded
     meeting is found by its seeded **title** in `TEACHER_MEETINGS`, a file id comes from the listing
     or from the `POST` that created it, an absent id is derived (`${realId}-does-not-exist`).
-  - The sandbox is the **owner**, not a meeting: mutating cases run as `planner` (`FACT-3126`) and
-    **each creates its own meeting first**. The route carries a ten-file refusal (`FACT-3642`), so a
+  - The sandbox is the **owner**, not a meeting: mutating cases run as `planner` (`FACT-3783`) and
+    **each creates its own meeting first**. The route carries a ten-file refusal (`FACT-3795`), so a
     shared meeting would run out after ten uploads and the eleventh case would fail for an unrelated
     reason; a meeting the case made itself also starts at zero files, so its listing count is exact
     rather than relative. Two seeded meetings of `planner`'s are therefore **never uploaded into**:
@@ -43,11 +43,13 @@ large`, which names no limit, so the web surface substitutes its own line — as
     created** as `planner`, dated `FUTURE_STARTS_AT_ISO` under a unique title, and only to files it
     uploaded there. No seeded meeting or file — none of `teacher`'s, not `mtg-planner-2` — is ever
     a delete target, by the owner or by `student`, the foreign token, which is never mutated.
-  - **Cleanup:** every case that creates a meeting deletes it through `DELETE /meetings/:id` as
-    `planner` when it ends, **also on failure**; the cascade takes its files. A cleanup `404` is
-    tolerated only when its body is exactly `FACT-2016` (meeting) or `FACT-2083` (file); any other
-    `404` — Express's `Cannot DELETE …` included — fails the case. The case's own assertion failure
-    is reported before a cleanup failure.
+  - **Cleanup:** every case that creates a meeting registers it with its `cleanup` tracker as it is
+    created, and the tracker deletes it through `DELETE /meetings/:id` as `planner` in the body's
+    `finally`, **also on failure** (`FACT-3780`, `FACT-3809`); the cascade takes its files. This
+    now includes `MF-API-01` and `MF-API-07`…`MF-API-19`, whose assertions are unchanged. A cleanup
+    `404` is tolerated only when its body is exactly `FACT-2016` (meeting) or `FACT-2083` (file);
+    any other `404` — Express's `Cannot DELETE …` included — fails the case. The case's own
+    assertion failure is reported beside a cleanup failure, never replaced by it.
 
 25 cases.
 
@@ -299,7 +301,7 @@ large`, which names no limit, so the web surface substitutes its own line — as
   then an eleventh.
 - **Expected:** the first ten answer 201; the eleventh answers 400 with exactly
   `{ message: ['a meeting may hold at most 10 files'], error: 'Bad Request', statusCode: 400 }`, and
-  the listing still holds ten (`FACT-3642`). Sequential on purpose: the check is a count before an
+  the listing still holds ten (`FACT-3795`). Sequential on purpose: the check is a count before an
   insert, not a transaction, so the contract promises the refusal and not an exact ceiling.
 
 ### MF-API-16 — evaluation order: a stranger with an oversized file gets 413

@@ -138,8 +138,11 @@ and is not done: such a table goes stale with every added case and makes accepta
 
 **Test quality** — the robustness and data rules live in full in `e2e/README.md`. Blockers here are
 violations of them: `test.only`; `test.skip` without a reason and a link; `waitForTimeout`; CSS
-locators; `expect(...)` without `await`; absolute counters in `@mutating` cases; mutating
-`teacher`/`student`; hard-coded data instead of `e2e/fixtures/seed.ts`; a created meeting not dated 2030.
+locators; `expect(...)` without `await`; absolute counters in `@mutating` cases on the shared
+`planner` sandbox (a claimed pool user is exclusive while held, so exact counts are correct there,
+`ADR-0037`); mutating `teacher`/`student`; hard-coded data instead of `e2e/fixtures/seed.ts`; a created
+meeting not dated 2030; a sign-in through the form outside auth-login and the `@ui-login` list
+(`ADR-0036`); a created row not registered for cleanup.
 
 **Application behaviour**
 

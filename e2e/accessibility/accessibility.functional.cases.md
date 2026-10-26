@@ -4,10 +4,15 @@
 - **Playwright project:** `web`
 - **Tags:** `@accessibility`
 - **Run:** `pnpm e2e:a11y` (or `pnpm e2e --project=web --grep @accessibility`)
-- **Preconditions:** the seed is applied; Playwright starts 3100/3101. A page needing a session is
-  opened through `authedPage`, whose `authUser` defaults to `teacher`, so an audited page behind a
-  session must be reachable by that user — the seeded meeting page is `teacher`-owned and its id
-  comes from `e2e/fixtures/seed.ts`, never as a literal in the spec.
+- **Preconditions:** the seed is applied; Playwright starts 3100/3101. A case that opens a page
+  behind a session claims one pool user (`FACT-3783`) and opens it with the cookie built from that
+  user's token (`FACT-3756`); no case here signs in through the form (`FACT-3754`). In
+  `beforeEach` it creates the seeded-shape copy on the held user — `teacher`'s five meetings from
+  `e2e/fixtures/seed.ts`, and the "Geometry workshop" copy's two files uploaded oldest first
+  (`FACT-3799`) — registered with `preconditions` and deleted in `afterEach` (`FACT-3809`), so the
+  dashboard and the meeting page render the list, counter, attachments and forms they rendered for
+  `teacher`. `AUDITED_PAGES` resolves per case: its meeting entry is the held user's "Geometry
+  workshop" copy, never a literal id. Every body is `try { … } finally { await cleanup.run(); }`.
 
 This file checks what no other suite looks at: whether the rendered page is usable by someone who
 is not reading it with their eyes and a mouse. The functional cases already assert that a control
@@ -67,8 +72,9 @@ paragraph renders, wait for that paragraph by its exact text inside `main`, and 
 ### ACC-FN-02 — every page behind a session passes WCAG 2.1 AA
 
 - **Priority:** P0
-- **Steps:** for each entry of `AUDITED_PAGES` marked `needsSession: true`, sign in through
-  `authedPage`, open that entry's path and run the same scan with the same four tags. The path
+- **Steps:** as the held user with the copy, for each entry of `AUDITED_PAGES` marked
+  `needsSession: true`, open that entry's path with the built session and run the same scan with
+  the same four tags. The path
   comes from the list, never from a literal written into the case.
 - **Expected:** zero violations on every one of them, with the failing path named in the message.
   Separate from `ACC-FN-01` because these pages only exist behind a session, and they are the
@@ -98,8 +104,8 @@ paragraph renders, wait for that paragraph by its exact text inside `main`, and 
 ### ACC-FN-04 — every audited page has exactly one `h1` and a `main` landmark
 
 - **Priority:** P1
-- **Steps:** for each entry of `AUDITED_PAGES`, open it and count `h1` headings and `main`
-  landmarks.
+- **Steps:** as the held user with the copy, for each entry of `AUDITED_PAGES`, open it — an entry
+  behind a session with the built session — and count `h1` headings and `main` landmarks.
 - **Expected:** exactly one of each. `axe-core` does **not** fail a page for having zero or several
   `h1` elements, so this is asserted here rather than assumed to be covered — the gap is the reason
   the case exists. Neither count is disturbed by App Router's injected markup: the route announcer
@@ -108,23 +114,23 @@ paragraph renders, wait for that paragraph by its exact text inside `main`, and 
 ### ACC-FN-05 — the create-meeting form in its error state passes WCAG 2.1 AA
 
 - **Priority:** P1
-- **Steps:** sign in through `authedPage` (`teacher`), open `/`, leave the title empty and press
-  "Create meeting". Wait until `getByRole('main').getByRole('alert')` is visible **with the text**
+- **Steps:** as the held user with the copy, open `/` with the built session, leave the title empty
+  and press "Create meeting". Wait until `getByRole('main').getByRole('alert')` is visible **with the text**
   `Enter a meeting title` — the same scoped locator and exact-text wait as `ACC-FN-03`, for the
   same reason. Then run the scan with the same four tags.
 - **Expected:** zero violations. This paragraph renders inside the create-meeting `Card`, a white
   surface (`FACT-3685`), so the error colour is judged on white in a second form. The Server Action
   refuses an empty title before Nest is called: no meeting is created, so the case is not
-  `@mutating` and shares the seed with every other case.
+  `@mutating`.
 - **Fails on purpose when:** `--danger` is HeroUI's default — `color-contrast` at ≈3.57:1 on the
   `text-danger` paragraph (`FACT-3684`). This state was scanned by nothing before (`FACT-3687`).
 
 ### ACC-FN-06 — the upload form in its error state passes WCAG 2.1 AA
 
 - **Priority:** P1
-- **Steps:** sign in through `authedPage` (`teacher`), open `/meetings/<id>` with the id taken from
-  `GEOMETRY_WORKSHOP_MEETING_ID` in `e2e/fixtures/seed.ts` (the seeded, `teacher`-owned "Geometry
-  workshop"), never a literal. Press "Upload" **without choosing a file**. Wait until
+- **Steps:** as the held user with the copy, open `/meetings/<id>` with the built session, the id
+  being the held user's "Geometry workshop" copy as created in `beforeEach`, never a literal. Press
+  "Upload" **without choosing a file**. Wait until
   `getByRole('main').getByRole('alert')` is visible **with the text** `file is required` — the same
   scoped locator and exact-text wait as `ACC-FN-03`, for the same reason. Then run the scan with the
   same four tags.
@@ -133,8 +139,7 @@ paragraph renders, wait for that paragraph by its exact text inside `main`, and 
   smallest (`FACT-3688`). The text is the API's 400 shown verbatim, not the action's "Choose a file
   to upload": an empty selection submits a `File` with an empty name and zero size, not `null`, so
   that branch is unreachable from the browser and the refusal comes from Nest (`MF-FN-15`). Nest
-  refuses the request, so no attachment row is created: the case is not `@mutating` and shares the
-  seed with every other case.
+  refuses the request, so no attachment row is created: the case is not `@mutating`.
 - **Fails on purpose when:** `--danger` is HeroUI's default — `color-contrast` at ≈3.25:1 on the
   `text-danger` paragraph against the canvas (`FACT-3684`). This state was scanned by nothing before
   (`FACT-3687`).

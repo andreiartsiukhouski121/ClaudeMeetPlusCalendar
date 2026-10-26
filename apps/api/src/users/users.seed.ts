@@ -20,12 +20,12 @@ export interface SeedUser {
 const SEED_PASSWORD = 'Passw0rd!';
 
 /**
- * Five users rather than two: `POST /meetings` mutates the shared store while Playwright runs
- * `fullyParallel: true`, so each mutating spec file gets its own owner (`planner` for
- * `*.api.spec.ts`, `organizer` for `*.functional.spec.ts`) and `teacher`/`student` stay read-only
- * baselines for exact counts. `eraser` owns no meetings and is used by `HD-API-23` alone, the one
- * case that needs a total nothing else moves.
+ * `teacher` and `student` are read-only baselines for exact counts, `planner` is the mutation
+ * sandbox the `api` project shares, and ten pool users (`FACT-3773`) each start with no meetings and
+ * are held by one test at a time, in either project (`ADR-0037`).
  */
+const POOL_SIZE = 10;
+
 export const SEED_USERS: readonly SeedUser[] = [
   {
     id: 'usr-teacher',
@@ -45,16 +45,13 @@ export const SEED_USERS: readonly SeedUser[] = [
     name: 'Maria Planner',
     password: SEED_PASSWORD,
   },
-  {
-    id: 'usr-organizer',
-    email: 'organizer@purpleschool.test',
-    name: 'Peter Organizer',
-    password: SEED_PASSWORD,
-  },
-  {
-    id: 'usr-eraser',
-    email: 'eraser@purpleschool.test',
-    name: 'Erin Eraser',
-    password: SEED_PASSWORD,
-  },
+  ...Array.from({ length: POOL_SIZE }, (_, index): SeedUser => {
+    const number = String(index + 1).padStart(2, '0');
+    return {
+      id: `usr-pool-${number}`,
+      email: `pool-${number}@purpleschool.test`,
+      name: `Pool User ${number}`,
+      password: SEED_PASSWORD,
+    };
+  }),
 ];

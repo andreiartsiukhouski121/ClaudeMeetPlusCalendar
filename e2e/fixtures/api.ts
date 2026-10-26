@@ -21,7 +21,7 @@ export type ApiOptions = {
  * able to drift from the config — and drift silently, with the suite using the default while the
  * servers use the config. An empty value cannot do that: any read fails and names the fix.
  */
-function requireApiBaseURL(apiBaseURL: string): string {
+export function requireApiBaseURL(apiBaseURL: string): string {
   if (apiBaseURL === '') {
     throw new Error(
       'The apiBaseURL option is empty: it is not set in playwright.config.ts (use.apiBaseURL). ' +

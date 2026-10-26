@@ -1,4 +1,28 @@
+import { expect, type APIRequestContext } from '@playwright/test';
+import {
+  GEOMETRY_WORKSHOP_TITLE,
+  TEACHER_MEETING_FILES,
+  seededFileBytes,
+} from '../fixtures/seed.js';
+import { authHeaders } from './auth.api.js';
+import {
+  createSeededShapeMeetings,
+  type ErrorBody,
+  type SeededShapeMeetings,
+} from './meetings.api.js';
+import type { Tracker } from './cleanup.api.js';
+
+/** `FACT-2083` — the file-level 404. */
+export const FILE_NOT_FOUND_BODY: ErrorBody = {
+  message: 'File not found',
+  error: 'Not Found',
+  statusCode: 404,
+};
+
 /**
+ * The `meeting-files` module of the suite's API layer (`FACT-3758`): the file-level not-found body
+ * above and the upload encoder below.
+ *
  * Hand-built `multipart/form-data` bodies, shared by every spec that needs a request shape
  * Playwright's own `multipart` option cannot express: a part with no `Content-Type` header at all,
  * an explicit empty one, a file part under an arbitrary field name, or a `filename*` (RFC 5987)
@@ -62,4 +86,90 @@ export function buildMultipartBody(fields: MultipartField[], boundary: string): 
   chunks.push(Buffer.from(`--${boundary}--\r\n`, 'utf8'));
 
   return Buffer.concat(chunks);
+}
+
+export interface UploadedFile {
+  id: string;
+  filename: string;
+  uploadedAt: string;
+}
+
+/**
+ * `POST /meetings/:id/files` as `token`'s owner with a `multipart` body Playwright's own option can
+ * express; the 201 is asserted. The file goes with its meeting by cascade, so a caller registers
+ * the meeting and nothing more.
+ */
+export async function uploadMeetingFile(
+  request: APIRequestContext,
+  token: string,
+  meetingId: string,
+  file: { name: string; mimeType: string; buffer: Buffer },
+): Promise<UploadedFile> {
+  const response = await request.post(`/meetings/${meetingId}/files`, {
+    headers: authHeaders(token),
+    multipart: { file },
+  });
+  expect(
+    response.status(),
+    `uploading ${file.name} must answer 201; got ${await response.text()}`,
+  ).toBe(201);
+
+  return (await response.json()) as UploadedFile;
+}
+
+const CLOCK_POLL_MS = 2;
+
+/** Resolves once `Date.now()` is past `instant`, so the next write is stamped later than it. */
+async function untilClockPast(instant: string): Promise<void> {
+  while (Date.now() <= Date.parse(instant)) {
+    await new Promise((resolve) => setTimeout(resolve, CLOCK_POLL_MS));
+  }
+}
+
+/**
+ * The two seeded files on one meeting (`FACT-3799`): the seed's names, types, sizes and byte rule
+ * (`FACT-1075`), `syllabus.pdf` first and `notes.txt` once the clock is past the first upload's
+ * `uploadedAt`, the two asserted to differ. Files list `uploadedAt` descending (`FACT-2110`) and a
+ * tie would fall to the random id, so the order is what puts `notes.txt` first as the seed does.
+ */
+export async function uploadSeededFiles(
+  request: APIRequestContext,
+  token: string,
+  meetingId: string,
+): Promise<void> {
+  const oldestFirst = [...TEACHER_MEETING_FILES.items].reverse();
+  let previous: UploadedFile | undefined;
+
+  for (const file of oldestFirst) {
+    if (previous !== undefined) {
+      await untilClockPast(previous.uploadedAt);
+    }
+    const uploaded = await uploadMeetingFile(request, token, meetingId, {
+      name: file.filename,
+      mimeType: file.contentType,
+      buffer: seededFileBytes(TEACHER_MEETING_FILES.headers[file.filename], file.sizeBytes),
+    });
+    if (previous !== undefined) {
+      expect(
+        uploaded.uploadedAt,
+        `${file.filename} must be stamped later than ${previous.filename}, or the list order is a tie`,
+      ).not.toBe(previous.uploadedAt);
+    }
+    previous = uploaded;
+  }
+}
+
+/**
+ * The whole seeded shape on `token`'s owner: `teacher`'s five meetings and the "Geometry workshop"
+ * copy's two uploads, which the meeting page and the accessibility scan read. Returns the copies'
+ * ids by title.
+ */
+export async function createSeededShapeCopy(
+  request: APIRequestContext,
+  token: string,
+  tracker: Tracker,
+): Promise<SeededShapeMeetings> {
+  const meetings = await createSeededShapeMeetings(request, token, tracker);
+  await uploadSeededFiles(request, token, meetings[GEOMETRY_WORKSHOP_TITLE]);
+  return meetings;
 }

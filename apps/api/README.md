@@ -35,7 +35,7 @@ PostgreSQL through Prisma, run by the repository's `docker-compose.yml` (`ADR-00
 live on that one server: `purpleschool` for `pnpm dev` and `purpleschool_e2e` for the suite, so a
 development session and a Playwright run never share rows. The suite's database is dropped,
 re-pushed and re-seeded once per run by `start:e2e`, before Nest starts — so no test may depend on
-data created by another, and each mutating spec file has its own owner.
+data created by another, and a test that needs an owner of its own holds a pool user.
 
 The seed is **not** applied at startup: no service constructor and no lifecycle hook touches the
 database. `pnpm db:seed` runs the standalone `prisma/seed.ts`, which applies the rows declared in
@@ -46,17 +46,16 @@ User passwords sit in `users.seed.ts` as plaintext and the seed script hashes th
 before the row is written, so the database never holds a plaintext password. In a real project the
 seed file would be replaced by a migration with pre-computed hashes (`BL-004`).
 
-| User                          | Password    | Meetings | Files | Role in the tests                                                                     |
-| ----------------------------- | ----------- | -------- | ----- | ------------------------------------------------------------------------------------- |
-| `teacher@purpleschool.test`   | `Passw0rd!` | 5        | 2     | read-only; exact numbers and the "last 3" ordering                                    |
-| `student@purpleschool.test`   | `Passw0rd!` | 0        | 0     | read-only; the "no meetings" edge case                                                |
-| `planner@purpleschool.test`   | `Passw0rd!` | 2        | 5     | mutation sandbox for the API tests, plus `SEC-API-11`'s never-mutated fixture meeting |
-| `organizer@purpleschool.test` | `Passw0rd!` | 1        | 0     | mutation sandbox for the functional tests                                             |
-| `eraser@purpleschool.test`    | `Passw0rd!` | 0        | 0     | used only by `HD-API-23` and `SM-API-02`; nothing else moves its total                |
+| User                                                      | Password    | Meetings | Files | Role in the tests                                                                     |
+| --------------------------------------------------------- | ----------- | -------- | ----- | ------------------------------------------------------------------------------------- |
+| `teacher@purpleschool.test`                               | `Passw0rd!` | 5        | 2     | read-only; exact numbers and the "last 3" ordering                                    |
+| `student@purpleschool.test`                               | `Passw0rd!` | 0        | 0     | read-only; the "no meetings" edge case                                                |
+| `planner@purpleschool.test`                               | `Passw0rd!` | 2        | 5     | mutation sandbox for the API tests, plus `SEC-API-11`'s never-mutated fixture meeting |
+| `pool-01@purpleschool.test` … `pool-10@purpleschool.test` | `Passw0rd!` | 0        | 0     | each held by one test at a time, in either project (`ADR-0037`)                       |
 
-`teacher` and `student` **must never be mutated**: absolute assertions depend on them. Separate
-owners for the API and UI tests are needed because Playwright runs the projects in parallel against
-one database.
+`teacher` and `student` **must never be mutated**: absolute assertions depend on them. The `api`
+project shares `planner`; every other mutated owner is a pool user one test holds, because
+Playwright runs the projects in parallel against one database (`ADR-0037`).
 
 The test-side mirror of the seed is `e2e/fixtures/seed.ts`; drift is caught by
 `e2e/smoke/seed.api.spec.ts`.

@@ -1,10 +1,12 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { expect, test } from '@playwright/test';
+import ts from 'typescript';
 
 /**
- * The suite convention, made executable. Ten rules, one test each, so a failure names the exact
- * violation rather than "something is off with the structure".
+ * The suite convention, made executable. Twelve rules, one test each, so a failure names the exact
+ * violation rather than "something is off with the structure". Rules 11 and 12 each have a
+ * self-check test beside them.
  *
  * It works through node:fs, hence the `api` project: no browser needed, and the `.api.spec.ts`
  * suffix is mandatory by rule 1 — otherwise the file would join no project.
@@ -495,13 +497,711 @@ function violationsRule10(root: string): string[] {
   return violations;
 }
 
+/**
+ * Rules 11 and 12 read TypeScript, not text: a password read is allowed only inside the function
+ * passed to one `test` call, and a test body must have one exact shape. Both need the call's
+ * bounds, which only a parse gives (`FACT-3759`, `FACT-3811`).
+ *
+ * Both are pure functions of `{ path, text }` sources, so their self-checks feed them fixtures
+ * through the very code the repository run uses (`ADR-0010`).
+ */
+interface SourceFile {
+  path: string;
+  text: string;
+}
+
+type FindingKind = 'read' | 'tag-location' | 'tagged-set' | 'no-test-call' | 'alias' | 'shape';
+
+interface Finding {
+  file: string;
+  kind: FindingKind;
+  message: string;
+}
+
+interface TestCall {
+  title: string;
+  line: number;
+  tags: string[];
+  fn: ts.ArrowFunction | ts.FunctionExpression;
+  start: number;
+  end: number;
+}
+
+interface ParsedSpec {
+  sf: ts.SourceFile;
+  calls: TestCall[];
+  aliases: string[];
+}
+
+const TEST_MODIFIERS = new Set(['only', 'fixme', 'fail', 'slow', 'skip']);
+const UI_LOGIN_TAG = '@ui-login';
+const UI_LOGIN_TAG_LITERAL = /['"`]@ui-login['"`]/;
+const AUTH_LOGIN_DIR = 'e2e/regression/auth-login/';
+const FIXTURES_DIR = 'e2e/fixtures';
+const LEADING_CASE_ID = /^[A-Z]{2,5}-(?:API|FN|UT|INT)-\d{2,3}/;
+
+/** `test(...)` and `test.only|fixme|fail|slow|skip(...)`; `test.describe` and hooks are not tests. */
+function isTestCallee(expression: ts.Expression): boolean {
+  if (ts.isIdentifier(expression)) {
+    return expression.text === 'test';
+  }
+  return (
+    ts.isPropertyAccessExpression(expression) &&
+    ts.isIdentifier(expression.expression) &&
+    expression.expression.text === 'test' &&
+    TEST_MODIFIERS.has(expression.name.text)
+  );
+}
+
+function stringsOf(expression: ts.Expression): string[] {
+  if (ts.isStringLiteralLike(expression)) {
+    return [expression.text];
+  }
+  if (ts.isArrayLiteralExpression(expression)) {
+    return expression.elements.flatMap((element) => stringsOf(element));
+  }
+  return [];
+}
+
+function tagsOf(call: ts.CallExpression): string[] {
+  return call.arguments.filter(ts.isObjectLiteralExpression).flatMap((options) =>
+    options.properties.flatMap((property) => {
+      const named =
+        ts.isPropertyAssignment(property) &&
+        ts.isIdentifier(property.name) &&
+        property.name.text === 'tag';
+      return named ? stringsOf(property.initializer) : [];
+    }),
+  );
+}
+
+function parseSpec(file: SourceFile): ParsedSpec {
+  const sf = ts.createSourceFile(
+    file.path,
+    file.text,
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.TS,
+  );
+  const calls: TestCall[] = [];
+  const aliases: string[] = [];
+
+  const visit = (node: ts.Node): void => {
+    if (
+      ts.isImportSpecifier(node) &&
+      (node.propertyName ?? node.name).text === 'test' &&
+      node.name.text !== 'test'
+    ) {
+      aliases.push(`import { test as ${node.name.text} }`);
+    }
+    if (
+      ts.isVariableDeclaration(node) &&
+      node.initializer !== undefined &&
+      ts.isIdentifier(node.initializer) &&
+      node.initializer.text === 'test' &&
+      ts.isIdentifier(node.name) &&
+      node.name.text !== 'test'
+    ) {
+      aliases.push(`const ${node.name.text} = test`);
+    }
+    if (ts.isCallExpression(node) && isTestCallee(node.expression)) {
+      const fn = node.arguments.find(
+        (argument): argument is ts.ArrowFunction | ts.FunctionExpression =>
+          ts.isArrowFunction(argument) || ts.isFunctionExpression(argument),
+      );
+      if (fn !== undefined) {
+        const first = node.arguments[0];
+        calls.push({
+          title:
+            first !== undefined && ts.isStringLiteralLike(first)
+              ? first.text
+              : '<no literal title>',
+          line: sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1,
+          tags: tagsOf(node),
+          fn,
+          start: fn.getStart(sf),
+          end: fn.getEnd(),
+        });
+      }
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(sf);
+
+  return { sf, calls, aliases };
+}
+
+function lineOf(parsed: ParsedSpec, offset: number): number {
+  return parsed.sf.getLineAndCharacterOfPosition(offset).line + 1;
+}
+
+function aliasFindings(file: SourceFile, parsed: ParsedSpec, rule: string): Finding[] {
+  return parsed.aliases.map((alias) => ({
+    file: file.path,
+    kind: 'alias' as const,
+    message:
+      `${file.path} — ${rule}: ${alias}. A spec takes \`test\` under that name from ` +
+      `e2e/fixtures/suite.ts; under another name the parse cannot find its calls`,
+  }));
+}
+
+function noCallFinding(file: SourceFile, rule: string): Finding {
+  return {
+    file: file.path,
+    kind: 'no-test-call',
+    message:
+      `${file.path} — ${rule}: no \`test\` call found in a file this rule covers, so there is ` +
+      `nothing to bound and the rule would pass having checked nothing`,
+  };
+}
+
+/**
+ * Rule 11 (`FACT-3759`): the seed password is read through the form in two tests only. Scope:
+ * `*.functional.spec.ts` outside `auth-login/`, and `e2e/fixtures/*.ts` except `seed.ts`.
+ * `*.api.spec.ts` and `e2e/api/` sign in through the API, which needs the password, so they are
+ * outside it. A read is allowed only inside the function of a `test` call tagged `@ui-login` —
+ * a module-level helper called from one is a hit.
+ */
+const PASSWORD_READS: { pattern: RegExp; what: string }[] = [
+  { pattern: /\.password\b/g, what: 'a `.password` member access' },
+  {
+    pattern: /\{[^}]*\bpassword\b[^}]*\}\s*=(?![=>])/g,
+    what: 'a `password` binding in a destructuring pattern',
+  },
+  { pattern: /SEED_PASSWORD/g, what: 'the seed mirror password constant' },
+  { pattern: /Passw0rd!/g, what: 'the seed password literal' },
+];
+
+function inRule11Scope(file: string): boolean {
+  const spec = file.endsWith('.functional.spec.ts') && !file.startsWith(AUTH_LOGIN_DIR);
+  const fixture =
+    path.posix.dirname(file) === FIXTURES_DIR &&
+    file.endsWith('.ts') &&
+    path.posix.basename(file) !== 'seed.ts';
+  return spec || fixture;
+}
+
+function rule11Findings(files: SourceFile[], expectedTaggedIds: string[]): Finding[] {
+  const findings: Finding[] = [];
+  const taggedIds: string[] = [];
+
+  for (const file of files) {
+    if (!file.path.endsWith('.functional.spec.ts') && UI_LOGIN_TAG_LITERAL.test(file.text)) {
+      findings.push({
+        file: file.path,
+        kind: 'tag-location',
+        message:
+          `${file.path} — rule 11: carries the ${UI_LOGIN_TAG} tag outside a ` +
+          `*.functional.spec.ts, where it would claim an exemption no browser test can use`,
+      });
+    }
+  }
+
+  for (const file of files.filter((candidate) => inRule11Scope(candidate.path))) {
+    const parsed = parseSpec(file);
+    const isSpec = file.path.endsWith('.functional.spec.ts');
+
+    if (isSpec && parsed.calls.length === 0) {
+      findings.push(noCallFinding(file, 'rule 11'));
+    }
+    if (isSpec) {
+      findings.push(...aliasFindings(file, parsed, 'rule 11'));
+    }
+
+    const allowed = parsed.calls.filter((call) => call.tags.includes(UI_LOGIN_TAG));
+    if (isSpec) {
+      taggedIds.push(
+        ...allowed.map(
+          (call) => LEADING_CASE_ID.exec(call.title)?.[0] ?? `(no case ID) ${call.title}`,
+        ),
+      );
+    }
+
+    for (const { pattern, what } of PASSWORD_READS) {
+      for (const match of file.text.matchAll(pattern)) {
+        const offset = match.index;
+        if (allowed.some((call) => offset >= call.start && offset < call.end)) {
+          continue;
+        }
+        const enclosing = parsed.calls.find((call) => offset >= call.start && offset < call.end);
+        findings.push({
+          file: file.path,
+          kind: 'read',
+          message:
+            `${file.path}:${lineOf(parsed, offset)} — rule 11: ${what} ` +
+            `${enclosing === undefined ? 'at module level or in a helper' : `in test "${enclosing.title}"`}, ` +
+            `which carries no ${UI_LOGIN_TAG} tag. A browser case signs in through the cookie ` +
+            `builder; only the tagged tests type the password`,
+        });
+      }
+    }
+  }
+
+  const got = unique(taggedIds).sort();
+  const want = unique(expectedTaggedIds).sort();
+  if (got.join(',') !== want.join(',')) {
+    findings.push({
+      file: 'e2e',
+      kind: 'tagged-set',
+      message:
+        `e2e — rule 11: the tests tagged ${UI_LOGIN_TAG} are [${got.join(', ')}], but FACT-3806 ` +
+        `names [${want.join(', ')}]`,
+    });
+  }
+
+  return findings;
+}
+
+/** The case IDs on the line of `FACT-3806`, read by its key from the ADR log. */
+function uiLoginIdsFromAdr(root: string): string[] {
+  const ids: string[] = [];
+
+  for (const file of walk(root, 'docs/adr').filter((name) => name.endsWith('.md'))) {
+    let inside = false;
+    for (const line of read(root, file).split(/\r?\n/)) {
+      if (/^- `FACT-\d+`/.test(line)) {
+        inside = line.startsWith('- `FACT-3806`');
+      }
+      if (inside) {
+        ids.push(...(line.match(CASE_ID_ANYWHERE) ?? []));
+      }
+    }
+  }
+
+  return unique(ids).sort();
+}
+
+/**
+ * Rule 12 (`FACT-3811`): every `test` call's function is exactly
+ * `try { … } finally { await cleanup.run(); }`. The four meta-test areas read the repository and
+ * create no data, so they are outside the scope by definition, not by exception.
+ */
+const RULE12_SUFFIXES = ['.api.spec.ts', '.functional.spec.ts', '.integration.spec.ts'];
+const RULE12_OUT_OF_SCOPE = [
+  'e2e/suite-integrity.api.spec.ts',
+  'e2e/architecture/',
+  'e2e/ledger/',
+  'e2e/process/',
+];
+
+function inRule12Scope(file: string): boolean {
+  return (
+    file.startsWith('e2e/') &&
+    RULE12_SUFFIXES.some((suffix) => file.endsWith(suffix)) &&
+    !RULE12_OUT_OF_SCOPE.some((area) => file === area || file.startsWith(area))
+  );
+}
+
+function isCleanupRunCall(expression: ts.Expression): boolean {
+  return (
+    ts.isCallExpression(expression) &&
+    expression.arguments.length === 0 &&
+    ts.isPropertyAccessExpression(expression.expression) &&
+    ts.isIdentifier(expression.expression.expression) &&
+    expression.expression.expression.text === 'cleanup' &&
+    expression.expression.name.text === 'run'
+  );
+}
+
+/** Why a function body is not the exact shape, or `null` when it is. */
+function diagnoseBody(fn: ts.ArrowFunction | ts.FunctionExpression): string | null {
+  const body = fn.body;
+  if (!ts.isBlock(body)) {
+    return 'the function is an expression, not a block holding one `try`';
+  }
+  if (!body.statements.some(ts.isTryStatement)) {
+    return 'no `try` statement';
+  }
+  const only = body.statements[0];
+  if (body.statements.length !== 1 || !ts.isTryStatement(only)) {
+    return 'a statement before or after the `try`';
+  }
+  if (only.catchClause !== undefined) {
+    return 'a `catch` clause (rethrowing or not)';
+  }
+  const statements = only.finallyBlock?.statements ?? [];
+  if (statements.length === 0) {
+    return 'an empty `finally`';
+  }
+  const [first] = statements;
+  if (
+    ts.isExpressionStatement(first) &&
+    ts.isCallExpression(first.expression) &&
+    isCleanupRunCall(first.expression)
+  ) {
+    return '`cleanup.run()` is not awaited';
+  }
+  const awaited =
+    ts.isExpressionStatement(first) &&
+    ts.isAwaitExpression(first.expression) &&
+    isCleanupRunCall(first.expression.expression);
+  if (!awaited) {
+    return 'the `finally` lacks `await cleanup.run();`';
+  }
+  return statements.length === 1 ? null : 'the `finally` holds more than `await cleanup.run();`';
+}
+
+function rule12Findings(files: SourceFile[]): Finding[] {
+  const findings: Finding[] = [];
+
+  for (const file of files.filter((candidate) => inRule12Scope(candidate.path))) {
+    const parsed = parseSpec(file);
+
+    if (parsed.calls.length === 0) {
+      findings.push(noCallFinding(file, 'rule 12'));
+    }
+    findings.push(...aliasFindings(file, parsed, 'rule 12'));
+
+    for (const call of parsed.calls) {
+      const reason = diagnoseBody(call.fn);
+      if (reason !== null) {
+        findings.push({
+          file: file.path,
+          kind: 'shape',
+          message:
+            `${file.path}:${call.line} — rule 12: test "${call.title}": ${reason}. The body is ` +
+            `exactly try { … } finally { await cleanup.run(); }`,
+        });
+      }
+    }
+  }
+
+  return findings;
+}
+
+function e2eTsSources(root: string): SourceFile[] {
+  return walk(root, 'e2e')
+    .filter((file) => file.endsWith('.ts') && !isSelfExempt(file))
+    .map((file) => ({ path: file, text: read(root, file) }));
+}
+
+function perFile(findings: Finding[]): string {
+  const counts = new Map<string, number>();
+  for (const finding of findings) {
+    counts.set(finding.file, (counts.get(finding.file) ?? 0) + 1);
+  }
+  return `${findings.length} findings in ${counts.size} files: ${[...counts]
+    .map(([file, count]) => `${file} ×${count}`)
+    .join('; ')}`;
+}
+
+// --- Self-checks of rules 11 and 12 ----------------------------------------------------------
+
+const FIXTURE_FN = 'e2e/regression/meeting-files/meeting-files.functional.spec.ts';
+const FIXTURE_IDS = ['MF-FN-09', 'SEC-FN-01'];
+
+function taggedSpec(withSecond: boolean): SourceFile {
+  const second = withSecond
+    ? `
+test('SEC-FN-01 — cookie flags', { tag: ['@p0', '@ui-login'] }, async ({ page }) => {
+  const { email, password } = held;
+  await page.getByLabel('Password').fill(SEED_PASSWORD + 'Passw0rd!');
+});`
+    : '';
+  return {
+    path: FIXTURE_FN,
+    text: `import { test } from '@playwright/test';
+test('MF-FN-09 — session expired', { tag: '@ui-login' }, async ({ page }) => {
+  await page.getByLabel('Password').fill(held.password);
+});${second}
+test('MF-FN-10 — plain', async () => {});
+`,
+  };
+}
+
+const R11_HIT_FILE = 'e2e/regression/home-dashboard/home-dashboard.functional.spec.ts';
+
+function functionalFile(
+  body: string,
+  header = "import { test } from '@playwright/test';",
+): SourceFile {
+  return { path: R11_HIT_FILE, text: `${header}\n${body}\n` };
+}
+
+/** Each must-hit scenario names the finding kind and file the rule has to produce. */
+const RULE11_MUST_HIT: {
+  name: string;
+  files: SourceFile[];
+  kind: FindingKind;
+  file: string;
+}[] = [
+  {
+    name: 'a .password read in an untagged test',
+    files: [
+      functionalFile("test('HD-FN-11 — a', async () => { use(SEED_USERS.teacher.password); });"),
+    ],
+    kind: 'read',
+    file: R11_HIT_FILE,
+  },
+  {
+    name: 'a password destructuring in an untagged test',
+    files: [
+      functionalFile(
+        "test('HD-FN-11 — a', async () => { const { email, password } = SEED_USERS.teacher; });",
+      ),
+    ],
+    kind: 'read',
+    file: R11_HIT_FILE,
+  },
+  {
+    name: 'the seed password constant in an untagged test',
+    files: [functionalFile("test('HD-FN-11 — a', async () => { use(SEED_PASSWORD); });")],
+    kind: 'read',
+    file: R11_HIT_FILE,
+  },
+  {
+    name: 'the seed password literal in an untagged test',
+    files: [functionalFile("test('HD-FN-11 — a', async () => { use('Passw0rd!'); });")],
+    kind: 'read',
+    file: R11_HIT_FILE,
+  },
+  {
+    name: 'a read in a module-level helper that a tagged test calls',
+    files: [
+      functionalFile(
+        `function typed() { return SEED_USERS.teacher.password; }
+test('MF-FN-09 — again', { tag: '@ui-login' }, async () => { use(typed()); });`,
+      ),
+    ],
+    kind: 'read',
+    file: R11_HIT_FILE,
+  },
+  {
+    name: 'the tag in an .api.spec.ts',
+    files: [
+      {
+        path: 'e2e/regression/home-dashboard/home-dashboard.api.spec.ts',
+        text: "test('HD-API-01 — t', { tag: '@ui-login' }, async () => {});",
+      },
+    ],
+    kind: 'tag-location',
+    file: 'e2e/regression/home-dashboard/home-dashboard.api.spec.ts',
+  },
+  {
+    name: 'a tagged set one ID short',
+    files: [taggedSpec(false)],
+    kind: 'tagged-set',
+    file: 'e2e',
+  },
+  {
+    name: 'a tagged set one ID too long',
+    files: [functionalFile("test('HD-FN-11 — a', { tag: '@ui-login' }, async () => {});")],
+    kind: 'tagged-set',
+    file: 'e2e',
+  },
+  {
+    name: 'a functional spec with no matched test call (P10 G)',
+    files: [functionalFile("test.describe('only a group', () => {});")],
+    kind: 'no-test-call',
+    file: R11_HIT_FILE,
+  },
+  {
+    name: 'a functional spec importing test as it (P10 G)',
+    files: [
+      functionalFile(
+        "it('HD-FN-11 — a', async () => {});",
+        "import { test as it } from '@playwright/test';",
+      ),
+    ],
+    kind: 'alias',
+    file: R11_HIT_FILE,
+  },
+  {
+    name: 'a functional spec declaring const it = test (P10 H)',
+    files: [functionalFile("const it = test;\ntest('HD-FN-11 — a', async () => {});")],
+    kind: 'alias',
+    file: R11_HIT_FILE,
+  },
+  {
+    name: 'a read in a fixture file other than the seed',
+    files: [
+      {
+        path: 'e2e/fixtures/auth.fixture.ts',
+        text: 'const { email, password } = SEED_USERS[user];',
+      },
+    ],
+    kind: 'read',
+    file: 'e2e/fixtures/auth.fixture.ts',
+  },
+];
+
+/** Must-miss: every one of these is legitimate, together they must raise nothing. */
+const RULE11_MUST_MISS: SourceFile[] = [
+  taggedSpec(true),
+  {
+    path: 'e2e/security/security.api.spec.ts',
+    text: `const cases = { valid: { email: SEED_USERS.teacher.email, password: SEED_USERS.teacher.password } };
+const SECRET_MARKERS = ['scrypt', 'passwordHash', 'password', SEED_USERS.teacher.password];
+test('SEC-API-01 — a', async () => { use({ data: { email: x, password: SEED_USERS.teacher.password } }); });`,
+  },
+  {
+    path: 'e2e/regression/home-dashboard/home-dashboard.api.spec.ts',
+    text: "test('HD-API-01 — a', async () => { expect(text).not.toContain(TEACHER.password); });",
+  },
+  {
+    path: 'e2e/accessibility/accessibility.functional.spec.ts',
+    text: `test('ACC-FN-03 — a', async ({ page }) => {
+  await page.getByLabel('Password').fill('definitely-not-the-password');
+});`,
+  },
+  { path: 'e2e/fixtures/seed.ts', text: "export const SEED_PASSWORD = 'Passw0rd!';" },
+  {
+    path: 'e2e/regression/auth-login/auth-login.functional.spec.ts',
+    text: "test('AL-FN-13 — a', async () => { use(TEACHER.password); });",
+  },
+];
+
+function rule11SelfCheck(): string[] {
+  const problems: string[] = [];
+
+  for (const scenario of RULE11_MUST_HIT) {
+    // The tagged baseline keeps the tagged-set comparison quiet; a scenario that brings its own
+    // tagged spec at the same path (the one-short set) replaces it.
+    const baseline = scenario.files.some((f) => f.path === FIXTURE_FN) ? [] : [taggedSpec(true)];
+    const findings = rule11Findings([...baseline, ...scenario.files], FIXTURE_IDS);
+    if (!findings.some((f) => f.kind === scenario.kind && f.file === scenario.file)) {
+      problems.push(
+        `rule 11 missed "${scenario.name}": wanted a ${scenario.kind} finding on ${scenario.file}, ` +
+          `got [${findings.map((f) => f.kind).join(', ')}]`,
+      );
+    }
+  }
+
+  const missed = rule11Findings(RULE11_MUST_MISS, FIXTURE_IDS);
+  if (missed.length > 0) {
+    problems.push(
+      `rule 11 flagged legitimate sources: ${missed.map((f) => f.message).join(' | ')}`,
+    );
+  }
+
+  return problems;
+}
+
+const SHAPE_BROKEN: [id: string, body: string][] = [
+  ['X-FN-01 — no try', 'await a(); await cleanup.run();'],
+  [
+    'X-FN-02 — rethrowing catch',
+    'try { await a(); } catch (e) { throw e; } finally { await cleanup.run(); }',
+  ],
+  [
+    'X-FN-03 — swallowing catch',
+    'try { await a(); } catch { await b(); } finally { await cleanup.run(); }',
+  ],
+  ['X-FN-04 — finally without the run', 'try { await a(); } finally { await other(); }'],
+  [
+    'X-FN-05 — run plus another statement',
+    'try { await a(); } finally { await cleanup.run(); await other(); }',
+  ],
+  ['X-FN-06 — run not awaited', 'try { await a(); } finally { cleanup.run(); }'],
+  [
+    'X-FN-07 — a statement before the try',
+    'const x = 1; try { await a(); } finally { await cleanup.run(); }',
+  ],
+  ['X-FN-08 — empty finally', 'try { await a(); } finally { }'],
+];
+
+const SHAPE_PATH = 'e2e/regression/x/x.functional.spec.ts';
+
+function shapeSpec(
+  path: string,
+  tests: string,
+  header = "import { test } from '@playwright/test';",
+): SourceFile {
+  return { path, text: `${header}\n${tests}\n` };
+}
+
+const FULL_SHAPE = 'try { await a(); } finally { await cleanup.run(); }';
+
+function rule12SelfCheck(): string[] {
+  const problems: string[] = [];
+
+  const broken = rule12Findings([
+    shapeSpec(
+      SHAPE_PATH,
+      SHAPE_BROKEN.map(([title, body]) => `test('${title}', async () => { ${body} });`).join('\n'),
+    ),
+  ]);
+  for (const [title] of SHAPE_BROKEN) {
+    if (!broken.some((f) => f.kind === 'shape' && f.message.includes(`"${title}"`))) {
+      problems.push(`rule 12 missed the broken shape "${title}"`);
+    }
+  }
+  if (broken.length !== SHAPE_BROKEN.length) {
+    problems.push(
+      `rule 12 flagged ${broken.length} findings over ${SHAPE_BROKEN.length} broken shapes`,
+    );
+  }
+
+  const noCall = rule12Findings([
+    shapeSpec('e2e/x/describe-only.api.spec.ts', "test.describe('group', () => {});"),
+  ]);
+  if (!noCall.some((f) => f.kind === 'no-test-call')) {
+    problems.push('rule 12 passed a file with no matched test call');
+  }
+
+  const imported = rule12Findings([
+    shapeSpec(
+      'e2e/x/import-alias.api.spec.ts',
+      `it('X-API-01 — a', async () => { ${FULL_SHAPE} });`,
+      "import { test as it } from '@playwright/test';",
+    ),
+  ]);
+  if (
+    !imported.some((f) => f.kind === 'alias') ||
+    !imported.some((f) => f.kind === 'no-test-call')
+  ) {
+    problems.push('rule 12 passed `import { test as it }` (zero matched calls, aliased import)');
+  }
+
+  const declared = rule12Findings([
+    shapeSpec(
+      'e2e/x/const-alias.api.spec.ts',
+      `const it = test;\ntest('X-API-02 — a', async () => { ${FULL_SHAPE} });`,
+    ),
+  ]);
+  if (declared.length !== 1 || declared[0].kind !== 'alias') {
+    problems.push('rule 12 did not flag `const it = test` exactly once');
+  }
+
+  const outOfScope = rule12Findings([
+    shapeSpec('e2e/ledger/ledger.api.spec.ts', "test('LG-API-01 — a', () => { use(); });"),
+    shapeSpec('e2e/x/helper.ts', "test('X-API-03 — a', () => { use(); });"),
+  ]);
+  if (outOfScope.length > 0) {
+    problems.push(
+      `rule 12 flagged sources outside its scope: ${outOfScope.map((f) => f.file).join(', ')}`,
+    );
+  }
+
+  const legitimate = rule12Findings([
+    shapeSpec(
+      SHAPE_PATH,
+      `test('X-FN-09 — the full shape', async () => { ${FULL_SHAPE} });
+test.skip('X-FN-10 — skipped, same shape', async () => { ${FULL_SHAPE} });
+test.fixme('X-FN-12 — fixme, same shape', async () => { ${FULL_SHAPE} });
+test.describe('outer', () => {
+  test.describe('nested', () => {
+    test('X-FN-11 — nested describe', async () => { ${FULL_SHAPE} });
+  });
+});`,
+    ),
+  ]);
+  if (legitimate.length > 0) {
+    problems.push(
+      `rule 12 flagged legitimate shapes: ${legitimate.map((f) => f.message).join(' | ')}`,
+    );
+  }
+
+  return problems;
+}
+
 // --- Tests -----------------------------------------------------------------------------------
 
 // This describe deliberately carries no tag: `@smoke` means `e2e/smoke/**`, and the meta-test is
 // its own acceptance step, launched by path.
 test.describe('Regression suite convention', () => {
   // Not a "rule" but a guard against a vacuous pass: if the file walk returns empty lists (the
-  // root calculation changed, a directory moved), all nine rules go green under any violation.
+  // root calculation changed, a directory moved), all twelve rules go green under any violation.
   // Such a meta-test is worse than none — it gives false confidence. So first make sure the
   // scanner found anything at all.
   test('walk self-check — the scanner finds both the suite and the app unit specs', () => {
@@ -603,6 +1303,41 @@ test.describe('Regression suite convention', () => {
       violationsRule10(repoRoot()),
       'A level tag that disagrees with the filename suffix filters in a test that does not run ' +
         'where the tag claims it does',
+    ).toEqual([]);
+  });
+
+  test('rule 11 self-check — the seed-password rule hits what it must and misses what it must not', () => {
+    expect(
+      rule11SelfCheck(),
+      'Without this, a parse that finds no test call would let rule 11 pass having checked nothing',
+    ).toEqual([]);
+  });
+
+  test('rule 11 — only the @ui-login tests read the seed password', () => {
+    const root = repoRoot();
+    const expectedIds = uiLoginIdsFromAdr(root);
+    const findings = rule11Findings(e2eTsSources(root), expectedIds);
+
+    expect(expectedIds, 'FACT-3806 was not found in docs/adr, or names no case ID').not.toEqual([]);
+    expect(
+      findings.map((finding) => finding.message),
+      `Browser cases sign in through the cookie builder (${perFile(findings)})`,
+    ).toEqual([]);
+  });
+
+  test('rule 12 self-check — the body-shape rule hits what it must and misses what it must not', () => {
+    expect(
+      rule12SelfCheck(),
+      'Without this, an aliased `test` would leave rule 12 nothing to bound and it would pass',
+    ).toEqual([]);
+  });
+
+  test('rule 12 — every test body is try { … } finally { await cleanup.run(); }', () => {
+    const findings = rule12Findings(e2eTsSources(repoRoot()));
+
+    expect(
+      findings.map((finding) => finding.message),
+      `A create no body registers is found by the teardown comparison, not here (${perFile(findings)})`,
     ).toEqual([]);
   });
 });

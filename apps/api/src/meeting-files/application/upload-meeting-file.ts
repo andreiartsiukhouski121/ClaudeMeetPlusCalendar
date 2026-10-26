@@ -25,7 +25,7 @@ export class UploadMeetingFile {
    * The evaluation order is the contract's (`FACT-2100`): the file itself, then the filename, then
    * the content type, then ownership, then the per-meeting count. Ownership comes strictly before the
    * count, so the cap cannot be used to probe whether a meeting exists (`FACT-2101`, `MF-API-16`).
-   * A count then an insert, not a transaction (`FACT-3642`).
+   * A count then an insert, not a transaction (`FACT-3795`).
    */
   async execute(command: UploadMeetingFileCommand): Promise<MeetingFile> {
     if (command.file === undefined) {

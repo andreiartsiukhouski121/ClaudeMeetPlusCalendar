@@ -2,7 +2,7 @@
  * The module's limits, declared once (`FACT-3708`): the HTTP layer imports them and restates none.
  */
 
-/** The ten-file-per-meeting cap (`FACT-3642`). */
+/** The ten-file-per-meeting cap (`FACT-3795`). */
 export const MAX_FILES_PER_MEETING = 10;
 
 /** The per-file size ceiling; enforced by the upload interceptor, not by the entity (`FACT-3629`). */

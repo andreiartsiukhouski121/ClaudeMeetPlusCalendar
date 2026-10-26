@@ -40,8 +40,12 @@ to talk to), `e2e/README.md` (the convention), `CLAUDE.md` invariants 9–15 and
   accessible name moved and that is the defect.
 - A UI label is part of the contract: if a label changed, the locator changes in the same commit, and
   that is a finding to report, not a silent edit.
-- Sessions come from the `authUser` option and the `authedPage` fixture — a real login through the
-  form, not a forged cookie. Mutating cases use the `organizer` sandbox and **relative** counters.
+- Import `test` from `e2e/fixtures/suite.ts`. A browser case claims a pool user and gets a session
+  built from an API login (`ADR-0037`); it never signs in through the form — only the auth-login
+  cases and the `@ui-login` exceptions listed in `ADR-0036` do (suite rule 11). Preconditions are
+  created through `e2e/api/` in `beforeEach`, never through the UI (`ADR-0036`), and every test body
+  is `try { … } finally { await cleanup.run(); }` (suite rule 12). A claimed user is exclusive while
+  held, so its counts may be exact.
 - Forbidden: `waitForTimeout`, `test.only`, `expect` without `await`, conditionals inside a test.
   Waiting is done with web-first assertions.
 - The console is part of the result: `console.error` and `pageerror` outside the HMR noise filter in

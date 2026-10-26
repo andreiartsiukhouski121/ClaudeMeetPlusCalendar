@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from '../fixtures/suite.js';
 
 /**
  * Infrastructure smoke: Nest came up and routing works. Not tied to a feature, hence
@@ -7,10 +7,14 @@ import { expect, test } from '@playwright/test';
  * Cases live in the paired health.api.cases.md.
  */
 test.describe('Smoke: API availability', { tag: '@smoke' }, () => {
-  test('SM-API-01 — GET / answers with a greeting', async ({ request }) => {
-    const response = await request.get('/');
+  test('SM-API-01 — GET / answers with a greeting', async ({ request, cleanup }) => {
+    try {
+      const response = await request.get('/');
 
-    await expect(response).toBeOK();
-    expect(await response.text()).toBe('Hello World!');
+      await expect(response).toBeOK();
+      expect(await response.text()).toBe('Hello World!');
+    } finally {
+      await cleanup.run();
+    }
   });
 });

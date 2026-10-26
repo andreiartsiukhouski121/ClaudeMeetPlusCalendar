@@ -12,7 +12,7 @@ import { MeetingFile } from '../domain/meeting-file.js';
 export class PrismaMeetingFileRepository implements MeetingFileRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  /** Plain count, not a transaction: the ten-file cap is a deliberate best-effort bound (`FACT-3642`). */
+  /** Plain count, not a transaction: the ten-file cap is a deliberate best-effort bound (`FACT-3795`). */
   async countForMeeting(meetingId: string): Promise<number> {
     return this.prisma.meetingFile.count({ where: { meetingId } });
   }

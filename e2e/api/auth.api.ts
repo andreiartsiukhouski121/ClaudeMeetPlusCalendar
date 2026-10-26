@@ -1,9 +1,9 @@
 import { expect, type APIRequestContext } from '@playwright/test';
-import { SEED_USERS, type SeedUserKey } from './seed.js';
+import { SEED_USERS, type PoolUserKey, type SeedUserKey } from '../fixtures/seed.js';
 
 /**
- * API login for cases in the `api` project — no browser starts there. UI login lives separately in
- * `auth.fixture.ts`.
+ * API login — the `auth` module of the suite's API layer (`FACT-3758`). `e2e/api/` is outside suite
+ * rule 11's scope because a call to `POST /auth/login` needs the seed password.
  */
 
 /**
@@ -66,4 +66,38 @@ export async function authHeadersFor(
   user: SeedUserKey,
 ): Promise<Record<string, string>> {
   return authHeaders(await loginApi(request, user));
+}
+
+/** The login a pool user (`usr-pool-NN`) answers to; the one password every seeded user shares. */
+export function poolCredentials(slotNumber: number): { email: string; password: string } {
+  const label = String(slotNumber).padStart(2, '0');
+  const { email, password } = SEED_USERS[`pool-${label}` as PoolUserKey];
+  return { email, password };
+}
+
+/**
+ * One uncached `POST /auth/login` for a pool user: the pool builds a user's storage state from it
+ * once per run (`FACT-3778`), so a per-worker cache would only hold a token the state file already
+ * holds.
+ */
+export async function loginPoolUser(
+  request: APIRequestContext,
+  slotNumber: number,
+): Promise<string> {
+  const { email, password } = poolCredentials(slotNumber);
+  const response = await request.post('/auth/login', { data: { email, password } });
+
+  expect(
+    response.status(),
+    `Login of pool user ${email} failed. The seed has no such user or /auth/login is broken, not ` +
+      `the case under test. Response body: ${await response.text()}`,
+  ).toBe(200);
+
+  const { accessToken } = (await response.json()) as LoginResponseBody;
+  expect(
+    typeof accessToken,
+    `POST /auth/login for ${email} answered 200, but accessToken is not a string`,
+  ).toBe('string');
+
+  return accessToken as string;
 }

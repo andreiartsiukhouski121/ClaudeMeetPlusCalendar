@@ -21,10 +21,13 @@ api.spec.ts` also mutates `planner`, and a `total`-based check here would race i
     row and not `mtg-planner-2` — is ever sent a `DELETE`, by the owner or by anybody else: a
     broken ownership `where` would then destroy the read-only seed rather than fail one case.
     `student` is the foreign token; it makes requests and is never mutated.
-  - **Cleanup:** every case that creates a meeting deletes it through `DELETE /meetings/:id` as
-    `planner` when it ends, **also on failure**. A cleanup `404` is tolerated only when its body is
-    exactly `FACT-2016`; any other `404` — Express's `Cannot DELETE …` included — fails the case.
-    The case's own assertion failure is reported before a cleanup failure.
+  - **Cleanup:** every case that creates a meeting registers it with its `cleanup` tracker as it is
+    created, and the tracker deletes it through `DELETE /meetings/:id` as `planner` in the body's
+    `finally`, **also on failure** (`FACT-3780`, `FACT-3809`). This now includes `MD-API-05`,
+    `MD-API-06` and `MD-API-08`, whose assertions are unchanged. A cleanup `404` is tolerated only
+    when its body is exactly `FACT-2016`; any other `404` — Express's `Cannot DELETE …` included —
+    fails the case. The case's own assertion failure is reported beside a cleanup failure, never
+    replaced by it.
 
 11 cases. **There is no `meetings-detail.unit.cases.md`:** `MD-UT-01`…`04` were already covered over
 HTTP by the cases below, `MD-UT-06`…`09` are **withdrawn** — they guarded the in-memory store's

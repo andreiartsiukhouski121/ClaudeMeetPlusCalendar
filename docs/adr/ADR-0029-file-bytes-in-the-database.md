@@ -106,10 +106,6 @@
   not merely untrusted here, it is not observable, which is why the stored value is normalized to one
   of four literals and the download is served `attachment` with `nosniff` rather than trusting it. —
   this record, `FACT-3647`, `FACT-3627`
-- `FACT-3642` An upload is refused when the meeting already holds ten files, so a feature with no
-  delete cannot grow the database without bound; the check is a count before the insert rather than a
-  transaction, so the rule is stated as a refusal rather than as an exact ceiling. — this record,
-  `FACT-3629`
 - `FACT-3654` `apiFetchMultipart` matches that exact triple — name `blob`, size `0`, type
   `application/octet-stream` — and restores the empty filename before appending the part, so an
   empty selection reaches Nest as the part `multer` discards and answers the documented
@@ -173,3 +169,12 @@ Rejected:
 > because the alternative is worse in the common case: without the match, every user who submits the
 > form with nothing chosen is told their file type is unsupported, which is both false and
 > unactionable. The trigger above is what keeps the trade from quietly becoming a bug.
+
+## Retired facts
+
+The register of the keys this record has allocated and no longer states (`ADR-0022`). The decision
+stands; the row below is one whose premise a later record changed.
+
+| Key         | Stated                                                                                                                                                                                                                                                                   | Status                 | Recorded in |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------- | ----------- |
+| `FACT-3642` | An upload is refused when the meeting already holds ten files, so a feature with no delete cannot grow the database without bound; the check is a count before the insert rather than a transaction, so the rule is stated as a refusal rather than as an exact ceiling. | `retired by FACT-3795` | `ADR-0038`  |

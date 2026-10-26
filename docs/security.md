@@ -89,8 +89,8 @@ that costs, and one of them is the actual security control rather than a usabili
 
 - **A per-file ceiling of 1 048 576 bytes**, enforced by the file interceptor's own `limits.fileSize`
   rather than by arithmetic of ours, so the `413` is the framework's.
-- **A cap of ten files per meeting**, so a feature with no delete cannot grow the database without
-  bound. The check is a count followed by an insert rather than a transaction: the contract promises
+- **A cap of ten files per meeting**, so one meeting cannot hold files without bound; deleting a
+  file frees a slot. The check is a count followed by an insert rather than a transaction: the contract promises
   the refusal, not an exact ceiling under concurrency.
 - **An allow-list of four media types** — PDF, PNG, JPEG, plain text — compared after normalization,
   and it is the normalized value that is stored, never the client's raw header. This is a
@@ -152,3 +152,13 @@ with no fix available, accepted explicitly rather than left to silently block `p
   unmodified `main`. Ignored by GHSA ID in `package.json`'s `pnpm.auditConfig.ignoreGhsas`, which is
   the only way to keep `pnpm audit --audit-level high` green until `braces` ships a patched version
   — remove the entry then, not before.
+- **`GHSA-q7qp-rjg7-q26m`, `multer` (high), accepted by the owner on 2026-10-26 (`CH-039`).** A
+  denial of service through a pending **asynchronous `fileFilter`** after the request is torn down;
+  patched in `2.5.0`. Unlike `braces` a fix exists, but `multer` is pinned to exactly `2.3.0` by
+  `FX-043`: from `2.4.0` its "Unexpected field" message changed, and `@nestjs/platform-express`
+  matches that message by exact equality, so a wrong field name answers `500` instead of the
+  contracted `400`. The vulnerable path is not reached here: the only `FileInterceptor`
+  (`meeting-files.controller.ts`) passes `limits` and no `fileFilter`. This is an argument, not a
+  test. Ignored by GHSA ID in `pnpm.auditConfig.ignoreGhsas`; revisit — and remove the entry — when
+  any `fileFilter` is added, or when the 400 mapping no longer depends on the message text
+  (`BL-075`).

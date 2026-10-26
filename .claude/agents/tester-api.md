@@ -26,8 +26,12 @@ browser, on the same `request` fixture.
   unreachable or wrong is reported, not silently dropped or changed.
 - A test title starts with its case ID. IDs are never reused. A new feature prefix is registered in
   `KNOWN_CASE_PREFIXES` in `e2e/suite-integrity.api.spec.ts`.
-- Data comes from `e2e/fixtures/seed.ts` — never hard-coded logins or titles. Mutating cases use the
-  `planner` sandbox and **relative** counters; `teacher` and `student` are never mutated.
+- Data comes from `e2e/fixtures/seed.ts` — never hard-coded logins or titles — and actions go
+  through the API layer in `e2e/api/` (`ADR-0036`). Import `test` from `e2e/fixtures/suite.ts`.
+  Mutating cases either claim a pool user, exclusive while held so counts may be exact, or use the
+  `planner` sandbox with **relative** counters (`ADR-0037`); `teacher` and `student` are never
+  mutated. Every created row is registered with the cleanup tracker and every test body is
+  `try { … } finally { await cleanup.run(); }` (suite rule 12).
 - The server address is never recomputed in the suite: it arrives as the project `baseURL` or the
   `apiBaseURL` option (rule 9, after `FX-023`).
 - Negative cases assert **both** the status **and** the absence of a side effect — no data changed,

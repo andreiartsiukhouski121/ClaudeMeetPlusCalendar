@@ -113,7 +113,7 @@ what each field is for.
 | `FACT-1020` | Durations     | whole minutes, 15–480                                                                                                                                                                |
 | `FACT-1021` | Email         | validated by `@IsEmail()` on input; `trim`med on the web side before submission                                                                                                      |
 | `FACT-1022` | Password      | validated only as a non-empty string on login, and **never trimmed** (invariant 15)                                                                                                  |
-| `FACT-1023` | Created dates | tests create meetings dated **2030**                                                                                                                                                 |
+| `FACT-1088` | Created dates | meetings a test creates under a shared owner are dated **2030**; a test holding a pool user may create meetings with the seed's own dates (`ADR-0037`, `FACT-3799`)                  |
 | `FACT-1024` | Participants  | free-form strings, a name or an email, 1–100 characters, at most 20 per meeting. Never a `User.id`, never validated as an email, never trimmed or deduplicated (`ADR-0017`)          |
 
 > **Rationale — not a fact.** Display dates are pinned to UTC or both the units and the e2e depend on
@@ -140,8 +140,8 @@ what each field is for.
 | `FACT-1029` | Session                        | the `ps_session` cookie in the browser | it expires (1 h) or sign-out deletes it                                                                                                                                                           |
 
 - `FACT-1030` No test may depend on data another test created. — `e2e/README.md`, `ADR-0027`
-- `FACT-1031` Mutating cases follow the robustness rules for asserting against a shared sandbox. —
-  `e2e/README.md`
+- `FACT-1089` Mutating cases follow the robustness rules for asserting against a shared owner;
+  a case holding a pool user asserts absolute counts over it. — `e2e/README.md`, `FACT-3784`
 
 ## Seed data
 
@@ -155,13 +155,12 @@ what each field is for.
 
 **Source:** `apps/api/src/users/users.seed.ts`, `e2e/fixtures/seed.ts`.
 
-| Key         | User                          | Name            | Meetings | Role in the suite                                                             |
-| ----------- | ----------------------------- | --------------- | -------- | ----------------------------------------------------------------------------- |
-| `FACT-1034` | `teacher@purpleschool.test`   | Anna Teacher    | 5        | read-only; exact counts and the "last 3" ordering                             |
-| `FACT-1035` | `student@purpleschool.test`   | Ivan Student    | 0        | read-only; the empty-state edge case                                          |
-| `FACT-1071` | `planner@purpleschool.test`   | Maria Planner   | 2        | mutation sandbox for `*.api.spec.ts`, plus one never-mutated fixture meeting  |
-| `FACT-1037` | `organizer@purpleschool.test` | Peter Organizer | 1        | mutation sandbox for `*.functional.spec.ts`                                   |
-| `FACT-1085` | `eraser@purpleschool.test`    | Erin Eraser     | 0        | owns no meetings; used by `HD-API-23` alone, the case that deletes and counts |
+| Key         | User                                                                                      | Name                            | Meetings | Role in the suite                                                                      |
+| ----------- | ----------------------------------------------------------------------------------------- | ------------------------------- | -------- | -------------------------------------------------------------------------------------- |
+| `FACT-1034` | `teacher@purpleschool.test`                                                               | Anna Teacher                    | 5        | read-only; exact counts and the "last 3" ordering                                      |
+| `FACT-1035` | `student@purpleschool.test`                                                               | Ivan Student                    | 0        | read-only; the empty-state edge case                                                   |
+| `FACT-1071` | `planner@purpleschool.test`                                                               | Maria Planner                   | 2        | mutation sandbox for `*.api.spec.ts`, plus one never-mutated fixture meeting           |
+| `FACT-1093` | `pool-01@purpleschool.test` … `pool-10@purpleschool.test` (`usr-pool-01` … `usr-pool-10`) | `Pool User 01` … `Pool User 10` | 0        | each held by one test at a time, in either project; no meetings, no files (`ADR-0037`) |
 
 `planner`'s second meeting is the one place the seed deliberately writes rows no endpoint would
 accept:
@@ -178,17 +177,17 @@ accept:
 - `FACT-1075` The seeded files' bytes are deterministic — a fixed ASCII header padded with `0x20` to
   the exact seeded size — so `db:reset` is byte-identical every time and `1024` and `48` render as
   `1.0 KiB` and `48 B`. — `apps/api/src/meeting-files/meeting-files.seed.ts`, `MF-FN-03`
-- `FACT-1076` A mutating file case creates **its own** meeting under its sandbox owner rather than
+- `FACT-1090` A mutating file case creates **its own** meeting under its sandbox owner rather than
   sharing one: the ten-file refusal consumes every slot of whatever meeting proves it, and a listing
   over a meeting the case made itself has an exact expected count rather than a relative one.
-  `FACT-3131` still governs anything counted across an owner's whole collection. —
+  `FACT-3784` still governs anything counted across an owner's whole collection. —
   `e2e/regression/meeting-files/meeting-files.api.cases.md`, `MF-API-15`
 
-- `FACT-1086` All five users share one password, `Passw0rd!`. — `e2e/fixtures/seed.ts`
+- `FACT-1091` Every seeded user shares one password, `Passw0rd!`. — `e2e/fixtures/seed.ts`
 - `FACT-1039` `teacher` and `student` are never mutated. — `e2e/README.md`, `SM-API-02`
-- `FACT-1087` Playwright runs the `api` and `web` projects in parallel against one store, so there
-  are two separate mutation sandboxes, `planner` and `organizer`, and a third user, `eraser`, mutated by
-  `HD-API-23` alone. — `playwright.config.ts`, `ADR-0008`, `FACT-1085`
+- `FACT-1092` Playwright runs the `api` and `web` projects in parallel against one store; `planner`
+  is the mutation sandbox the `api` project shares, and every other mutated owner is a pool user
+  one test holds, in either project. — `playwright.config.ts`, `ADR-0037`, `FACT-3783`
 - `FACT-1041` Seed dates are absolute (January 2026) and never computed from `Date.now()`. —
   `apps/api/src/meetings/meetings.seed.ts`
 
@@ -316,18 +315,25 @@ Browser  GET /meetings/<id>/files/<fileId> ──► Next Route Handler
 The register of the keys this document has allocated and no longer states (`ADR-0022`). A fact is
 never edited in place and never deleted; it is closed here, naming the key that replaced it.
 
-| Key         | Stated                                                                                                                                    | Status                 | Recorded in          |
-| ----------- | ----------------------------------------------------------------------------------------------------------------------------------------- | ---------------------- | -------------------- |
-| `FACT-1025` | There is no database.                                                                                                                     | `retired by FACT-1066` | `ADR-0027`           |
-| `FACT-1026` | Each service owns an array, seeded at module initialization.                                                                              | `retired by FACT-1067` | `ADR-0027`           |
-| `FACT-1027` | Users and meetings live in in-memory arrays and die when the API process restarts.                                                        | `retired by FACT-1084` | `ADR-0027`, `FT-010` |
-| `FACT-1028` | Password hashes are computed at startup from the seed and die with the process.                                                           | `retired by FACT-1069` | `ADR-0027`           |
-| `FACT-1032` | The seed is `users.seed.ts` and `meetings.seed.ts`, mirrored in `e2e/fixtures/seed.ts`.                                                   | `retired by FACT-1070` | `ADR-0027`           |
-| `FACT-1036` | `planner@purpleschool.test` owns one meeting and is the mutation sandbox for `*.api.spec.ts`.                                             | `retired by FACT-1071` | `ADR-0029`           |
-| `FACT-1005` | `Meeting.id`: `string`, `mtg-<owner>-<n>` in the seed.                                                                                    | `retired by FACT-1080` | `ADR-0031`           |
-| `FACT-1017` | Identifiers: opaque strings with a type prefix (`usr-`, `mtg-`). Never a number, never guessable-by-increment.                            | `retired by FACT-1082` | `ADR-0031`           |
-| `FACT-1056` | `MeetingFile.id`: `string`, `text`, `fil-<owner>-<n>-<k>` in the seed, `randomUUID()` from an upload.                                     | `retired by FACT-1081` | `ADR-0031`           |
-| `FACT-1046` | The three most recent meetings are chosen by the service, sorting on `startsAt` with `id` as a secondary key.                             | `retired by FACT-1083` | `ADR-0035`, `FT-009` |
-| `FACT-1068` | Users, meetings, meeting files lived in PostgreSQL rows and died when the compose volume was removed or `db:reset` dropped and re-pushed. | `retired by FACT-1084` | `ADR-0022`, `FT-010` |
-| `FACT-1038` | All four users share one password, `Passw0rd!`.                                                                                           | `retired by FACT-1086` | `ADR-0022`, `FT-010` |
-| `FACT-1040` | Playwright runs the `api` and `web` projects in parallel against one store, so there are two separate mutation sandboxes.                 | `retired by FACT-1087` | `ADR-0022`, `FT-010` |
+| Key         | Stated                                                                                                                                                                                                                                                                                                                                                             | Status                 | Recorded in             |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------- | ----------------------- |
+| `FACT-1025` | There is no database.                                                                                                                                                                                                                                                                                                                                              | `retired by FACT-1066` | `ADR-0027`              |
+| `FACT-1026` | Each service owns an array, seeded at module initialization.                                                                                                                                                                                                                                                                                                       | `retired by FACT-1067` | `ADR-0027`              |
+| `FACT-1027` | Users and meetings live in in-memory arrays and die when the API process restarts.                                                                                                                                                                                                                                                                                 | `retired by FACT-1084` | `ADR-0027`, `FT-010`    |
+| `FACT-1028` | Password hashes are computed at startup from the seed and die with the process.                                                                                                                                                                                                                                                                                    | `retired by FACT-1069` | `ADR-0027`              |
+| `FACT-1032` | The seed is `users.seed.ts` and `meetings.seed.ts`, mirrored in `e2e/fixtures/seed.ts`.                                                                                                                                                                                                                                                                            | `retired by FACT-1070` | `ADR-0027`              |
+| `FACT-1036` | `planner@purpleschool.test` owns one meeting and is the mutation sandbox for `*.api.spec.ts`.                                                                                                                                                                                                                                                                      | `retired by FACT-1071` | `ADR-0029`              |
+| `FACT-1005` | `Meeting.id`: `string`, `mtg-<owner>-<n>` in the seed.                                                                                                                                                                                                                                                                                                             | `retired by FACT-1080` | `ADR-0031`              |
+| `FACT-1017` | Identifiers: opaque strings with a type prefix (`usr-`, `mtg-`). Never a number, never guessable-by-increment.                                                                                                                                                                                                                                                     | `retired by FACT-1082` | `ADR-0031`              |
+| `FACT-1056` | `MeetingFile.id`: `string`, `text`, `fil-<owner>-<n>-<k>` in the seed, `randomUUID()` from an upload.                                                                                                                                                                                                                                                              | `retired by FACT-1081` | `ADR-0031`              |
+| `FACT-1046` | The three most recent meetings are chosen by the service, sorting on `startsAt` with `id` as a secondary key.                                                                                                                                                                                                                                                      | `retired by FACT-1083` | `ADR-0035`, `FT-009`    |
+| `FACT-1068` | Users, meetings, meeting files lived in PostgreSQL rows and died when the compose volume was removed or `db:reset` dropped and re-pushed.                                                                                                                                                                                                                          | `retired by FACT-1084` | `ADR-0022`, `FT-010`    |
+| `FACT-1038` | All four users share one password, `Passw0rd!`.                                                                                                                                                                                                                                                                                                                    | `retired by FACT-1091` | `ADR-0022`, `FT-010`    |
+| `FACT-1040` | Playwright runs the `api` and `web` projects in parallel against one store, so there are two separate mutation sandboxes.                                                                                                                                                                                                                                          | `retired by FACT-1092` | `ADR-0022`, `FT-010`    |
+| `FACT-1023` | tests create meetings dated **2030**                                                                                                                                                                                                                                                                                                                               | `retired by FACT-1088` | `ADR-0037`              |
+| `FACT-1031` | Mutating cases follow the robustness rules for asserting against a shared sandbox.                                                                                                                                                                                                                                                                                 | `retired by FACT-1089` | `ADR-0037`              |
+| `FACT-1076` | A mutating file case creates **its own** meeting under its sandbox owner rather than sharing one: the ten-file refusal consumes every slot of whatever meeting proves it, and a listing over a meeting the case made itself has an exact expected count rather than a relative one. `FACT-3131` still governs anything counted across an owner's whole collection. | `retired by FACT-1090` | `ADR-0037`              |
+| `FACT-1086` | All five users share one password, `Passw0rd!`.                                                                                                                                                                                                                                                                                                                    | `retired by FACT-1091` | `ADR-0037`              |
+| `FACT-1087` | Playwright runs the `api` and `web` projects in parallel against one store, so there are two separate mutation sandboxes, `planner` and `organizer`, and a third user, `eraser`, mutated by `HD-API-23` alone.                                                                                                                                                     | `retired by FACT-1092` | `ADR-0037`              |
+| `FACT-1037` | `organizer@purpleschool.test`, Peter Organizer, 1 meeting: mutation sandbox for `*.functional.spec.ts`.                                                                                                                                                                                                                                                            | `withdrawn`            | `ADR-0037`, `FACT-3773` |
+| `FACT-1085` | `eraser@purpleschool.test`, Erin Eraser, 0 meetings: owns no meetings; used by `HD-API-23` alone, the case that deletes and counts.                                                                                                                                                                                                                                | `withdrawn`            | `ADR-0037`, `FACT-3773` |

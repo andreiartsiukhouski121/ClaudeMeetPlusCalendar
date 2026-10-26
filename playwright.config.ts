@@ -28,7 +28,9 @@ export default defineConfig<ApiOptions>({
   fullyParallel: true,
   forbidOnly: isCI,
   retries: isCI ? 2 : 0,
-  workers: isCI ? 1 : undefined,
+  // 7 outside CI (`FACT-3786`): at the 14 the machine offers, the web project's first requests
+  // under load reproduced `FX-052`. CI stays at 1.
+  workers: isCI ? 1 : 7,
   // The first page visit triggers a cold Turbopack build — the default 30 s is not enough.
   timeout: 60_000,
   expect: { timeout: 10_000 },
@@ -46,9 +48,11 @@ export default defineConfig<ApiOptions>({
     actionTimeout: 15_000,
     navigationTimeout: 30_000,
   },
-  // BL-058: compiles every web route once, serially, after both webServer entries answer and before
-  // the first test. Without it the workers' first requests compile routes concurrently under load.
-  globalSetup: './e2e/fixtures/warm-up.ts',
+  // Empties the user pool (`FACT-3779`). No route warm-up: see `e2e/fixtures/global-setup.ts`.
+  globalSetup: './e2e/fixtures/global-setup.ts',
+  // Last: compares every seeded owner and meeting with the seed and fails the run on any difference
+  // (`FACT-3781`).
+  globalTeardown: './e2e/fixtures/global-teardown.ts',
   // baseURL is set per project only, or api would inherit web's address.
   projects: [
     // Files are grouped by feature (e2e/regression/<feature>/), so the project is chosen by the

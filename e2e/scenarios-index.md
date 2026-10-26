@@ -61,14 +61,13 @@ One row per scenario declared in a Summary table, across every level and module 
 | api | regression/auth-login | `AL-API-15` | an invalid token on /auth/me gives 401, not 500 |
 | api | regression/auth-login | `AL-API-20` | an unseeded email never authenticates, valid password |
 | functional | regression/auth-login | `AL-FN-01` | the login form renders |
-| functional | regression/auth-login | `AL-FN-02` | a successful login leaves the form for / |
 | functional | regression/auth-login | `AL-FN-03` | a wrong password shows an error and keeps the user on login |
 | functional | regression/auth-login | `AL-FN-04` | an unknown email gives the same error |
 | functional | regression/auth-login | `AL-FN-05` | an empty form does not submit |
 | functional | regression/auth-login | `AL-FN-06` | the sign-up link leads to a page that exists |
 | functional | regression/auth-login | `AL-FN-08` | the login page logs nothing to the console |
 | functional | regression/auth-login | `AL-FN-10` | the password is masked while typing |
-| functional | regression/auth-login | `AL-FN-13` | the session cookie is httpOnly and unreachable from JS |
+| functional | regression/auth-login | `AL-FN-13` | a sign-in lands on / with an httpOnly, JS-invisible session |
 | functional | regression/auth-login | `AL-FN-14` | an invalid email format in the UI |
 | unit | regression/auth-login | `AL-UT-01` | P0 |
 | unit | regression/auth-login | `AL-UT-02` | P0 |
@@ -235,5 +234,12 @@ One row per scenario declared in a Summary table, across every level and module 
 | functional | security | `SEC-FN-04` | protected pages are unreachable without a session and after logout |
 | functional | security | `SEC-FN-05` | a forged session cookie grants no access |
 | api | smoke | `SM-API-01` | `GET /` answers with a greeting |
+| api | smoke | `SM-API-04` | concurrent claims give each slot exactly one holder |
+| api | smoke | `SM-API-05` | a two-user claim holds both users or neither |
+| api | smoke | `SM-API-06` | the release refuses a claim that names another test |
+| api | smoke | `SM-API-07` | a clean release frees the slot; a dirty one marks it leaked |
+| api | smoke | `SM-API-08` | a takeover purges a dead holder's user, and only that user |
+| api | smoke | `SM-API-09` | `trackAllOf` tolerates its own purge, and no other 404 |
+| api | smoke | `SM-API-10` | a tracker's `run()` deletes in reverse, records, never throws |
 | api | smoke | `SM-API-02` | seeded users are in place |
 | api | smoke | `SM-API-03` | seeded meetings and their files are in place |

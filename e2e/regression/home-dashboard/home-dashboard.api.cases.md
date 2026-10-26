@@ -8,20 +8,28 @@
   - Playwright starts Nest on 3101 with `JWT_SECRET=e2e-secret`; the seed is applied.
   - Data comes from `e2e/fixtures/seed.ts`. Exact numbers are checked against `teacher`/`student`
     only — mutating them is forbidden.
-  - Mutating cases run as `planner`, reserved for `*.api.spec.ts` (`*.functional.spec.ts` mutates
-    `organizer`). That removes the cross-project race under `fullyParallel: true`, because
-    `GET /meetings` is isolated by owner. `planner` is also mutated by
+  - Mutating cases run as `planner`, the `api` project's shared sandbox (`FACT-3783`); browser
+    cases hold pool users, so no cross-project race remains on `planner` under
+    `fullyParallel: true`, because `GET /meetings` is isolated by owner. `planner` is also mutated by
     `meetings-detail.api.spec.ts`, so no mutating case here reads `total`, which would race that
     file's concurrent creates. Each case is instead proven by its own unique generated title, by
     the ids it just created, or — for `HD-API-15`, whose rejected body carries no title — by the
     DTO's own bound on `title`.
+  - **Cleanup:** every meeting a case creates is registered with its `cleanup` tracker as it is
+    created and deleted in the body's `finally`, **also on failure** (`FACT-3780`, `FACT-3809`);
+    a tracker failure is reported beside the case's own, never in its place. `HD-API-13`, `-17`,
+    `-20`, `-21` and `-22` gain this; their assertions are unchanged.
+  - `HD-API-13`…`HD-API-22` keep one nested serial `describe`: it orders `HD-API-13`'s top-three
+    read before `HD-API-22`'s three same-date creates within this file.
   - **The one exception is `HD-API-23`, and it does not run as `planner`.** It reads `total` after
-    a delete, which needs an owner whose count nothing else moves, so it runs as `eraser` — a seeded
-    user with no meetings whose data **no other case** reads or mutates. Its counts are still
-    relative to a baseline it reads first (`FACT-3131`, kept by `FACT-3580`), never absolute, so a
-    retry after a failed cleanup still passes. It deletes, through `DELETE /meetings/:id`, every
-    meeting it created, **also on failure**; a cleanup `404` is tolerated only when its body is
-    exactly `FACT-2016`, and any other `404` — Express's `Cannot DELETE …` included — fails the case.
+    a delete, which needs an owner whose count nothing else moves, so it claims a pool user
+    (`FACT-3783`) — empty when claimed (`FACT-3773`) and held by no other test until the case ends.
+    Its counts stay relative to a baseline it reads first; `FACT-3784` would allow absolute ones
+    over a held user, and the case keeps its relative form so its expectations do not change. Every
+    meeting it creates is registered with its `cleanup` tracker under the held user's token and
+    deleted **also on failure** (`FACT-3785`); because its own `DELETE`s remove them first, each
+    entry tolerates a cleanup `404` only when its body is exactly `FACT-2016`, and any other `404` —
+    Express's `Cannot DELETE …` included — fails the case.
 
 19 cases. Numbers `11`, `12`, `18`, `19` are **never reused**.
 
@@ -208,9 +216,9 @@
 ### HD-API-23 — total follows a delete, relative to a baseline
 
 - **Priority:** P0
-- **Data:** the seeded `eraser` from `e2e/fixtures/seed.ts`, used by this case alone; two meetings
-  it creates with unique titles at `FUTURE_STARTS_AT_ISO`.
-- **Steps:** as `eraser`, read `total` from `GET /meetings?limit=1` as the baseline `B`. Create the
+- **Data:** one pool user the case claims and takes no page for (`FACT-3783`); two meetings it
+  creates with unique titles at `FUTURE_STARTS_AT_ISO`.
+- **Steps:** as the held user, read `total` from `GET /meetings?limit=1` as the baseline `B`. Create the
   two meetings. Then three rounds, each reading `GET /meetings?limit=1` for `total` and
   `GET /meetings?limit=100` for membership: after the creates; after `DELETE` of the first; after
   `DELETE` of the second.
@@ -219,5 +227,6 @@
   after the second `DELETE` (204) neither is. After the creates the `limit=1` read holds one item
   while `total` is `B + 2`, at least two, so `total = items.length` (invariant 4) cannot pass this
   case; a `total` that ignores deletes stays at `B + 2` and fails it too.
-- **Cleanup:** `DELETE /meetings/{id}` for both meetings as `eraser`; a `FACT-2016` 404 is the
-  expected answer when the case's own deletes already succeeded.
+- **Cleanup:** `DELETE /meetings/{id}` for both meetings as the held user, through the `cleanup`
+  tracker; a `FACT-2016` 404 is the expected answer when the case's own deletes already succeeded.
+  The lease's release then finds the user back at 0 (`FACT-3776`).

@@ -8,7 +8,20 @@
  * `users.seed.ts`/`meetings.seed.ts`/`meeting-files.seed.ts` is caught by `e2e/smoke/seed.api.spec.ts`.
  */
 
-export type SeedUserKey = 'teacher' | 'student' | 'planner' | 'organizer' | 'eraser';
+/** The ten pool users (`FACT-3773`): `pool-01` … `pool-10`, held one test at a time (`ADR-0037`). */
+export type PoolUserKey =
+  | 'pool-01'
+  | 'pool-02'
+  | 'pool-03'
+  | 'pool-04'
+  | 'pool-05'
+  | 'pool-06'
+  | 'pool-07'
+  | 'pool-08'
+  | 'pool-09'
+  | 'pool-10';
+
+export type SeedUserKey = 'teacher' | 'student' | 'planner' | PoolUserKey;
 
 export interface SeedUser {
   email: string;
@@ -22,14 +35,38 @@ export interface SeedUser {
 const SEED_PASSWORD = 'Passw0rd!';
 
 /**
- * Five users rather than two, because of `fullyParallel: true` and the mutating `POST /meetings`:
- * the store is shared, so every mutating spec file needs its own owner or the `api` and `web`
- * projects race each other's counters. The fifth, `eraser`, exists for `HD-API-23` alone: it reads
- * `total` after a delete, which needs an owner whose count nothing else moves.
- *
  * `teacher` and `student` must NEVER be mutated: exact numbers are only checked against them.
+ * `api` mutations go to `planner`, except `HD-API-23`, which claims a pool user; `web` mutations
+ * claim a pool user (`ADR-0037`, `FACT-1092`).
  */
+const POOL_USER_KEYS: PoolUserKey[] = [
+  'pool-01',
+  'pool-02',
+  'pool-03',
+  'pool-04',
+  'pool-05',
+  'pool-06',
+  'pool-07',
+  'pool-08',
+  'pool-09',
+  'pool-10',
+];
+
+/** Every pool user: no meetings in a fresh seed, `Pool User NN`, one password like the rest. */
+const POOL_USERS = Object.fromEntries(
+  POOL_USER_KEYS.map((key) => [
+    key,
+    {
+      email: `${key}@purpleschool.test`,
+      password: SEED_PASSWORD,
+      name: `Pool User ${key.slice('pool-'.length)}`,
+      meetingsCount: 0,
+    } satisfies SeedUser,
+  ]),
+) as Record<PoolUserKey, SeedUser>;
+
 export const SEED_USERS: Record<SeedUserKey, SeedUser> = {
+  ...POOL_USERS,
   teacher: {
     email: 'teacher@purpleschool.test',
     password: SEED_PASSWORD,
@@ -49,20 +86,6 @@ export const SEED_USERS: Record<SeedUserKey, SeedUser> = {
     password: SEED_PASSWORD,
     name: 'Maria Planner',
     meetingsCount: 2,
-  },
-  // Mutation sandbox for *.functional.spec.ts only.
-  organizer: {
-    email: 'organizer@purpleschool.test',
-    password: SEED_PASSWORD,
-    name: 'Peter Organizer',
-    meetingsCount: 1,
-  },
-  // Used by `HD-API-23` and by no other case; no seeded meetings, every one it creates it deletes.
-  eraser: {
-    email: 'eraser@purpleschool.test',
-    password: SEED_PASSWORD,
-    name: 'Erin Eraser',
-    meetingsCount: 0,
   },
 };
 
@@ -102,17 +125,26 @@ export const TEACHER_MEETINGS = {
     'Pre-exam consultation': [],
     'Module wrap-up session': ['Nina Cole', 'Omar Vance'],
   },
+  /**
+   * `startsAt` and `durationMinutes`, keyed by title, for the same five meetings: the values a
+   * seeded-shape copy of a browser case is built from (`FACT-3799`). `SM-API-03` compares them
+   * against the API, so a copy renders what the seed renders.
+   */
+  schedule: {
+    'Intro to algebra': { startsAt: '2026-01-12T09:00:00.000Z', durationMinutes: 60 },
+    'Homework review': { startsAt: '2026-01-13T11:30:00.000Z', durationMinutes: 45 },
+    'Geometry workshop': { startsAt: '2026-01-15T14:00:00.000Z', durationMinutes: 90 },
+    'Pre-exam consultation': { startsAt: '2026-01-19T08:00:00.000Z', durationMinutes: 30 },
+    'Module wrap-up session': { startsAt: '2026-01-22T16:15:00.000Z', durationMinutes: 60 },
+  },
 } as const;
 
 /**
- * `participants` for `mtg-planner-1` and `mtg-organizer-1` — the two mutation sandboxes. Mirrored
- * here for completeness with `apps/api/src/meetings/meetings.seed.ts`, but **not** read by
- * `SM-API-03`: `planner` and `organizer` are mutated by `*.api.spec.ts` / `*.functional.spec.ts`
- * respectively, and comparing their meetings would race with the cases that create new ones there
- * (plan `meetings-detail-participants` §6).
+ * `participants` for `mtg-planner-1`, the `api` mutation sandbox. Mirrored for completeness with
+ * `apps/api/src/meetings/meetings.seed.ts`, but **not** read by `SM-API-03`: `planner` is mutated by
+ * `*.api.spec.ts`, and comparing its meetings would race with the cases that create new ones there.
  */
 export const PLANNER_MEETING_PARTICIPANTS = ['Ruth Delgado', 'guest.coach@purpleschool.test'];
-export const ORGANIZER_MEETING_PARTICIPANTS = ['Ruth Delgado', 'Omar Vance'];
 
 /**
  * Mirror of `apps/api/src/meeting-files/meeting-files.seed.ts` — the two files seeded on
@@ -147,7 +179,22 @@ export const TEACHER_MEETING_FILES = {
   ],
   /** The first bytes of the seeded `syllabus.pdf`, asserted by `MF-API-06`. */
   pdfHeader: '%PDF-1.7\n',
+  /** The fixed ASCII header each seeded file starts with, by filename (`FACT-1075`). */
+  headers: {
+    'notes.txt': 'Workshop notes: review before next session.\n',
+    'syllabus.pdf': '%PDF-1.7\n',
+  },
 } as const;
+
+/**
+ * The byte rule of the seeded files (`FACT-1075`): the file's fixed ASCII header, padded with
+ * `0x20` to its exact size. A download of a seeded file must equal this, byte for byte.
+ */
+export function seededFileBytes(header: string, sizeBytes: number): Buffer {
+  const bytes = Buffer.alloc(sizeBytes, 0x20);
+  bytes.write(header.slice(0, sizeBytes), 0, 'ascii');
+  return bytes;
+}
 
 /**
  * Mirror of the five `fil-planner-2-*` rows `apps/api/src/meeting-files/meeting-files.seed.ts`
@@ -173,10 +220,29 @@ export const HEADER_SAFETY_MEETING = {
 /**
  * Every meeting created by a test is dated 2030. DESC sorting plus the top-three slice mean the
  * assertion "the new meeting is first" only holds when the date is later than any seeded meeting
- * of that owner (`organizer` — 2026-01-14, `planner` — 2026-01-16). Using today's date or
+ * of that owner (`planner` — 2026-01-16). Using today's date or
  * `Date.now()` instead of these constants is a blocker.
  */
 export const FUTURE_STARTS_AT_ISO = '2030-01-01T10:00:00.000Z';
 
 /** The same value in `<input type="datetime-local">` format. */
 export const FUTURE_STARTS_AT_LOCAL = '2030-01-01T10:00';
+
+/**
+ * Every seeded meeting with its owner and its file count in a fresh seed: what global teardown
+ * compares the live API against (`FACT-3781`). `planner`'s `mtg-planner-2` holds the five hostile
+ * `fil-planner-2-*` rows and `teacher`'s `mtg-teacher-3` the two documented files.
+ */
+export const SEEDED_MEETING_FILE_COUNTS: readonly {
+  owner: SeedUserKey;
+  meetingId: string;
+  files: number;
+}[] = [
+  { owner: 'teacher', meetingId: 'mtg-teacher-1', files: 0 },
+  { owner: 'teacher', meetingId: 'mtg-teacher-2', files: 0 },
+  { owner: 'teacher', meetingId: GEOMETRY_WORKSHOP_MEETING_ID, files: 2 },
+  { owner: 'teacher', meetingId: 'mtg-teacher-4', files: 0 },
+  { owner: 'teacher', meetingId: 'mtg-teacher-5', files: 0 },
+  { owner: 'planner', meetingId: 'mtg-planner-1', files: 0 },
+  { owner: 'planner', meetingId: 'mtg-planner-2', files: HEADER_SAFETY_MEETING.filenames.length },
+];

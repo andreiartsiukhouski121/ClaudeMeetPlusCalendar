@@ -14,7 +14,7 @@ import type { StoredMeeting } from './domain/meeting.js';
  *    `mtg-planner-2`, a dedicated, never-mutated fixture for `SEC-API-11` (see
  *    `meeting-files.seed.ts`) — nothing is ever uploaded into it, and no case asserts `planner`'s
  *    totals, so its presence does not disturb the sandbox;
- *  - `usr-organizer` — 1 meeting, mutation sandbox for `*.functional.spec.ts`.
+ *  - `usr-pool-01` … `usr-pool-10` — no meetings: each is claimed by one test at a time (`FACT-3773`).
  */
 export const SEED_MEETINGS: readonly StoredMeeting[] = [
   {
@@ -72,13 +72,5 @@ export const SEED_MEETINGS: readonly StoredMeeting[] = [
     startsAt: '2026-01-20T10:00:00.000Z',
     durationMinutes: 30,
     participants: [],
-  },
-  {
-    id: 'mtg-organizer-1',
-    ownerId: 'usr-organizer',
-    title: 'Team standup',
-    startsAt: '2026-01-14T10:00:00.000Z',
-    durationMinutes: 30,
-    participants: ['Ruth Delgado', 'Omar Vance'],
   },
 ];

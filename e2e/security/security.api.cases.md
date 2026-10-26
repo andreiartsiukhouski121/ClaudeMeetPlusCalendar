@@ -6,9 +6,12 @@
 - **Run:** `pnpm e2e:security` (or `pnpm e2e --grep @security`)
 - **Preconditions:**
   - The seed is applied (`e2e/fixtures/seed.ts`); Playwright starts 3100/3101.
-  - Multipart bodies come from `e2e/fixtures/multipart.ts`, the shared builder — not from a copy
-    inside this spec. Two builders existed briefly and that is exactly the drift this suite is
-    supposed to be immune to.
+  - Multipart bodies come from the shared upload encoder in `e2e/api/meeting-files.api.ts`
+    (`FACT-3758`) — not from a copy inside this spec. Two builders existed briefly and that is
+    exactly the drift this suite is supposed to be immune to.
+  - **Cleanup:** every row a case creates on `planner` is registered with its `cleanup` tracker as
+    it is created and deleted in the body's `finally`, **also on failure** (`FACT-3780`,
+    `FACT-3809`). This now includes `SEC-API-07`'s meeting; its assertions are unchanged.
   - **Two things no case in this file may claim**, both of them properties of the multipart parser
     rather than of our code, and both `docs/security.md`'s to state in prose: the API does **not**
     validate the content type a client declared — an absent, empty or unparseable part type arrives
@@ -156,8 +159,10 @@ answers without a token, including those that do not exist yet.
 ### SEC-API-10 — the repository holds no committed secrets and no `.env`
 
 - **Priority:** P1
-- **Steps:** walk the repository files (skipping `node_modules`, `.next`, `dist`, reports) and
-  check their content for signs of secrets.
+- **Steps:** walk the repository files (skipping `node_modules`, `.next`, `dist`, reports, and the
+  run-state directories `test-results` and the root `.e2e-pool/` — the latter holds real session
+  tokens in its storage-state files for one run, `ADR-0037`, `FACT-3778`, `FACT-3779`) and check
+  their content for signs of secrets.
 - **Expected:** no `.env` files (other than `.env.example`), no private keys
   (`BEGIN … PRIVATE KEY`), no strings resembling a real JWT (three dot-separated base64 segments
   over 80 characters). The check is filesystem-based rather than network-based, which is why it
@@ -177,9 +182,9 @@ answers without a token, including those that do not exist yet.
   also keeps the suite a black box over HTTP (`e2e/fixtures/seed.ts:5-8`) — no database client at
   the root, no `DATABASE_URL` in the test process, no knowledge of the schema.
 - **Why `planner` owns the meeting:** `teacher` and `student` carry the absolute counts, 5 and 0,
-  that half the suite asserts, so neither can gain a meeting. `organizer` is the browser project's
-  sandbox, and putting hostile filenames under an owner a browser signs in as would render them on
-  a page for no benefit. `planner`'s data is read only by `*.api.spec.ts`, and this suite's own rule
+  that half the suite asserts, so neither can gain a meeting. The pool users are the browser
+  project's owners and start empty (`FACT-3773`, `FACT-3783`), and putting hostile filenames under
+  an owner a browser holds a session for would render them on a page for no benefit. `planner`'s data is read only by `*.api.spec.ts`, and this suite's own rule
   is that no case reads `planner`'s totals — so an extra seeded meeting disturbs nothing, and no
   browser ever renders these names.
 - **Steps:** as `planner`, find the dedicated meeting by its seeded title, list its files, and for
@@ -250,6 +255,7 @@ answers without a token, including those that do not exist yet.
 - **Cleanup — and the control:** as `planner`, `DELETE /meetings/{id}/files/{fileId}` and then
   `DELETE /meetings/{id}`, **also on failure**, and both must answer `204`: the owner's own delete
   is the control without which a route answering `404` to everyone would pass this case vacuously.
-  On a case that has already failed, cleanup removes whatever is left and its errors give way to
-  the case's own failure — once the meeting is gone the file route answers `FACT-2016`, not
+  The deletions are registered with the case's `cleanup` tracker, 204 only. On a case that has
+  already failed, cleanup removes whatever is left and its errors are reported beside the case's
+  own failure, never in its place — once the meeting is gone the file route answers `FACT-2016`, not
   `FACT-2083`, because ownership is checked first (`FACT-2124`).

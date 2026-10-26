@@ -298,7 +298,7 @@ and 8.
   `FACT-3629`, `MF-API-13`
 - `FACT-2096` An upload is refused when the meeting **already holds ten files**. The check is a count
   followed by an insert rather than a transaction, so the contract promises the refusal, not an exact
-  ceiling under concurrency. — `FACT-3642`, `MF-API-15`
+  ceiling under concurrency. — `FACT-3795`, `MF-API-15`
 - `FACT-2132` The count of `FACT-2096` is of the files the meeting holds when the upload arrives, so
   deleting a file frees exactly one slot. — `FACT-2131`, `MF-API-24`
 

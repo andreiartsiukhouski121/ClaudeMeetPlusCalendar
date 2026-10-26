@@ -442,7 +442,10 @@ than copied and its form guidance is checked against invariant 15.
   for the whole UI.** Grouped by feature: `e2e/regression/<feature>/` holds four files —
   `<feature>.api.cases.md` + `<feature>.api.spec.ts` and `<feature>.functional.cases.md` +
   `<feature>.functional.spec.ts` — plus `<feature>.unit.cases.md` referencing the unit specs.
-  `e2e/smoke/` is "the infrastructure is alive", `e2e/fixtures/` is the seed and helpers, and
+  `e2e/smoke/` is "the infrastructure is alive", `e2e/fixtures/` is the seed mirror, the one
+  `test` every spec imports (`suite.ts`: the user pool, sessions built from an API login, the
+  cleanup tracker — `ADR-0037`) and global setup/teardown, `e2e/api/` is the API layer every
+  precondition and every non-UI action goes through (`ADR-0036`), and
   `e2e/suite-integrity.api.spec.ts`, `e2e/ledger/`, `e2e/process/` and `e2e/architecture/` are the
   meta-tests that hold the conventions, the ledger, the plan templates and the corpus. The suite index with run commands
   is `e2e/README.md`.

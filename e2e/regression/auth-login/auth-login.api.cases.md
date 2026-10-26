@@ -10,7 +10,7 @@
     script against a reset database, not a service constructor — and is checked by
     `e2e/smoke/seed.api.cases.md`.
   - Logins and passwords come from `e2e/fixtures/seed.ts`, tokens through
-    `e2e/fixtures/auth.api.ts`. Hard-coded data in a spec is a blocker.
+    `e2e/api/auth.api.ts`. Hard-coded data in a spec is a blocker.
   - Invariant 8: `message` is an **array of strings only for `ValidationPipe` errors**; for an
     `UnauthorizedException` we throw, it is a string.
 

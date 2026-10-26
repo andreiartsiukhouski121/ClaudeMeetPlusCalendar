@@ -149,6 +149,8 @@ Three properties follow from that picture, and every one of them is checked by a
 | `FACT-0052` | Component library + utility CSS                                   | HeroUI v3 on Tailwind v4 in `apps/web`                                                                                                   | `ADR-0023` |
 | `FACT-0055` | Design language declared as tokens                                | `apps/web/src/app/globals.css`                                                                                                           | `ADR-0026` |
 | `FACT-0056` | Plus Jakarta Sans; icons only through `@phosphor-icons/react/ssr` | `apps/web/src/app/layout.tsx`, every component that imports an icon                                                                      | `ADR-0026` |
+| `FACT-0079` | UI exercised once; every other precondition through an API layer  | `e2e/api/`, the `test` exported by `e2e/fixtures/suite.ts`; `AL-FN-13` and the `@ui-login` exceptions                                    | `ADR-0036` |
+| `FACT-0080` | A claimed pool user per test; each test deletes what it created   | `.e2e-pool/`, the `claim` and `cleanup` fixtures, `usr-pool-01` … `usr-pool-10`                                                          | `ADR-0037` |
 
 > **Rationale — not a fact.** Why each pattern is here, in one line apiece. This is a reading aid;
 > the record that governs is the ADR in the row, and where the two differ the ADR is right.
@@ -171,6 +173,12 @@ Three properties follow from that picture, and every one of them is checked by a
 > declaration rather than a sweep of components; Plus Jakarta Sans and the `/ssr` icon import are
 > the two facts that constrain every future surface — the barrel and `dist/csr/*` both fail
 > `next build` in a Server Component, which is why only the `/ssr` specifier is a pattern here.
+>
+> Driving the UI once keeps the sign-in form's behaviour proven in one case and spares every other
+> browser case the cost and the flake of a form it is not about, with a guard that fails when the
+> built cookie and the application's drift apart. A claimed pool user per test lets a case assert
+> absolute counts over data nobody else can touch, and a cleanup the run checks at the end keeps
+> that promise honest instead of assumed.
 
 ## Patterns deliberately refused
 

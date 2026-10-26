@@ -114,20 +114,75 @@ without password verification, not to measure microseconds under the load of a t
 
 ## Fixtures
 
-| File                       | What it provides                                                                                                                                                                    |
-| -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `fixtures/seed.ts`         | `SEED_USERS`, `TEACHER_MEETINGS`, `TEACHER_MEETING_FILES`, `HEADER_SAFETY_MEETING`, the dates of created meetings. The **only** source of logins, passwords, titles and file names. |
-| `fixtures/multipart.ts`    | builders for a multipart body: a file part, a wrong field name, an extra text field, an empty filename. For upload cases in project `api`.                                          |
-| `fixtures/auth.api.ts`     | `loginApi(request, user)` → `accessToken`, `authHeaders(token)`. For project `api`, cached per worker.                                                                              |
-| `fixtures/api.ts`          | The `apiBaseURL` option (its value comes from `playwright.config.ts`), the `apiRequest` fixture and `isNestRequest` — a Nest request context for `web` cases needing baseline data. |
-| `fixtures/auth.fixture.ts` | The `authUser` option (test), `authStateFor` (worker), `authedPage` (test) — a session for UI cases through a real UI login on `/auth/login`.                                       |
-| `fixtures/console.ts`      | `collectConsoleProblems(page)` plus a filter for `next dev` HMR noise. Without the filter the console cases flake.                                                                  |
+Every spec takes `test` and `expect` from **one** module, `fixtures/suite.ts`, and never aliases,
+re-exports or merges fixture sets itself (suite rules 11 and 12, `FACT-3811`). API helpers live in
+`e2e/api/`, apart from the fixtures, so the seed-password rule can bound what reads a password
+(`ADR-0036`, `FACT-3763`).
+
+| File                          | What it provides                                                                                                                                                                                                                                       |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `fixtures/suite.ts`           | **The one `test`.** The `lease`, `claim`, `sessionPage`, `cleanup` and `preconditions` fixtures, the pool's claim and release, and `buildSessionCookie`. Details below.                                                                                |
+| `fixtures/api.ts`             | The `apiBaseURL` option (its value comes from `playwright.config.ts`), the `apiRequest` fixture and `isNestRequest` — the Nest request context that `claim`, `cleanup` and `preconditions` call through in both projects, not only the `web` baseline. |
+| `fixtures/seed.ts`            | `SEED_USERS`, `TEACHER_MEETINGS`, `TEACHER_MEETING_FILES`, `HEADER_SAFETY_MEETING`, the dates of created meetings. The **only** source of logins, passwords, titles and file names.                                                                    |
+| `fixtures/global-setup.ts`    | Empties `.e2e-pool/` before any test runs (`FACT-3779`). It does nothing else: the warm-up is gone (see "Run economics").                                                                                                                              |
+| `fixtures/global-teardown.ts` | The end-of-run baseline check (`FACT-3781`).                                                                                                                                                                                                           |
+| `fixtures/console.ts`         | `collectConsoleProblems(page)` plus a filter for `next dev` HMR noise. Without the filter the console cases flake.                                                                                                                                     |
+| `api/auth.api.ts`             | `loginApi(request, user)` → `accessToken`, `loginPoolUser`, `authHeaders(token)`. For project `api` and for the pool's own logins.                                                                                                                     |
+| `api/meetings.api.ts`         | `createMeeting`, `createSeededShapeMeetings`, `fetchMeetingsPage`, the meeting body types and `MEETING_NOT_FOUND_BODY`.                                                                                                                                |
+| `api/meeting-files.api.ts`    | `uploadMeetingFile`, `uploadSeededFiles`, `createSeededShapeCopy`, the multipart builders (a file part, a wrong field name, an extra text field, an empty filename), `FILE_NOT_FOUND_BODY`.                                                            |
+| `api/cleanup.api.ts`          | The `Tracker` class behind the `cleanup` and `preconditions` fixtures, and `deleteAllMeetings`.                                                                                                                                                        |
+
+### The user pool
+
+A test that needs a signed-in user takes one from the pool rather than sharing a seeded owner
+(`ADR-0037`). The mechanics are in the ADR and the code, not restated here:
+
+- **Claim per test.** `.e2e-pool/` at the repository root holds `claims/pool-NN/owner.json`, one
+  directory per held user, renamed onto its slot so there is exactly one winner (`FACT-3774`,
+  `FACT-3801`). A test needing more than one user takes all of them or none (`FACT-3775`). The lease
+  releases the claim after the test's `afterEach` hooks, on a pass, a failure and a timeout
+  (`FACT-3776`); a holder that died is taken over by the next claimant (`FACT-3777`).
+- **Storage state per run.** `.e2e-pool/state/pool-NN.json` is built from one `POST /auth/login` on
+  a user's first claim in a run and reused after (`FACT-3778`); global setup empties the directory,
+  so state never outlives its run (`FACT-3779`). `.e2e-pool/` is untracked.
+- **Users.** `fixtures/seed.ts` holds thirteen: `teacher`, `student`, `planner` and
+  `pool-01`…`pool-10` (`FACT-3773`). `organizer` and `eraser` are gone — the pool replaces the one
+  role of each.
+- **`sessionPage`** is a browser page whose context carries the claim's storage state, so a UI case
+  does not sign in (`FACT-3756`). `claim` is the one pool user a test holds.
+
+### Signing in through the form: once
+
+The browser signs in through the form in as few tests as possible, and the rest get a session from
+the pool (`ADR-0036`):
+
+- `AL-FN-13` is the one successful sign-in inside `e2e/regression/auth-login/` (`FACT-3755`), and it
+  also guards the cookie builder against the cookie the application sets (`FACT-3757`).
+- Outside it exactly two tests sign in through the form, `MF-FN-09` and `SEC-FN-01`, and carry the
+  `@ui-login` tag; no other test carries it (`FACT-3806`). Suite rule 11 (`FACT-3759`) fails a read
+  of the seed password anywhere else in `*.functional.spec.ts` and `e2e/fixtures/`.
+
+### Cleanup
+
+The rules are `FACT-3809`, `FACT-3817`, `FACT-3780` and `FACT-3810`; in short:
+
+- **System-level data** — rows that belong to no user — is created in a module's `beforeAll` and
+  deleted in its `afterAll`. **There is none today** (`FACT-3817`), so no module has either hook.
+- **Per-test preconditions** are created in `beforeEach` through the `preconditions` tracker and
+  deleted in `afterEach`.
+- **The test body** is exactly `try { … } finally { await cleanup.run(); }`, with no `catch`: suite
+  rule 12 (`FACT-3811`) parses every spec and fails any other shape, so the deletion runs whether or
+  not the test failed and its own error propagates unchanged. A row the tracker still holds at
+  teardown is deleted by the fixture and fails the test, which is also how a timed-out test cleans up.
+- **The end-of-run baseline check** (`global-teardown.ts`, `FACT-3781`) compares every seeded owner
+  with its seed through the API and fails the run listing each difference.
 
 ## Tags and running
 
 Tags are set with the `tag` option on `test.describe` rather than as text in the title:
 `@regression`, `@smoke`, `@auth-login`, `@home-dashboard`, `@mutating` (the case changes data),
-`@p0` (the critical minimum). The service suites carry their own: `@security`, `@accessibility`,
+`@p0` (the critical minimum), `@ui-login` (the test signs in through the form: `MF-FN-09` and
+`SEC-FN-01` only, `FACT-3806`). The service suites carry their own: `@security`, `@accessibility`,
 `@ledger`, `@process`, `@architecture`.
 
 **Level tags**, second tuning round: `@unit`, `@api`, `@e2e`, `@integration` — reusing the vocabulary
@@ -221,29 +276,25 @@ than repeating it.
   having checked nothing.
 - **Data comes only from `fixtures/seed.ts`.** Hard-coding a login, a password or a meeting title is
   a blocker.
-- **`teacher` and `student` are never mutated** — exact numbers are only checked against them.
-  Mutating cases run as `planner` (project `api`) or `organizer` (project `web`), because
-  `fullyParallel: true` and the two projects share one database.
-- **The owner is the sandbox; the meeting is per case.** A mutating file case creates **its own**
-  meeting under its sandbox owner and uploads into that: the case proving the ten-file refusal
-  consumes every slot of whatever meeting it uses, and every later upload into a shared one would
-  then fail for a reason that has nothing to do with what it tests. A listing over a meeting the
-  case made itself also has an exact expected count rather than a relative one. `mtg-planner-2` is
-  the one exception and the reason it exists — `SEC-API-11`'s fixture, never uploaded into, never
-  counted.
-- **Created meetings are dated 2030** (`FUTURE_STARTS_AT_ISO`). DESC sorting plus the top-three
-  slice mean "the new meeting is first" only holds when the date is later than any seeded meeting of
-  that owner. `Date.now()` instead of the constant is a blocker.
-- **Absolute counter assertions in `@mutating` cases are forbidden** — a new meeting is found by its
-  unique generated title rather than by `total`.
-- **A case added from `delete-meetings-and-files` on that creates a meeting deletes it when it
-  ends, also on failure.** The older mutating cases (`MD-API-05`…`MD-API-08`, `HD-API-13` onward,
-  `MF-API-01` and `MF-API-07`…`MF-API-19`) predate the rule and do not clean up. Cleanup goes through
-  `DELETE /meetings/:id` (files go with it by cascade) and tolerates a `404` only when the body is
-  exactly the contract's `Meeting not found` or `File not found`; any other `404`, Express's
-  `Cannot DELETE …` included, fails the case, and the case's own assertion failure is reported
-  before a cleanup failure. `withCleanup` in `fixtures/cleanup.api.ts` is the one implementation.
-  No seeded meeting or file is ever a delete target.
+- **`teacher` and `student` are never mutated** — the `api` project's absolute numbers are checked
+  against them (`FACT-3782`). `planner` is the shared mutation sandbox of project `api`, and counts
+  over its whole collection are relative; any case needing an absolute count over a collection, or
+  an owner no other case writes to, claims a pool user (`FACT-3783`, `FACT-3784`). Project `web` has
+  no shared sandbox: a browser case that needs a session claims a pool user.
+- **A mutating file case creates its own meeting** and uploads into that: the case proving the
+  ten-file refusal consumes every slot of whatever meeting it uses, and every later upload into a
+  shared one would fail for a reason that has nothing to do with what it tests. A listing over a
+  meeting the case made itself has an exact expected count. `mtg-planner-2` is the one exception —
+  `SEC-API-11`'s fixture, never uploaded into, never counted.
+- **Meetings created under a shared owner are dated 2030** (`FUTURE_STARTS_AT_ISO`); a case holding
+  a pool user may use the seed's own dates (`FACT-3799`). `Date.now()` instead of the constant is a
+  blocker.
+- **Absolute counter assertions over a shared owner are forbidden** — a new meeting is found by its
+  unique generated title rather than by `total` (`FACT-3784`).
+- **Every row a test creates is deleted by its own tracker, also on failure** — see "Cleanup" above.
+  A deletion tolerates a `404` only when the body is exactly the contract's `Meeting not found` or
+  `File not found`; any other `404`, Express's `Cannot DELETE …` included, fails the test. No seeded
+  meeting or file is ever a delete target.
 - **The browser never reaches `:3101`.** All page traffic goes to Next; `HD-FN-11` checks it.
   Baseline data from Nest comes through the `apiRequest` fixture — from the test's Node process, not
   from the browser.
@@ -260,6 +311,9 @@ than repeating it.
    example). A `.cases.md` is a header, a summary table and a Cases section with steps and expected
    results; the nearest model is `regression/auth-login/auth-login.api.cases.md`. The scenario text
    is written at `FEAT-S9` by `test-designer`; the specs below it are the testers'.
+   A spec imports `test` and `expect` from `e2e/fixtures/suite.ts` and nothing else, and every test
+   body is `try { … } finally { await cleanup.run(); }` (suite rules 11 and 12); a spec that creates
+   rows registers them with `cleanup`, and one that needs a session claims a pool user.
 3. Assign case IDs: `<FEATURE>-<TYPE>-<NN>`, where TYPE is `API` | `FN` | `UT` | `INT`. Numbers are
    **never reused** after a case is deleted. The four type codes are the ones `ANY_PREFIX_CASE_ID` in
    `suite-integrity.api.spec.ts` recognises; an ID carrying any other code is invisible to rules 5-7
@@ -313,14 +367,15 @@ store; the two that remain are still deliberate rather than leftover.)
 reference it: four diverging copies of this paragraph already produced `FX-027`. When the numbers
 change, change them here and set a new measurement date.
 
-**The current row.** Measured **2026-10-16**, Windows 11, Docker up on a reset-and-reseeded
-database, after the `web-e2e-flake` fix (`FX-052`), on three consecutive `pnpm verify` runs:
+**The current row.** Measured **2026-10-23**, Windows 11, Docker up on a reset-and-reseeded
+database, after `e2e-test-architecture` (`CH-037`: the user pool, the removed warm-up, `next`
+16.4.1), on three consecutive green `pnpm verify` runs:
 
-| Date       | e2e tests | e2e files | Units | `pnpm verify` end to end |
-| ---------- | --------- | --------- | ----- | ------------------------ |
-| 2026-10-16 | 173       | 16        | 54    | **91 s / 97 s / 99 s**   |
+| Date       | e2e tests | e2e files | Units | `pnpm verify` end to end | e2e alone (Playwright)       |
+| ---------- | --------- | --------- | ----- | ------------------------ | ---------------------------- |
+| 2026-10-23 | 195       | 17        | 60    | **84 s / 85 s / 85 s**   | **47.5 s / 46.9 s / 47.4 s** |
 
-Units are 37 in `apps/api` and 17 in `apps/web`, plus one supertest module-boot check. These counts are taken from the verify run's own output rather than recounted file by file (`grep -c` over every `test(`/`it(`, which earlier rows used). Each of the three runs passed 173 e2e tests; the e2e step took 53.8 s, 1.0 min and 57.8 s. The serial `globalSetup` warm-up (`FX-052`, `e2e/fixtures/warm-up.ts`) costs about 6.2 s per run on an unloaded, freshly built `.next`. The previous row recorded 171 tests and 2 min 23 s, a single run that followed three red ones lost to the `BL-058` load flake; the timing table below keeps the 2026-10-06 three-run measurements.
+Units are 43 in `apps/api` and 17 in `apps/web`, plus one supertest module-boot check. These counts are taken from the verify run's own output rather than recounted file by file. The 195 e2e tests are 142 in project `api` and 53 in project `web`, at 7 workers (`FACT-3786`). The run before this change measured 185 tests and 91 s / 97 s / 99 s. Run at `--workers=14` instead of 7 the web project is not reliably green (two runs, 4 then 2 failures in cases through cold routes): 7 is a limit, not a default to raise.
 **This is the only row.** When the numbers change, replace it and set a new date; the earlier counts
 are in git history (`git log -p -- e2e/README.md`), and a running narrative of them here is how the
 count came to disagree across four documents (`FX-027`, `FX-035`).
@@ -330,14 +385,16 @@ cycle — stage by stage, in tokens and wall-clock (`ADR-0020`, closing what `BL
 figures on this page are run economics only, and the two are kept apart deliberately: one paragraph
 carrying two subjects is how `FX-027` happened.
 
-| What                                             | Time                        | How measured                                                                         |
-| ------------------------------------------------ | --------------------------- | ------------------------------------------------------------------------------------ |
-| `pnpm e2e` — all 167                             | **47.7–51.4 s**             | timing the whole command, Docker up on a reset database; three measurements          |
-| `pnpm e2e --project=api --grep @auth-login` — 11 | **13.1 s**                  | the same; ~12 s of it is starting servers                                            |
-| `pnpm verify` end to end                         | **1 min 22 s – 1 min 47 s** | the acceptance run plus two confirmation re-runs; the figure other documents link to |
-| `pnpm verify` on a cold `.next`                  | ~137 s                      | the first run of the day                                                             |
+| What                                             | Time            | How measured                                                                           |
+| ------------------------------------------------ | --------------- | -------------------------------------------------------------------------------------- |
+| `pnpm e2e` — all 195                             | **46.9–47.5 s** | Playwright's own total, Docker up on a reset database; the three runs of the row above |
+| `pnpm e2e --project=api --grep @auth-login` — 11 | **13.1 s**      | the same; ~12 s of it is starting servers                                              |
+| `pnpm verify` end to end                         | **84–85 s**     | the three runs of the row above; the figure other documents link to                    |
+| `pnpm verify` on a cold `.next`                  | ~137 s          | the first run of the day                                                               |
 
-The spread is warm-up **and** now the database: `.next`, Nest's `tsc` and the `prisma generate`
+The two rows for one feature's filter and for a cold `.next` predate the pool and were not re-measured on 2026-10-23.
+
+The spread is the cold-start state and the database: `.next`, Nest's `tsc` and the `prisma generate`
 prefix (~2 s per process, about five calls per `pnpm verify`) are each warm to a
 different degree between runs. The order of magnitude is stable, and that is what the rule below
 rests on.

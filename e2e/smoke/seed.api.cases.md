@@ -27,36 +27,42 @@ point at the seed, not at the feature.
 ### SM-API-02 — seeded users are in place
 
 - **Priority:** P0
-- **Preconditions:** `POST /auth/login` works; all five `SEED_USER_KEYS` are described in
-  `e2e/fixtures/seed.ts`.
-- **Steps:** for each of the five seeded users (`teacher`, `student`, `planner`, `organizer`,
-  `eraser`) perform `POST /auth/login` with the email and password from `e2e/fixtures/seed.ts`.
-- **Expected:** all five logins return 200 and an `accessToken` of three dot-separated segments. On
-  failure the message names the user and says the seed is what to compare
+- **Preconditions:** `POST /auth/login` works; all thirteen `SEED_USER_KEYS` are described in
+  `e2e/fixtures/seed.ts` — `teacher`, `student`, `planner` and the ten pool users `pool-01` …
+  `pool-10` (`FACT-3773`). `organizer` and `eraser` are no longer seeded.
+- **Steps:** for each of the thirteen seeded users perform `POST /auth/login` with the email and
+  password from `e2e/fixtures/seed.ts`.
+- **Expected:** all thirteen logins return 200 and an `accessToken` of three dot-separated
+  segments. On failure the message names the user and says the seed is what to compare
   (`apps/api/src/users/users.seed.ts` against `e2e/fixtures/seed.ts`), not the feature under test.
-  `eraser` is `HD-API-23`'s owner alone; this case only signs it in and reads none of its meetings,
-  whose count that case moves.
+  The pool users are held by other tests while this case runs; it claims none of them, only signs
+  them in, and reads none of their meetings — a login changes nothing (`FACT-0024`).
 
 ### SM-API-03 — seeded meetings and their files are in place
 
 - **Priority:** P0
 - **Preconditions:** `GET /meetings` and `GET /meetings/:id/files` work and require `Bearer`;
   `TEACHER_MEETINGS` describes the five meeting titles of `teacher` and, per title, its
-  `participants` array; `TEACHER_MEETING_FILES` mirrors the two seeded files of "Geometry workshop"
-  — `filename`, `contentType`, `sizeBytes` and `uploadedAt` for each; `HEADER_SAFETY_MEETING`
+  `participants` array, and — the values the seeded-shape copies of browser cases are built from
+  (`FACT-3799`) — its `startsAt` and `durationMinutes`; `TEACHER_MEETING_FILES` mirrors the two
+  seeded files of "Geometry workshop" — `filename`, `contentType`, `sizeBytes` and `uploadedAt` for
+  each, and the byte rule that produces their content (`FACT-1075`); `HEADER_SAFETY_MEETING`
   mirrors the title of `planner`'s dedicated meeting and the five hostile filenames seeded onto it
   (`SEC-API-11`); `student` is declared as the user with no meetings.
 - **Steps:** get tokens for `teacher`, `student` and `planner`, then `GET /meetings?limit=100` as
   `teacher` and as `student`. Take the id of the meeting titled "Geometry workshop" from `teacher`'s
-  response and request its file listing; do the same for one other `teacher` meeting. Then, as
+  response, request its file listing and download each of its two files; request the listing of one
+  other `teacher` meeting. Then, as
   `planner`, find the meeting whose title matches `HEADER_SAFETY_MEETING` and request its listing.
 - **Expected:** `teacher` has `total` = 5 and `items` contains all five seeded titles (the three
   most recent plus the two the slice cuts); for each of those five titles, the responding meeting's
-  `participants` array equals — verbatim, order included — `TEACHER_MEETINGS.participants[title]`;
-  `student` has `total` = 0 and an empty `items`. `limit=100` means "give me everything" — the
+  `participants` array equals — verbatim, order included — `TEACHER_MEETINGS.participants[title]`,
+  and its `startsAt` and `durationMinutes` equal the mirrored values for that title, so a copy built
+  from the mirror renders what the seed renders (`FACT-1033`'s drift check, extended); `student` has `total` = 0 and an empty `items`. `limit=100` means "give me everything" — the
   contract's ceiling (`@Max(100)`), not a magic number that would need changing as the seed grows.
   "Geometry workshop" lists exactly the two mirrored files, `notes.txt` before `syllabus.pdf`, each
-  matching `TEACHER_MEETING_FILES` field for field; the other meeting lists none, so the empty
+  matching `TEACHER_MEETING_FILES` field for field, and each download is byte-identical to what the
+  mirrored byte rule produces for that file's size; the other meeting lists none, so the empty
   state is part of the seeded baseline rather than an accident. The header-safety meeting is present
   in `planner`'s list and lists **exactly** the five mirrored filenames, compared as a set and
   character for character — including the quote, the carriage return, the line feed, the path and
@@ -71,7 +77,6 @@ point at the seed, not at the feature.
   creating meetings there; a single meeting found by title does not, because nothing creates a
   second meeting under that title and nothing uploads into it
   (`e2e/regression/meeting-files/meeting-files.api.cases.md` makes that a precondition).
-  `organizer`'s seeded `participants` and `planner`'s own (`PLANNER_MEETING_PARTICIPANTS` /
-  `ORGANIZER_MEETING_PARTICIPANTS`) stay mirrored for completeness and deliberately **not** asserted
-  here, for the reason above and as
+  `planner`'s own seeded `participants` (`PLANNER_MEETING_PARTICIPANTS`) stay mirrored for
+  completeness and deliberately **not** asserted here, for the reason above and as
   `docs/plans/meetings-detail-participants/meetings-detail-participants.plan.md` §6 records.

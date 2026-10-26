@@ -66,9 +66,6 @@
   record, `docs/BACKLOG.md`, `BL-004`
 - `FACT-3579` The suite's database is dropped, re-pushed and re-seeded once per run, before the API
   starts, by the command Playwright's api `webServer` entry runs. — this record
-- `FACT-3580` Test isolation stays isolation-through-data: `FACT-3125`, `FACT-3126` and `FACT-3131`
-  are carried forward unchanged, and the per-run reset replaces only the restart that used to clear
-  the store. — this record
 - `FACT-3581` The Prisma client is never connected eagerly: no `$connect()`, no `OnModuleInit` and
   no `enableShutdownHooks()`, so the connection opens at the first query. — this record, `FACT-3569`
 - `FACT-3582` `startsAt` and `uploadedAt` are `String` columns holding ISO 8601 UTC, not `DateTime`
@@ -101,10 +98,6 @@ Rejected:
 
 ## Consequences
 
-- `FACT-3593` `ADR-0007` is superseded by this record, and the four facts it stated that this
-  decision falsifies are retired in its own `## Retired facts` register, each naming its successor
-  above. The ten it still states remain true under PostgreSQL and are cited from here rather than
-  repeated. — `docs/adr/ADR-0007-in-memory-store.md`, `ADR-0022`
 - `FACT-3594` `BL-004`'s "Depends on: a database" is satisfied by this record, and `BL-004` stays
   open: the seed source still holds plaintext rather than pre-computed hashes. — `docs/BACKLOG.md`,
   `BL-004`
@@ -127,8 +120,10 @@ Rejected:
 The register of the keys this record has allocated and no longer states (`ADR-0022`). The decision
 itself stands; the row below is a consequence that a later record changed.
 
-| Key         | Stated                                                                                                                                                                                                                                          | Status                 | Recorded in |
-| ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------- | ----------- |
-| `FACT-3583` | Identifiers go on being issued by the application exactly as today: the seed supplies the prefixed literals and the create path a `randomUUID()`; the schema declares no `@default`.                                                            | `retired by FACT-3670` | `ADR-0031`  |
-| `FACT-3572` | `User`, `Meeting` and `MeetingFile` are tables. The services read and write through one injected Prisma client and keep no in-process copy of the data.                                                                                         | `retired by FACT-3716` | `ADR-0034`  |
-| `FACT-3589` | A repository or data-access layer between the service and Prisma — the service already owns the store, and an interface whose only second implementation is a hand-written fake moves the unit tests from testing the code to testing the fake. | `retired by FACT-3703` | `ADR-0034`  |
+| Key         | Stated                                                                                                                                                                                                                                                                                     | Status                 | Recorded in |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------- | ----------- |
+| `FACT-3583` | Identifiers go on being issued by the application exactly as today: the seed supplies the prefixed literals and the create path a `randomUUID()`; the schema declares no `@default`.                                                                                                       | `retired by FACT-3670` | `ADR-0031`  |
+| `FACT-3572` | `User`, `Meeting` and `MeetingFile` are tables. The services read and write through one injected Prisma client and keep no in-process copy of the data.                                                                                                                                    | `retired by FACT-3716` | `ADR-0034`  |
+| `FACT-3589` | A repository or data-access layer between the service and Prisma — the service already owns the store, and an interface whose only second implementation is a hand-written fake moves the unit tests from testing the code to testing the fake.                                            | `retired by FACT-3703` | `ADR-0034`  |
+| `FACT-3580` | Test isolation stays isolation-through-data: `FACT-3125`, `FACT-3126` and `FACT-3131` are carried forward unchanged, and the per-run reset replaces only the restart that used to clear the store.                                                                                         | `retired by FACT-3785` | `ADR-0037`  |
+| `FACT-3593` | `ADR-0007` is superseded by this record, and the four facts it stated that this decision falsifies are retired in its own `## Retired facts` register, each naming its successor above. The ten it still states remain true under PostgreSQL and are cited from here rather than repeated. | `retired by FACT-3803` | `ADR-0037`  |

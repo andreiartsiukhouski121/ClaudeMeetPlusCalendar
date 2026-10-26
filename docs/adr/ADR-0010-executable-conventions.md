@@ -25,13 +25,12 @@ A convention that matters is written as a test that fails when it is broken.
 
 **Source:** the file named in each row.
 
-| Key         | Meta-test                                   | Holds                                                          |
-| ----------- | ------------------------------------------- | -------------------------------------------------------------- |
-| `FACT-3184` | `e2e/suite-integrity.api.spec.ts`           | nine suite rules: suffixes, `.cases.md` pairing, ID uniqueness |
-| `FACT-3185` | `e2e/ledger/ledger.api.spec.ts`             | the shape of `CHANGELOG.md` and `BACKLOG.md`                   |
-| `FACT-3186` | `e2e/process/process.api.spec.ts`           | the plan templates against `check-orientation.mjs`             |
-| `FACT-3187` | `e2e/architecture/architecture.api.spec.ts` | the ADR log, the API contract doc, the agent definitions       |
-| `FACT-3188` | `scripts/check-orientation.mjs`             | section 0 of every active plan (also in `pre-commit`)          |
+| Key         | Meta-test                                   | Holds                                                    |
+| ----------- | ------------------------------------------- | -------------------------------------------------------- |
+| `FACT-3185` | `e2e/ledger/ledger.api.spec.ts`             | the shape of `CHANGELOG.md` and `BACKLOG.md`             |
+| `FACT-3186` | `e2e/process/process.api.spec.ts`           | the plan templates against `check-orientation.mjs`       |
+| `FACT-3187` | `e2e/architecture/architecture.api.spec.ts` | the ADR log, the API contract doc, the agent definitions |
+| `FACT-3188` | `scripts/check-orientation.mjs`             | section 0 of every active plan (also in `pre-commit`)    |
 
 Two rules keep them from becoming decorative:
 
@@ -61,3 +60,12 @@ Rejected:
 
 > **Rationale — not a fact.** New conventions cost more to introduce — each needs its check — which
 > is the intended brake.
+
+## Retired facts
+
+The register of the keys this record has allocated and no longer states (`ADR-0022`). The decision
+stands; the row below is a consequence that a later record changed.
+
+| Key         | Stated                                                                                                  | Status                 | Recorded in |
+| ----------- | ------------------------------------------------------------------------------------------------------- | ---------------------- | ----------- |
+| `FACT-3184` | `e2e/suite-integrity.api.spec.ts` holds nine suite rules: suffixes, `.cases.md` pairing, ID uniqueness. | `retired by FACT-3802` | `ADR-0036`  |

@@ -6,6 +6,18 @@
 - **Run:** `pnpm e2e:security` (or `pnpm e2e --project=web --grep @security`)
 - **Preconditions:**
   - The seed is applied; Playwright starts 3100/3101.
+  - **Every case with a session claims one pool user** (`FACT-3783`). The two page walks,
+    `SEC-FN-02` and `SEC-FN-03`, create in `beforeEach` one meeting on that user with one uploaded
+    file — so the detail page renders file metadata and a download link, as the seeded meeting did —
+    registered with `preconditions` and deleted in `afterEach` (`FACT-3809`). They open their pages
+    with the cookie built from the held user's token (`FACT-3756`) and do not sign in; the sign-in's own traffic is asserted by
+    `AL-FN-13` (`ADR-0036`). `SEC-FN-01` signs in through the form, tagged `@ui-login`
+    (`FACT-3806`). `SEC-FN-04` and `SEC-FN-05` have no session and claim nobody. Every body is
+    `try { … } finally { await cleanup.run(); }`.
+  - **`PROTECTED_PAGES` resolves per case.** Its `/meetings/<id>` entry is the meeting the held user
+    created in `beforeEach` for the session walks, and the seeded `GEOMETRY_WORKSHOP_MEETING_ID` for
+    `SEC-FN-04`, which has no session. The list still has one entry per page, so a page added to it
+    joins every walk at once.
   - **`PROTECTED_PAGES` is the list every page-walking case here reads**, and a page added to it is
     covered by all of them at once — that is the only thing connecting this suite to a growing
     application (invariant 16). A case that opens one path directly while that list sits beside it
@@ -20,21 +32,24 @@ API invariants live in the paired `security.api.cases.md`.
 
 ## Summary
 
-| ID        | Title                                                              | Priority | Tag   |
-| --------- | ------------------------------------------------------------------ | -------- | ----- |
-| SEC-FN-01 | the session cookie is httpOnly, sameSite=lax, path=/, JS-invisible | P0       | `@p0` |
-| SEC-FN-02 | the token never reaches the HTML, the markup or client scripts     | P0       | `@p0` |
-| SEC-FN-03 | the browser never calls the API directly nor exposes the token     | P0       | `@p0` |
-| SEC-FN-04 | protected pages are unreachable without a session and after logout | P0       | `@p0` |
-| SEC-FN-05 | a forged session cookie grants no access                           | P0       | `@p0` |
+| ID        | Title                                                              | Priority | Tag             |
+| --------- | ------------------------------------------------------------------ | -------- | --------------- |
+| SEC-FN-01 | the session cookie is httpOnly, sameSite=lax, path=/, JS-invisible | P0       | `@p0 @ui-login` |
+| SEC-FN-02 | the token never reaches the HTML, the markup or client scripts     | P0       | `@p0`           |
+| SEC-FN-03 | the browser never calls the API directly nor exposes the token     | P0       | `@p0`           |
+| SEC-FN-04 | protected pages are unreachable without a session and after logout | P0       | `@p0`           |
+| SEC-FN-05 | a forged session cookie grants no access                           | P0       | `@p0`           |
 
 ## Cases
 
 ### SEC-FN-01 — the session cookie is httpOnly, sameSite=lax, path=/ and JS-invisible
 
 - **Priority:** P0
-- **Steps:** sign in through the UI as `teacher`, read the context cookies, then evaluate
-  `document.cookie` in the page.
+- **Tags:** `@ui-login` (`FACT-3806`) — the subject is the flags the application itself sets, so
+  the cookie must be the one the sign-in produced, not the builder's; `FACT-3042` keeps this case
+  as its source.
+- **Steps:** in a fresh context with **no** built session, sign in through the UI as the held user,
+  read the context cookies, then evaluate `document.cookie` in the page.
 - **Expected:** the `ps_session` cookie exists with `httpOnly` = `true`, `sameSite` = `Lax`,
   `path` = `/`; `document.cookie` contains **neither** the name `ps_session` nor the token value.
   Duplicates `AL-FN-13` on purpose: there it is part of the login contract, here it is an invariant
@@ -43,9 +58,9 @@ API invariants live in the paired `security.api.cases.md`.
 ### SEC-FN-02 — the token never reaches the HTML, the markup or client scripts
 
 - **Priority:** P0
-- **Steps:** sign in as `teacher`, then for **every** path in `PROTECTED_PAGES` open it and take
-  `page.content()` — the final HTML together with the serialized RSC data — alongside the session
-  cookie value.
+- **Steps:** with the held user's built session, for **every** path in `PROTECTED_PAGES` open it
+  and take `page.content()` — the final HTML together with the serialized RSC data — alongside the
+  session cookie value read from the context.
 - **Expected:** on every one of those pages the token value does not appear in the HTML, and the
   page text contains no `accessToken`, `Bearer` or `scrypt`. The failure message names the path, or
   a run covering several pages says only that something leaked somewhere.
@@ -60,8 +75,9 @@ API invariants live in the paired `security.api.cases.md`.
 ### SEC-FN-03 — the browser never calls the API directly nor exposes the token on the wire
 
 - **Priority:** P0
-- **Steps:** start recording network requests, sign in as `teacher`, then visit **every** path in
-  `PROTECTED_PAGES` in turn, and inspect the accumulated request list and their headers.
+- **Steps:** start recording network requests, then with the held user's built session visit
+  **every** path in `PROTECTED_PAGES` in turn, and inspect the accumulated request list and their
+  headers.
 - **Expected:** no browser request is addressed to the Nest port, and no browser request carries an
   `Authorization` header; the recorded list is not empty, which proves the recording worked. The
   second assertion matters more than the first: a token header on a browser request would mean the
