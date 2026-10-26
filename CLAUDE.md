@@ -33,6 +33,7 @@ Commits before that entry are in Russian and are not rewritten.
 | `pnpm skills:sync`                         | fetch the external skill sets into `.agents/` by the lock file                        |
 | `pnpm skills:check`                        | offline: verify what is on disk matches the lock file                                 |
 | `pnpm verdicts:report`                     | the stored gate verdicts: per gate, the most frequent finding categories (`ADR-0032`) |
+| `pnpm board`                               | rebuild `docs/board.html`, the task board, from the ledger and the backlog (`CH-040`) |
 
 **Docker must be running before `pnpm e2e` or `pnpm verify`** (`ADR-0027`, `FACT-3595`). Persistence
 is PostgreSQL in the `db` service of the repository's `docker-compose.yml`, and the api `webServer`
@@ -233,6 +234,12 @@ noticed.
   on a broken cookie.
 - [`docs/BACKLOG.md`](docs/BACKLOG.md) — what is ahead (with the "Conflicts with" column) and a
   **Rejected** section with reasons: it exists so the same idea is not proposed again.
+
+[`docs/board.html`](docs/board.html) is the same two files as one page for the owner: in progress,
+the backlog by priority, what is done, what was closed and rejected. It is **generated, never
+edited** — `scripts/board.mjs` rebuilds it on every commit from `.husky/pre-commit` (`CH-040`), so
+keeping the ledger and the backlog current is the only way to keep the board current. A change is
+"in progress" while its `docs/plans/<slug>/` folder has no commit cited by a ledger row.
 
 The orientation form is section 0 of [`docs/plans/TEMPLATE.md`](docs/plans/TEMPLATE.md): five
 written answers about duplication, conflicts with shipped work, conflicts with planned work,

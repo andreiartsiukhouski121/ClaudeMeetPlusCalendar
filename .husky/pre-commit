@@ -6,6 +6,12 @@ node scripts/check-orientation.mjs
 # full run takes 49 s here, and a hook that long starts getting bypassed with `--no-verify`.
 pnpm lint-staged
 
+# The task board (`docs/board.html`) is generated from the ledger, the backlog and the change
+# folders (`CH-040`). Rebuilding it on every commit keeps the committed copy current without anyone
+# remembering to: a hand-kept board would be a third copy of the ledger and would drift. Pure Node,
+# milliseconds; `git add` of an unchanged file is a no-op.
+node scripts/board.mjs >/dev/null && git add docs/board.html
+
 # The whole unit suite (count and timing: e2e/README.md, "Run economics"). Whole rather than filtered by changed files: a failure
 # usually lands in a module that was not touched. It runs after lint-staged so the tests see the
 # text already fixed by `--fix`/`--write` — exactly what will go into the commit.
@@ -17,7 +23,7 @@ pnpm lint-staged
 # not cosmetic: the ledger process prescribes a docs commit (`pnpm ledger:fill`) after every
 # feature, and 5.5 s of units buys nothing there. Any non-`.md` file in the index brings the run
 # back.
-if git diff --cached --name-only --diff-filter=ACMR | grep -qv '\.md$'; then
+if git diff --cached --name-only --diff-filter=ACMR | grep -v '\.md$' | grep -qv '^docs/board\.html$'; then
   pnpm test
 else
   echo "pre-commit: nothing but .md in the index — units skipped (no spec reads markdown)"

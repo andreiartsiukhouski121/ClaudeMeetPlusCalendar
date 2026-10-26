@@ -31,6 +31,7 @@
     "fact:check": "node scripts/facts-lock.mjs check",
     "verdicts:report": "node scripts/verdicts-report.mjs",
     "ledger:fill": "node scripts/fill-ledger-hash.mjs",
+    "board": "node scripts/board.mjs",
     "scenarios:index": "node scripts/scenarios-index.mjs write",
     "skills:sync": "node scripts/skills-sync.mjs sync",
     "skills:check": "node scripts/skills-sync.mjs check",
