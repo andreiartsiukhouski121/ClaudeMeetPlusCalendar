@@ -194,25 +194,39 @@ function collect() {
  * `Members` lines. Every ledger and backlog ID sits in exactly one epic (`LG-API-08`).
  */
 export function readEpics(markdown = read('docs/EPICS.md')) {
+  const field = (text, name) =>
+    new RegExp(`^- \\*\\*${name}:\\*\\*\\s*(.+)$`, 'm').exec(text)?.[1]?.trim() ?? '';
+  const ids = (text) => [...text.matchAll(/(FT|CH|FX|BL)-\d+/g)].map((m) => m[0]);
   const epics = [];
   for (const section of markdown.split(/^## /m).slice(1)) {
     const head = /^(EP-\d+)\s*·\s*(.+)$/m.exec(section);
     if (head === null) continue;
-    const field = (name) =>
-      new RegExp(`^- \\*\\*${name}:\\*\\*\\s*(.+)$`, 'm').exec(section)?.[1]?.trim() ?? '';
+    const [epicPart, ...featureParts] = section.split(/^### /m);
+    const features = featureParts.flatMap((part) => {
+      const fh = /^(F-\d+)\s*·\s*(.+)$/m.exec(part);
+      if (fh === null) return [];
+      return [
+        {
+          id: fh[1],
+          name: fh[2].trim(),
+          gives: field(part, 'What it gives'),
+          tasks: ids(field(part, 'Tasks')),
+        },
+      ];
+    });
     epics.push({
       id: head[1],
       name: head[2].trim(),
-      kind: field('Kind'),
-      gives: field('What it gives'),
-      members: [...field('Members').matchAll(/(FT|CH|FX|BL)-\d+/g)].map((m) => m[0]),
+      kind: field(epicPart, 'Kind'),
+      gives: field(epicPart, 'What it gives'),
+      features,
+      members: features.flatMap((feature) => feature.tasks),
     });
   }
   return epics;
 }
 
 function render({ done, open, closed, rejected, inProgress, epics, remote }) {
-  const count = (kind) => done.filter((item) => item.kind === kind).length;
   const latest = done[0]?.date ?? '';
   const kindLabel = { feature: 'Feature', process: 'Process', fix: 'Fix' };
   const commitLink = (hash) =>
@@ -282,6 +296,70 @@ function render({ done, open, closed, rejected, inProgress, epics, remote }) {
       </div>
     </details>`;
   };
+
+  const featureState = (feature) => {
+    const openItems = feature.tasks.filter((id) => openById.has(id)).map((id) => openById.get(id));
+    openItems.sort((x, y) => x.priority.localeCompare(y.priority));
+    const shipped = feature.tasks.filter((id) => doneById.has(id)).map((id) => doneById.get(id));
+    shipped.sort((x, y) => y.date.localeCompare(x.date));
+    const doneCount = shipped.length + feature.tasks.filter((id) => closedById.has(id)).length;
+    const total = doneCount + openItems.length;
+    const status = openItems.length === 0 ? 'done' : doneCount === 0 ? 'planned' : 'progress';
+    return { openItems, shipped, doneCount, total, status, last: shipped[0]?.date ?? '' };
+  };
+
+  const featureCard = (feature, epic) => {
+    const st = featureState(feature);
+    const percent = st.total === 0 ? 100 : Math.round((st.doneCount / st.total) * 100);
+    const top = st.openItems[0]?.priority;
+    const search = `${feature.id} ${feature.name} ${feature.gives} ${epic.name} ${feature.tasks.join(' ')}`;
+    const pill = top ? `<span class="pill p-${top.toLowerCase()}">${top}</span>` : '';
+    const last = st.last ? ` · last change ${escape(st.last)}` : '';
+    const openList = st.openItems.length
+      ? `<h4>Open tasks (${st.openItems.length})</h4>${st.openItems.map(backlogCard).join('')}`
+      : '';
+    const doneList = st.shipped.length
+      ? `<h4>Done tasks (${st.shipped.length})</h4>${st.shipped.map(doneRow).join('')}`
+      : '';
+    return `
+      <details class="feature" data-epic="${epic.id}" data-search="${escape(search.toLowerCase())}">
+        <summary>
+          <div class="feature-head"><span class="chip epic-chip">${escape(epic.name)}</span>${pill}</div>
+          <div class="feature-name">${escape(feature.name)}</div>
+          <p class="gives">${inline(feature.gives)}</p>
+          <div class="bar"><span style="width:${percent}%"></span></div>
+          <p class="meta">${st.doneCount}/${st.total} tasks done${last} · ${feature.id}</p>
+        </summary>
+        <div class="body">${openList}${doneList}</div>
+      </details>`;
+  };
+
+  const allFeatures = epics.flatMap((epic) =>
+    epic.features.map((feature) => ({ feature, epic, st: featureState(feature) })),
+  );
+  const kanbanColumn = (status, label) => {
+    const items = allFeatures
+      .filter((entry) => entry.st.status === status)
+      .sort(
+        (x, y) =>
+          (x.st.openItems[0]?.priority ?? 'P9').localeCompare(
+            y.st.openItems[0]?.priority ?? 'P9',
+          ) || y.st.last.localeCompare(x.st.last),
+      );
+    const cards = items.map((entry) => featureCard(entry.feature, entry.epic)).join('');
+    return `
+      <section class="column kanban-${status}">
+        <h3>${label} <span class="count">${items.length}</span></h3>
+        ${cards || '<p class="empty">Nothing here.</p>'}
+      </section>`;
+  };
+
+  const epicFilter = epics
+    .map(
+      (epic) =>
+        `<button aria-pressed="false" data-epic-filter="${epic.id}">${escape(epic.name)}</button>`,
+    )
+    .join('');
 
   const epicGrid = (kind) =>
     epics
@@ -370,7 +448,7 @@ a { color: var(--accent); }
 table { width: 100%; border-collapse: collapse; background: var(--surface); border-radius: 10px; overflow: hidden; }
 td, th { text-align: left; vertical-align: top; padding: 10px 12px; border-bottom: 1px solid var(--line); }
 th { color: var(--muted); font-weight: 600; font-size: 13px; }
-.hidden { display: none; }
+.hidden, .off { display: none; }
 h2 { font-size: 17px; margin: 24px 4px 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
 .epics { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 16px; align-items: start; }
 .epic { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; border-top: 4px solid var(--accent); }
@@ -392,6 +470,18 @@ h2 { font-size: 17px; margin: 24px 4px 10px; color: var(--muted); text-transform
 .pill.p-p1 { background: var(--p1); } .pill.p-p2 { background: var(--p2); } .pill.p-p3 { background: var(--p3); }
 .epic .body h4 { margin: 14px 0 8px; font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
 .epic[open] { grid-column: 1 / -1; }
+.feature { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; margin-bottom: 10px; }
+.feature summary { list-style: none; cursor: pointer; padding: 12px 14px; }
+.feature summary::-webkit-details-marker { display: none; }
+.feature[open] { border-color: var(--accent); }
+.feature-head { display: flex; gap: 6px; align-items: center; justify-content: space-between; }
+.feature-name { font-weight: 700; font-size: 16px; margin-top: 6px; }
+.epic-chip { color: var(--accent); border-color: var(--accent); }
+.feature .gives { font-size: 14px; margin: 4px 0 8px; }
+.kanban-planned h3::before { background: var(--muted); } .kanban-progress h3::before { background: var(--accent); } .kanban-done h3::before { background: var(--p3); }
+.kanban-done .bar span { background: var(--p3); }
+.epic-filter button { font-size: 13px; padding: 5px 12px; }
+.epic-filter button[aria-pressed="true"] { background: var(--accent); color: #fff; border-color: var(--accent); }
 .now { background: var(--surface); border: 1px solid var(--accent); border-radius: 14px; padding: 4px 16px 10px; }
 @media (max-width: 600px) { .date { min-width: 0; } }
 </style>
@@ -403,17 +493,18 @@ h2 { font-size: 17px; margin: 24px 4px 10px; color: var(--muted); text-transform
 </header>
 <main>
   <div class="stats">
-    <div class="stat"><div class="n">${inProgress.length}</div><div class="l">In progress</div></div>
-    <div class="stat"><div class="n">${open.length}</div><div class="l">Open in backlog</div></div>
-    <div class="stat"><div class="n" style="color:var(--p1)">${open.filter((i) => i.priority === 'P1').length}</div><div class="l">P1 · Blocking</div></div>
-    <div class="stat"><div class="n">${count('feature')}</div><div class="l">Features shipped</div></div>
-    <div class="stat"><div class="n">${count('process')}</div><div class="l">Process changes</div></div>
-    <div class="stat"><div class="n">${count('fix')}</div><div class="l">Defects fixed</div></div>
+    <div class="stat"><div class="n">${allFeatures.filter((e) => e.st.status === 'planned').length}</div><div class="l">Features planned</div></div>
+    <div class="stat"><div class="n">${allFeatures.filter((e) => e.st.status === 'progress').length}</div><div class="l">Features in progress</div></div>
+    <div class="stat"><div class="n">${allFeatures.filter((e) => e.st.status === 'done').length}</div><div class="l">Features done</div></div>
+    <div class="stat"><div class="n" style="color:var(--p1)">${allFeatures.filter((e) => e.st.openItems[0]?.priority === 'P1').length}</div><div class="l">Features with a P1 task</div></div>
+    <div class="stat"><div class="n">${epics.length}</div><div class="l">Epics</div></div>
+    <div class="stat"><div class="n">${open.length}</div><div class="l">Open tasks</div></div>
   </div>
 
   <div class="toolbar">
     <div class="tabs" role="tablist">
-      <button role="tab" aria-selected="true" data-tab="epics">Epics</button>
+      <button role="tab" aria-selected="true" data-tab="features">Features</button>
+      <button role="tab" aria-selected="false" data-tab="epics">Epics</button>
       <button role="tab" aria-selected="false" data-tab="board">Backlog</button>
       <button role="tab" aria-selected="false" data-tab="done">Done</button>
       <button role="tab" aria-selected="false" data-tab="closed">Closed backlog</button>
@@ -422,7 +513,19 @@ h2 { font-size: 17px; margin: 24px 4px 10px; color: var(--muted); text-transform
     <input type="search" id="q" placeholder="Search by ID or text…" aria-label="Search">
   </div>
 
-  <div class="panel" id="epics">
+  <div class="panel" id="features">
+    <div class="toolbar epic-filter">
+      <button aria-pressed="true" data-epic-filter="all">All epics</button>
+      ${epicFilter}
+    </div>
+    <div class="board kanban">
+      ${kanbanColumn('planned', 'Planned')}
+      ${kanbanColumn('progress', 'In progress')}
+      ${kanbanColumn('done', 'Done')}
+    </div>
+  </div>
+
+  <div class="panel" id="epics" hidden>
     ${
       inProgress.length
         ? `<section class="now"><h2>In progress now</h2>${inProgress.map((item) => `<p><b>${escape(item.slug)}</b> — ${inline(item.title)}</p>`).join('')}</section>`
@@ -497,6 +600,12 @@ tabs.forEach((tab) => tab.addEventListener('click', () => {
   try { localStorage.setItem('board-tab', tab.dataset.tab); } catch {}
 }));
 try { const saved = localStorage.getItem('board-tab'); if (saved) document.querySelector('[data-tab="' + saved + '"]')?.click(); } catch {}
+let epicFilter = 'all';
+document.querySelectorAll('[data-epic-filter]').forEach((b) => b.addEventListener('click', () => {
+  epicFilter = b.dataset.epicFilter;
+  document.querySelectorAll('[data-epic-filter]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+  document.querySelectorAll('.feature').forEach((el) => el.classList.toggle('off', epicFilter !== 'all' && el.dataset.epic !== epicFilter));
+}));
 let kind = 'all';
 const apply = () => {
   const q = document.getElementById('q').value.trim().toLowerCase();

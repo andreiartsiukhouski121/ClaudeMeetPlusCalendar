@@ -20,16 +20,16 @@ the plan, visible in review. The machine checks the form, a human checks the con
 
 ## Summary
 
-| ID        | Title                                                        | Priority |
-| --------- | ------------------------------------------------------------ | -------- |
-| LG-API-01 | both ledger files exist and are not empty                    | P0       |
-| LG-API-02 | IDs are unique and match `FT-`/`CH-`/`FX-`/`BL-`             | P0       |
-| LG-API-03 | every changelog entry has its commit filled in               | P1       |
-| LG-API-04 | commit references resolve in git                             | P1       |
-| LG-API-05 | every backlog item has the "Conflicts with" column filled    | P0       |
-| LG-API-06 | no references to non-existent `BL-`/`FX-`/`FT-`/`CH-`        | P0       |
-| LG-API-07 | every `FX-` row numbered 48 and above names the path it took | P1       |
-| LG-API-08 | every ledger and backlog record belongs to exactly one epic  | P1       |
+| ID        | Title                                                            | Priority |
+| --------- | ---------------------------------------------------------------- | -------- |
+| LG-API-01 | both ledger files exist and are not empty                        | P0       |
+| LG-API-02 | IDs are unique and match `FT-`/`CH-`/`FX-`/`BL-`                 | P0       |
+| LG-API-03 | every changelog entry has its commit filled in                   | P1       |
+| LG-API-04 | commit references resolve in git                                 | P1       |
+| LG-API-05 | every backlog item has the "Conflicts with" column filled        | P0       |
+| LG-API-06 | no references to non-existent `BL-`/`FX-`/`FT-`/`CH-`            | P0       |
+| LG-API-07 | every `FX-` row numbered 48 and above names the path it took     | P1       |
+| LG-API-08 | every ledger and backlog record is a task of exactly one feature | P1       |
 
 ## Cases
 
@@ -140,17 +140,18 @@ the plan, visible in review. The machine checks the form, a human checks the con
   case goes red naming it; add the `below the threshold` marker and confirm green; then remove the
   row.
 
-### LG-API-08 — every ledger and backlog record belongs to exactly one epic
+### LG-API-08 — every ledger and backlog record is a task of exactly one feature
 
 - **Priority:** P1
-- **Steps:** parse `docs/EPICS.md` into its `## EP-NN · Name` sections, each with a `Kind` line and a
-  `Members` line; collect every `FT-`/`CH-`/`FX-`/`BL-` row ID of `docs/CHANGELOG.md` and
-  `docs/BACKLOG.md`.
-- **Expected:** every record is a member of exactly one epic; no epic lists an ID no row defines;
-  every `Kind` is `product` or `technical`. A failure names the record or the epic.
-- **Why:** the owner reads the task board (`docs/board.html`) by epic, as a product owner (`CH-041`).
-  A record in no epic is invisible there, so this check is what makes "add the new entry to its
-  epic" a rule rather than a habit.
-- **Vacuity guard:** a fixture in the spec — a record in two epics, a record in none, an unknown
-  member and a wrong kind — must each be reported; and the real files must parse into at least one
-  epic and one record.
+- **Steps:** parse `docs/EPICS.md` into its `## EP-NN · Name` epics, each with a `Kind` line and
+  `### F-NNN · Title` features, each with a `Tasks` line; collect every `FT-`/`CH-`/`FX-`/`BL-` row
+  ID of `docs/CHANGELOG.md` and `docs/BACKLOG.md`.
+- **Expected:** every record is a task of exactly one feature; no feature lists an ID no row
+  defines; feature IDs are unique; every epic holds at least one feature and its `Kind` is
+  `product` or `technical`. A failure names the record, the feature or the epic.
+- **Why:** the owner reads the task board (`docs/board.html`) as a product owner, by feature
+  (`CH-042`). A record in no feature is invisible there, so this check is what makes "add the new
+  entry to its feature" a rule rather than a habit.
+- **Vacuity guard:** a fixture in the spec — a record in two features, a record in none, an unknown
+  task, a reused feature ID, an epic with no feature and a wrong kind — must each be reported; and
+  the real files must parse into at least one feature and one record.

@@ -375,18 +375,30 @@ function markerFixture(slug: string): string {
   ].join('\n');
 }
 
-/* ------------------------------ Epics (LG-API-08, CH-041) ------------------------------ */
+/* ------------------- Epics and features (LG-API-08, CH-041, CH-042) ------------------- */
 
 const EPICS = 'docs/EPICS.md';
 const EPIC_KINDS = ['product', 'technical'];
 
+interface Feature {
+  id: string;
+  tasks: string[];
+}
+
 interface Epic {
   id: string;
   kind: string;
-  members: string[];
+  features: Feature[];
 }
 
-/** The `## EP-NN · Name` sections of `docs/EPICS.md`, with their `Kind` and `Members` lines. */
+function field(text: string, name: string): string {
+  return new RegExp('^- \\*\\*' + name + ':\\*\\*\\s*(.+)$', 'm').exec(text)?.[1] ?? '';
+}
+
+/**
+ * `docs/EPICS.md`: `## EP-NN · Name` epics with a `Kind` line, each holding `### F-NNN · Title`
+ * features with a `Tasks` line (`CH-042`).
+ */
 function parseEpics(content: string): Epic[] {
   return content
     .split(/^## /m)
@@ -394,38 +406,49 @@ function parseEpics(content: string): Epic[] {
     .flatMap((section) => {
       const id = /^(EP-\d+)\s*·/.exec(section)?.[1];
       if (id === undefined) return [];
-      const field = (name: string) =>
-        new RegExp('^- \\*\\*' + name + ':\\*\\*\\s*(.+)$', 'm').exec(section)?.[1] ?? '';
-      return [
-        {
-          id,
-          kind: field('Kind').trim(),
-          members: [...field('Members').matchAll(/\b((?:FT|CH|FX|BL)-\d{3})\b/g)].map((m) => m[1]),
-        },
-      ];
+      const [epicPart, ...featureParts] = section.split(/^### /m);
+      const features = featureParts.flatMap((part) => {
+        const featureId = /^(F-\d+)\s*·/.exec(part)?.[1];
+        if (featureId === undefined) return [];
+        const tasks = [...field(part, 'Tasks').matchAll(/\b((?:FT|CH|FX|BL)-\d{3})\b/g)];
+        return [{ id: featureId, tasks: tasks.map((m) => m[1]) }];
+      });
+      return [{ id, kind: field(epicPart, 'Kind').trim(), features }];
     });
 }
 
-/** Every record in exactly one epic, no epic naming a record that does not exist, a known kind. */
+/**
+ * Every record is a task of exactly one feature; no feature names a record that does not exist;
+ * feature IDs are unique; every epic holds a feature and has a known kind.
+ */
 function epicProblems(epics: Epic[], records: string[]): string[] {
   const problems: string[] = [];
   const owners = new Map<string, string[]>();
+  const featureIds = new Map<string, number>();
   const known = new Set(records);
 
   for (const epic of epics) {
     if (!EPIC_KINDS.includes(epic.kind)) {
       problems.push(`${epic.id} has Kind "${epic.kind}", not product or technical`);
     }
-    for (const id of epic.members) {
-      owners.set(id, [...(owners.get(id) ?? []), epic.id]);
-      if (!known.has(id))
-        problems.push(`${epic.id} lists ${id}, which no ledger or backlog row defines`);
+    if (epic.features.length === 0) problems.push(`${epic.id} holds no feature`);
+    for (const feature of epic.features) {
+      featureIds.set(feature.id, (featureIds.get(feature.id) ?? 0) + 1);
+      for (const id of feature.tasks) {
+        owners.set(id, [...(owners.get(id) ?? []), feature.id]);
+        if (!known.has(id)) {
+          problems.push(`${feature.id} lists ${id}, which no ledger or backlog row defines`);
+        }
+      }
     }
+  }
+  for (const [id, count] of featureIds) {
+    if (count > 1) problems.push(`${id} is used by ${count} features`);
   }
   for (const id of records) {
     const in_ = owners.get(id) ?? [];
-    if (in_.length === 0) problems.push(`${id} belongs to no epic`);
-    if (in_.length > 1) problems.push(`${id} belongs to ${in_.length} epics: ${in_.join(', ')}`);
+    if (in_.length === 0) problems.push(`${id} belongs to no feature`);
+    if (in_.length > 1) problems.push(`${id} belongs to ${in_.length} features: ${in_.join(', ')}`);
   }
   return problems;
 }
@@ -587,22 +610,26 @@ test.describe('Changelog and backlog', { tag: '@ledger' }, () => {
     ).toEqual([]);
   });
 
-  test('LG-API-08 — every ledger and backlog record belongs to exactly one epic', () => {
+  test('LG-API-08 — every ledger and backlog record is a task of exactly one feature', () => {
     const sample = parseEpics(
       [
         '## EP-01 · A',
         '- **Kind:** product',
-        '- **Members:** `FT-901`, `BL-901`',
+        '### F-001 · One',
+        '- **Tasks:** `FT-901`, `BL-901`',
+        '### F-001 · Two',
+        '- **Tasks:** `FT-901`, `FX-999`',
         '## EP-02 · B',
         '- **Kind:** sideways',
-        '- **Members:** `FT-901`, `FX-999`',
       ].join('\n'),
     );
     const sampleProblems = epicProblems(sample, ['FT-901', 'BL-901', 'CH-901']).join('\n');
     expect(sampleProblems).toContain('Kind "sideways"');
+    expect(sampleProblems).toContain('EP-02 holds no feature');
     expect(sampleProblems).toContain('FX-999, which no ledger or backlog row defines');
-    expect(sampleProblems).toContain('CH-901 belongs to no epic');
-    expect(sampleProblems).toContain('FT-901 belongs to 2 epics');
+    expect(sampleProblems).toContain('CH-901 belongs to no feature');
+    expect(sampleProblems).toContain('FT-901 belongs to 2 features');
+    expect(sampleProblems).toContain('F-001 is used by 2 features');
 
     const root = repoRoot();
     const epics = parseEpics(read(root, EPICS));
@@ -610,11 +637,14 @@ test.describe('Changelog and backlog', { tag: '@ledger' }, () => {
       (entry) => entry.id,
     );
 
-    expect(epics.length, `${EPICS} must parse into epics`).toBeGreaterThan(0);
+    expect(
+      epics.flatMap((epic) => epic.features).length,
+      `${EPICS} must parse into features`,
+    ).toBeGreaterThan(0);
     expect(records.length, 'the ledger and the backlog must parse into records').toBeGreaterThan(0);
     expect(
       epicProblems(epics, records),
-      `Every FT-/CH-/FX-/BL- record sits in exactly one epic of ${EPICS}: add a new record to its epic's Members line (the task board groups by it)`,
+      `Every FT-/CH-/FX-/BL- record is a task of exactly one feature in ${EPICS}: add a new record to its feature's Tasks line, or add a feature (the task board shows features)`,
     ).toEqual([]);
   });
 });
