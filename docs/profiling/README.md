@@ -72,6 +72,24 @@ paragraph costs.
 4. **What found each defect** — the same column the ledger's "Found by" carries, so the two can be
    read together.
 
+## The Size block
+
+**Every new record carries a Size block**, written at `FEAT-S8` / `FIX-S11` from the depth line the
+`lead` kept (`change-router`, `lead.md`, "Keeping the profiling log"). Before this block no record
+classified a change by size, so no round could check the tiering. Six fields:
+
+- the depth: small, medium or large;
+- each criterion as yes or no, with the citation the `lead` gave;
+- the apps and modules touched;
+- the diff size: files, plus and minus lines;
+- the plan's task count;
+- any escalation, with the stage at which it happened and the criterion that triggered it.
+
+Existing records are not rewritten to add it. A small change writes no record (`FIX-S11` is for the
+full path), so its cost is a `Cost:` clause in its ledger row instead: total tokens, dispatches and
+elapsed minutes, from the completion notices the `lead` already logs. Any effect claimed for a depth
+is **projected** until a record at that depth exists to confirm it.
+
 ## Verdicts
 
 Every gate verdict is a file in [`verdicts/`](verdicts/README.md). The four gate reviewers
@@ -91,6 +109,11 @@ These files are the evidence for **gate yield** — the blockers each gate raise
 | [2026-10-03](runs/2026-10-03-design-language-rollout.md)      | `design-language-rollout` (`FT-006`)      | `FEAT` | 1,584,001\*   | 115.7 min\*       | 31.8%\*           |
 | [2026-10-06](runs/2026-10-06-meeting-files.md)                | `meeting-files` (`FT-007`)                | `FEAT` | 6,477,057\*\* | not available\*\* | not separable\*\* |
 | [2026-10-13](runs/2026-10-13-danger-contrast.md)              | `danger-contrast` (`FX-049`)              | `FIX`  | 1,097,759     | 36.4 min          | 22.8%             |
+| [2026-10-14](runs/2026-10-14-clean-architecture-pilot.md)     | `clean-architecture-pilot` (`FT-008`)     | `FEAT` | 2,975,954     | 110.0 min         | 25.3%†            |
+| [2026-10-16](runs/2026-10-16-meetings-clean-architecture.md)  | `meetings-clean-architecture` (`FT-009`)  | `FEAT` | 2,053,500     | 83.9 min          | 18.2%             |
+| [2026-10-16](runs/2026-10-16-delete-meetings-and-files.md)    | `delete-meetings-and-files` (`FT-010`)    | `FEAT` | 1,144,536     | 51.5 min          | 18.9%             |
+| [2026-10-16](runs/2026-10-16-web-e2e-flake.md)                | `web-e2e-flake` (`FX-052`)                | `FIX`  | 498,470\*\*\* | 86.6 min          | 6.7%              |
+| [2026-10-23](runs/2026-10-23-e2e-test-architecture.md)        | `e2e-test-architecture` (`CH-037`)        | `FEAT` | ≈5,667.4k     | 283.0 min         | 34.4%             |
 
 \* Interrupted and resumed across two days; `FEAT-S1`, `FEAT-G1`, the first `FEAT-S2` pass and
 `lead`'s own orchestration/`FEAT-S6` cost are unmeasured (hand-backs lost or never produced) and are
@@ -106,10 +129,18 @@ estimated: the "fixes and corrections" bucket mixes genuine post-gate rework wit
 found a defect while writing new tests, and splitting the two without guessing was not possible from
 what was supplied.
 
+† Of the first pass (2,380,522 tokens); the total includes the addendum after the owner's decisions.
+
+\*\*\* A floor: two sub-agents' cost was not in `lead`'s completion notice.
+
+Each total is the one the record itself states as final; the record is the source, this table an
+index of it (`BL-076`).
+
 ## What the records have shown so far
 
-Three records exist and they are only partly comparable (the second is partial, the third holds
-lower bounds), so nothing here should be treated as a trend. The bullets below are the **first**
+Nine records exist and they are only partly comparable (several are partial or hold lower bounds,
+and the per-depth comparison is in `reviews/2026-10-27-review.md`), so nothing here should be
+treated as a trend on its own. The bullets below are the **first**
 record's observations, kept because later rounds cite them; the later records and their comparison
 are in `reviews/`. Stated as observations rather than conclusions:
 

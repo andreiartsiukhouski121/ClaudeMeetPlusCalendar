@@ -124,15 +124,11 @@ file that cites nothing and marks nothing.
 `PR-API-03`…`PR-API-05` hold the rest of the shape: every change folder has all three stages, no
 scaffolded file is left unfilled, and the scaffolder cannot drift from what the check requires.
 
-**Not every change needs this.** A defect below the `bugfix-pipeline` §4 threshold gets no folder and
-no stages — a red test, the fix, an `FX-` entry. So do documentation, config and renames. Adding
-stages makes `CH-004`'s failure (100 minutes of planning against 85 of code) cheaper to repeat, not
-harder.
-
-**Not every bugfix needs a plan.** The threshold is in `bugfix-pipeline` §4: the cause was not found
-in about fifteen minutes, a contract or an invariant is touched, security is involved, or more than
-one module is affected. Otherwise the flow is shorter: a red test, the fix, an `FX-` entry. A
-document for a one-line fix costs more than the fix — exactly what `CH-004` moved away from.
+**Not every change needs this.** How much of it a change gets — small, medium or large — is decided
+by the `change-router` skill from criteria answered with a citation, and a change with no runtime
+behaviour (documentation, config, a rename) gets none of it. A bugfix needs a plan only when
+`bugfix-pipeline` §4's threshold holds. Adding stages makes `CH-004`'s failure (100 minutes of
+planning against 85 of code) cheaper to repeat, not harder.
 
 ## Architecture: the corpus every task starts from
 
@@ -238,12 +234,14 @@ noticed.
 [`docs/board.html`](docs/board.html) is the same two files as one page for the owner, read as a
 product owner. `docs/EPICS.md` holds three levels (`CH-042`): **epics** (five product, six
 technical), **features** — finished, logically complete pieces applied in the product, the board's
-cards — and **tasks**, which are the ledger and backlog records. The board opens on a Planned / In
-progress / Done kanban of features, then epics, the backlog by priority, what is done, what was
-closed and rejected. A feature's status follows its tasks. It is **generated, never
-edited** — `scripts/board.mjs` rebuilds it on every commit from `.husky/pre-commit` (`CH-040`), so
-keeping the ledger and the backlog current is the only way to keep the board current. A change is
-"in progress" while its `docs/plans/<slug>/` folder has no commit cited by a ledger row.
+cards — and **tasks**, which are the ledger and backlog records. The board opens on a scrum board
+(`CH-043`): **Feature** and **Bug** tickets in To Do (lanes P1–P3), In Progress and Done, filtered by
+type and epic; then epics, the backlog by priority, what is done, what was closed and rejected. A
+Bug is an open backlog row that starts with `**Defect.**` or a shipped `FX-` row. A feature's
+status follows its tasks. It is **generated, never edited** — `scripts/board.mjs` rebuilds it on
+every commit from `.husky/pre-commit` (`CH-040`), so keeping the ledger and the backlog current is
+the only way to keep the board current. A ticket is "in progress" while a ledger row of it still
+reads `pending`, or while its `docs/plans/<slug>/` folder has no commit cited by a ledger row.
 
 The orientation form is section 0 of [`docs/plans/TEMPLATE.md`](docs/plans/TEMPLATE.md): five
 written answers about duplication, conflicts with shipped work, conflicts with planned work,
@@ -408,8 +406,8 @@ the hook runs the units against different content — exactly what will go into 
 
 ## Skills: our own and external
 
-There are seventeen in `.claude/skills/`. Eleven are ours — `feature-pipeline`, `bugfix-pipeline`,
-`pipeline-tuning`, `clean-architecture`, `team-roles`, `project-context`, `research-protocol`, `design-protocol`,
+There are eighteen in `.claude/skills/`. Twelve are ours — `feature-pipeline`, `bugfix-pipeline`,
+`change-router`, `pipeline-tuning`, `clean-architecture`, `team-roles`, `project-context`, `research-protocol`, `design-protocol`,
 `design-system`, `playwright-verify`, `regression-verify`. The other six are **adapters** to external sets: `git-commit`,
 `heroui-react`, `nestjs-best-practices`, `requesting-code-review`, `ui-ux-pro-max`,
 `vercel-react-best-practices`.

@@ -282,11 +282,12 @@ const FIRST_MARKED_FIX = 48;
 const CRITERIA = [1, 2, 3, 4];
 
 /**
- * The three literal path-marker forms, as one global matcher. Group 2 is the `full` slug, group 3
- * the raw text after `criteria` in the override form (up to the end of the sentence or cell).
+ * The four literal path-marker forms, as one global matcher. Group 2 is the `full` or `medium`
+ * slug, group 3 the raw text after `criteria` in the override form (up to the end of the sentence
+ * or cell).
  */
 const PATH_MARKER =
-  /Path:\s*(full \(docs\/plans\/([^)]*)\)|short, below the threshold|short, threshold overridden by the owner: criteria([^.;|(`]*))/g;
+  /Path:\s*((?:full|medium) \(docs\/plans\/([^)]*)\)|short, below the threshold|short, threshold overridden by the owner: criteria([^.;|(`]*))/g;
 
 /** The criteria list as it must read: integers separated by commas. */
 const CRITERIA_LIST = /^\s*\d+(?:\s*,\s*\d+)*\s*$/;
@@ -318,14 +319,14 @@ function pathMarkerProblems(root: string, row: Entry): string[] {
 
   const [, form, slug, criteria] = markers[0];
 
-  if (form.startsWith('full')) {
+  if (form.startsWith('full') || form.startsWith('medium')) {
     const folder = path.join(root, 'docs', 'plans', slug);
     const named = /^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(slug);
 
     return named && fs.existsSync(folder) && fs.statSync(folder).isDirectory()
       ? []
       : [
-          `${row.id}: "full" names docs/plans/${slug}, which is not a folder — a plan nobody can open`,
+          `${row.id}: "${form.split(' ')[0]}" names docs/plans/${slug}, which is not a folder — a plan nobody can open`,
         ];
   }
   if (form.startsWith('short, below')) {
@@ -345,10 +346,10 @@ function pathMarkerProblems(root: string, row: Entry): string[] {
     : [`${row.id}: "overridden" cites criterion ${outside.join(', ')} outside 1–4`];
 }
 
-/** The Defects rows numbered 48 and above — the only ones the marker rule applies to. */
-function markedScopeRows(content: string): Entry[] {
+/** The Defects rows numbered `from` and above; 48 is the marker rule's floor. */
+function markedScopeRows(content: string, from: number = FIRST_MARKED_FIX): Entry[] {
   return entries(defectsSection(content)).filter(
-    (row) => row.id.startsWith('FX-') && Number(row.id.slice(3)) >= FIRST_MARKED_FIX,
+    (row) => row.id.startsWith('FX-') && Number(row.id.slice(3)) >= from,
   );
 }
 
@@ -372,6 +373,163 @@ function markerFixture(slug: string): string {
     '| FX-906 | 2026-10-13 | no folder | Path: full (docs/plans/no-such-folder-lg-api-07) | pending |',
     '| FX-907 | 2026-10-13 | empty list | Path: short, threshold overridden by the owner: criteria | pending |',
     '| FX-908 | 2026-10-13 | out of range | Path: short, threshold overridden by the owner: criteria 5 | pending |',
+    `| FX-909 | 2026-10-27 | sound, medium | Path: medium (docs/plans/${slug}) | pending |`,
+    '| FX-910 | 2026-10-27 | no folder | Path: medium (docs/plans/no-such-folder-lg-api-07) | pending |',
+  ].join('\n');
+}
+
+/* -------------- Tier marker and Cost clause (LG-API-09, LG-API-10, CH-044) -------------- */
+
+const FEATURES_HEADING = '## Features';
+const PROCESS_HEADING = '## Process and infrastructure changes';
+
+/** First row numbers the tier rule judges; earlier rows are never rewritten. */
+const FIRST_TIERED_FEATURE = 11;
+const FIRST_TIERED_CHANGE = 45;
+
+/** From this `FX-` number a short-path row owes a `Cost:` clause. */
+const FIRST_COSTED_FIX = 56;
+
+const TIER_DEPTHS = ['small', 'medium', 'large'];
+const TIER_CRITERIA = ['C1', 'C2', 'C3', 'C4', 'C5'];
+
+/** `Tier: <depth>; criteria: <list>`. Group 1 is the depth, group 2 the raw list. */
+const TIER_MARKER = /Tier:\s*([^;|]*);\s*criteria:([^.;|(`]*)/g;
+
+/** A `Cost:` clause: the text after the keyword up to the end of the cell or clause. */
+const COST_CLAUSE = /Cost:([^|;`]*)/g;
+
+/** The sound clause, matched as a prefix so a sentence may follow it. */
+const COST_SOUND = /^\s*(?:not measured|\d+ tokens, \d+ dispatches, \d+ min)(?![\w,]|\.\d)/;
+
+/** A section of the changelog from its heading to the next `## ` heading. */
+function sectionOf(content: string, heading: string): string {
+  const start = content.indexOf(heading);
+
+  if (start === -1) {
+    return '';
+  }
+
+  const rest = content.slice(start + heading.length);
+  const next = rest.search(/^## /m);
+
+  return next === -1 ? rest : rest.slice(0, next);
+}
+
+/** Rows `LG-API-09` judges: `FT-` from 11 in Features, `CH-` from 45 in Process. */
+function tieredRows(content: string): Entry[] {
+  return [
+    ...entries(sectionOf(content, FEATURES_HEADING)).filter(
+      (row) => row.id.startsWith('FT-') && Number(row.id.slice(3)) >= FIRST_TIERED_FEATURE,
+    ),
+    ...entries(sectionOf(content, PROCESS_HEADING)).filter(
+      (row) => row.id.startsWith('CH-') && Number(row.id.slice(3)) >= FIRST_TIERED_CHANGE,
+    ),
+  ];
+}
+
+function tierProblems(row: Entry): string[] {
+  const markers = [...row.rest.matchAll(TIER_MARKER)];
+
+  if (markers.length === 0) {
+    return [`${row.id}: no tier marker — the row does not say how the task was sized`];
+  }
+  if (markers.length > 1) {
+    return [`${row.id}: ${markers.length} tier markers — the row must carry exactly one`];
+  }
+
+  const depth = markers[0][1].trim();
+  const list = markers[0][2].trim();
+  const problems: string[] = [];
+
+  if (!TIER_DEPTHS.includes(depth)) {
+    problems.push(`${row.id}: tier depth "${depth}" is not small, medium or large`);
+  }
+  if (list === '') {
+    problems.push(`${row.id}: the criteria list is empty — write "none" or the ids`);
+  } else if (list !== 'none') {
+    const bad = list
+      .split(',')
+      .map((part) => part.trim())
+      .filter((id) => !TIER_CRITERIA.includes(id));
+
+    if (bad.length > 0) {
+      problems.push(`${row.id}: criteria outside C1-C5: ${bad.map((id) => `"${id}"`).join(', ')}`);
+    }
+  }
+
+  return problems;
+}
+
+/** The tier depth of a row with exactly one marker; empty otherwise. */
+function tierDepth(row: Entry): string {
+  const markers = [...row.rest.matchAll(TIER_MARKER)];
+
+  return markers.length === 1 ? markers[0][1].trim() : '';
+}
+
+/** Rows `LG-API-10` judges: small-tier rows and short-path `FX-` rows from 56. */
+function costedRows(content: string): Entry[] {
+  const small = tieredRows(content).filter((row) => tierDepth(row) === 'small');
+  const short = markedScopeRows(content, FIRST_COSTED_FIX).filter((row) =>
+    row.rest.includes('Path: short, below the threshold'),
+  );
+
+  return [...small, ...short];
+}
+
+function costProblems(row: Entry): string[] {
+  const clauses = [...row.rest.matchAll(COST_CLAUSE)];
+
+  if (clauses.length === 0) {
+    return [`${row.id}: no Cost: clause — a small change must record what it cost`];
+  }
+  if (clauses.length > 1) {
+    return [`${row.id}: ${clauses.length} Cost: clauses — the row must carry exactly one`];
+  }
+
+  return COST_SOUND.test(clauses[0][1])
+    ? []
+    : [`${row.id}: Cost: figure is not integers in plain digits or "not measured"`];
+}
+
+/** Sample rows for both vacuity guards; written here, never under `docs/`. */
+function tierFixture(): string {
+  return [
+    FEATURES_HEADING,
+    '',
+    '| FT-911 | 2026-10-27 | small sound | Tier: small; criteria: none | Cost: 1200 tokens, 3 dispatches, 7 min | pending |',
+    '| FT-912 | 2026-10-27 | medium sound | Tier: medium; criteria: C1, C3 | pending |',
+    '| FT-913 | 2026-10-27 | large sound | Tier: large; criteria: C2 | pending |',
+    '| FT-914 | 2026-10-27 | no tier | pending |',
+    '| FT-915 | 2026-10-27 | two tiers | Tier: small; criteria: none | Tier: medium; criteria: C1 | Cost: not measured | pending |',
+    '| FT-916 | 2026-10-27 | bad depth | Tier: huge; criteria: none | pending |',
+    '| FT-917 | 2026-10-27 | defect-only id | Tier: medium; criteria: C6 | pending |',
+    '| FT-918 | 2026-10-27 | unknown id | Tier: medium; criteria: C0, X1 | pending |',
+    '| FT-919 | 2026-10-27 | empty list | Tier: medium; criteria: | pending |',
+    '| FT-005 | 2026-10-01 | out of scope, no tier | pending |',
+    '',
+    PROCESS_HEADING,
+    '',
+    '| CH-945 | 2026-10-27 | small, not measured | Tier: small; criteria: none | Cost: not measured | pending |',
+    '| CH-946 | 2026-10-27 | small, no cost | Tier: small; criteria: none | pending |',
+    '| CH-947 | 2026-10-27 | small, two costs | Tier: small; criteria: none | Cost: not measured | Cost: 1 tokens, 1 dispatches, 1 min | pending |',
+    '| CH-948 | 2026-10-27 | small, approximate | Tier: small; criteria: none | Cost: ~5k tokens, 3 dispatches, 7 min | pending |',
+    '| CH-949 | 2026-10-27 | small, n/a | Tier: small; criteria: none | Cost: n/a | pending |',
+    '| CH-950 | 2026-10-27 | small, fraction | Tier: small; criteria: none | Cost: 1.5 tokens, 3 dispatches, 7 min | pending |',
+    '| CH-951 | 2026-10-27 | small, separators | Tier: small; criteria: none | Cost: 2,005,983 tokens, 3 dispatches, 7 min | pending |',
+    '| CH-952 | 2026-10-27 | small, empty | Tier: small; criteria: none | Cost: | pending |',
+    '| CH-953 | 2026-10-27 | medium, no cost | Tier: medium; criteria: C4 | pending |',
+    '| CH-044 | 2026-10-27 | out of scope, no tier | pending |',
+    '',
+    DEFECTS_HEADING,
+    '',
+    '| FX-956 | 2026-10-27 | short with cost | Path: short, below the threshold | Cost: 10 tokens, 1 dispatches, 2 min | pending |',
+    '| FX-957 | 2026-10-27 | short without cost | Path: short, below the threshold | pending |',
+    '| FX-958 | 2026-10-27 | full without cost | Path: full (docs/plans/x) | pending |',
+    '| FX-959 | 2026-10-27 | medium without cost | Path: medium (docs/plans/x) | pending |',
+    '| FX-960 | 2026-10-27 | override without cost | Path: short, threshold overridden by the owner: criteria 2 | pending |',
+    '| FX-055 | 2026-10-27 | short, below floor | Path: short, below the threshold | pending |',
   ].join('\n');
 }
 
@@ -581,21 +739,28 @@ test.describe('Changelog and backlog', { tag: '@ledger' }, () => {
     ).toBeGreaterThan(0);
 
     // Vacuity guard: the ledger may hold no row numbered 48 or above, so the matcher is driven over
-    // a fixture — three sound rows and five broken ones, each broken for its own reason.
+    // a fixture — four sound rows and six broken ones, each broken for its own reason.
     const sample = markedScopeRows(
       `${DEFECTS_HEADING}\n\n${markerFixture(existingPlanSlug(root))}`,
     );
 
     expect(
       sample.map((row) => row.id),
-      'The fixture was not parsed into eight rows',
-    ).toHaveLength(8);
+      'The fixture was not parsed into ten rows',
+    ).toHaveLength(10);
 
     const verdicts = Object.fromEntries(
       sample.map((row) => [row.id, pathMarkerProblems(root, row).join('')]),
     );
 
-    expect([verdicts['FX-901'], verdicts['FX-902'], verdicts['FX-903']]).toEqual(['', '', '']);
+    expect([
+      verdicts['FX-901'],
+      verdicts['FX-902'],
+      verdicts['FX-903'],
+      verdicts['FX-909'],
+    ]).toEqual(['', '', '', '']);
+    expect(verdicts['FX-910']).toContain('"medium" names');
+    expect(verdicts['FX-910']).toContain('not a folder');
     expect(verdicts['FX-904']).toContain('no path marker');
     expect(verdicts['FX-905']).toContain('2 path markers');
     expect(verdicts['FX-906']).toContain('not a folder');
@@ -645,6 +810,87 @@ test.describe('Changelog and backlog', { tag: '@ledger' }, () => {
     expect(
       epicProblems(epics, records),
       `Every FT-/CH-/FX-/BL- record is a task of exactly one feature in ${EPICS}: add a new record to its feature's Tasks line, or add a feature (the task board shows features)`,
+    ).toEqual([]);
+  });
+
+  test('LG-API-09 — every FT- from 011 and CH- from 045 carries exactly one tier marker', () => {
+    const root = repoRoot();
+    const content = read(root, CHANGELOG);
+
+    // Vacuity guard, part 2: the real Features and Process tables each parsed at least one row.
+    expect(
+      entries(sectionOf(content, FEATURES_HEADING)).filter((row) => row.id.startsWith('FT-'))
+        .length,
+      `${CHANGELOG}: the "${FEATURES_HEADING}" table yielded no FT- row`,
+    ).toBeGreaterThan(0);
+    expect(
+      entries(sectionOf(content, PROCESS_HEADING)).filter((row) => row.id.startsWith('CH-')).length,
+      `${CHANGELOG}: the "${PROCESS_HEADING}" table yielded no CH- row`,
+    ).toBeGreaterThan(0);
+
+    // Vacuity guard, part 1: no real row is in scope today, so the matcher runs over a fixture.
+    const sample = tieredRows(tierFixture());
+    const verdicts = Object.fromEntries(sample.map((row) => [row.id, tierProblems(row).join('')]));
+
+    expect(
+      sample.filter((row) => row.id.startsWith('FT-')),
+      'The fixture did not parse into nine in-scope FT- rows (FT-005 is out of scope)',
+    ).toHaveLength(9);
+    expect([verdicts['FT-911'], verdicts['FT-912'], verdicts['FT-913']]).toEqual(['', '', '']);
+    expect(verdicts['CH-945']).toBe('');
+    expect(verdicts['FT-914']).toContain('no tier marker');
+    expect(verdicts['FT-915']).toContain('2 tier markers');
+    expect(verdicts['FT-916']).toContain('"huge" is not small, medium or large');
+    expect(verdicts['FT-917']).toContain('"C6"');
+    expect(verdicts['FT-918']).toContain('"C0", "X1"');
+    expect(verdicts['FT-919']).toContain('criteria list is empty');
+    expect(verdicts['FT-005']).toBeUndefined();
+    expect(verdicts['CH-044']).toBeUndefined();
+
+    const problems = tieredRows(content).flatMap((row) => tierProblems(row));
+
+    expect(
+      problems,
+      'Every FT- row from 011 and CH- row from 045 carries exactly one "Tier: <depth>; criteria: <list>" marker (change-router)',
+    ).toEqual([]);
+  });
+
+  test('LG-API-10 — every small-depth row carries exactly one Cost: clause', () => {
+    const root = repoRoot();
+    const content = read(root, CHANGELOG);
+    const sample = costedRows(tierFixture());
+    const verdicts = Object.fromEntries(sample.map((row) => [row.id, costProblems(row).join('')]));
+
+    // Vacuity guard: both filters run. Medium, full, medium-path and override rows are not
+    // judged, nor are the rows below each floor.
+    expect(sample.map((row) => row.id).sort()).toEqual([
+      'CH-945',
+      'CH-946',
+      'CH-947',
+      'CH-948',
+      'CH-949',
+      'CH-950',
+      'CH-951',
+      'CH-952',
+      'FT-911',
+      'FX-956',
+      'FX-957',
+    ]);
+    expect([verdicts['FT-911'], verdicts['CH-945'], verdicts['FX-956']]).toEqual(['', '', '']);
+    expect(verdicts['CH-946']).toContain('no Cost: clause');
+    expect(verdicts['FX-957']).toContain('no Cost: clause');
+    expect(verdicts['CH-947']).toContain('2 Cost: clauses');
+    expect(verdicts['CH-948']).toContain('not integers in plain digits');
+    expect(verdicts['CH-949']).toContain('not integers in plain digits');
+    expect(verdicts['CH-950']).toContain('not integers in plain digits');
+    expect(verdicts['CH-951']).toContain('not integers in plain digits');
+    expect(verdicts['CH-952']).toContain('not integers in plain digits');
+
+    const problems = costedRows(content).flatMap((row) => costProblems(row));
+
+    expect(
+      problems,
+      'Every small-tier row and every short-path FX- row from 056 carries exactly one "Cost: <n> tokens, <n> dispatches, <n> min" or "Cost: not measured" clause',
     ).toEqual([]);
   });
 });

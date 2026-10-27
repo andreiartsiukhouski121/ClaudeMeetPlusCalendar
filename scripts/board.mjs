@@ -62,11 +62,17 @@ const inline = (text) =>
     .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
 
 /** A title: the first sentence, without markdown, cut at a word near 150 characters. */
+/** A backlog row whose `What` opens with this marker is a known, unfixed defect (`CH-043`). */
+const DEFECT_MARKER = /^\*\*Defect\.\*\*\s*/;
+
 function title(text) {
-  const plain = text.replace(/\*\*Closed by[^*]*\*\*\s*/, '').replace(/[`*]/g, '');
+  const plain = text
+    .replace(/\*\*Closed by[^*]*\*\*\s*/, '')
+    .replace(DEFECT_MARKER, '')
+    .replace(/[`*]/g, '');
   const first = plain.split(/(?<=[.!?])\s+(?=[A-Z(`])/)[0];
   if (first.length <= 150) return first;
-  return first.slice(0, 150).replace(/\s+\S*$/, '') + '…';
+  return first.slice(0, 150).replace(/\s+\S*$/, '') + 'â€¦';
 }
 
 function remoteUrl() {
@@ -143,6 +149,7 @@ function collect() {
           id: row.ID,
           priority: row.P,
           area: row.Area,
+          type: DEFECT_MARKER.test(row.What) ? 'defect' : 'task',
           title: title(row.What),
           text: row.What,
           dependsOn: row['Depends on'],
@@ -190,7 +197,7 @@ function collect() {
 }
 
 /**
- * `docs/EPICS.md`: one `## EP-NN · Name` section per epic with `Kind`, `What it gives` and
+ * `docs/EPICS.md`: one `## EP-NN Â· Name` section per epic with `Kind`, `What it gives` and
  * `Members` lines. Every ledger and backlog ID sits in exactly one epic (`LG-API-08`).
  */
 export function readEpics(markdown = read('docs/EPICS.md')) {
@@ -199,11 +206,11 @@ export function readEpics(markdown = read('docs/EPICS.md')) {
   const ids = (text) => [...text.matchAll(/(FT|CH|FX|BL)-\d+/g)].map((m) => m[0]);
   const epics = [];
   for (const section of markdown.split(/^## /m).slice(1)) {
-    const head = /^(EP-\d+)\s*·\s*(.+)$/m.exec(section);
+    const head = /^(EP-\d+)\s*Â·\s*(.+)$/m.exec(section);
     if (head === null) continue;
     const [epicPart, ...featureParts] = section.split(/^### /m);
     const features = featureParts.flatMap((part) => {
-      const fh = /^(F-\d+)\s*·\s*(.+)$/m.exec(part);
+      const fh = /^(F-\d+)\s*Â·\s*(.+)$/m.exec(part);
       if (fh === null) return [];
       return [
         {
@@ -235,9 +242,10 @@ function render({ done, open, closed, rejected, inProgress, epics, remote }) {
       : `<code>${escape(hash)}</code>`;
 
   const backlogCard = (item) => `
-      <details class="card" data-search="${escape(`${item.id} ${item.area} ${item.text}`.toLowerCase())}">
+      <details class="card ${item.type}" data-search="${escape(`${item.id} ${item.type} ${item.area} ${item.text}`.toLowerCase())}">
         <summary>
           <span class="id">${item.id}</span>
+          ${item.type === 'defect' ? '<span class="chip type-defect">Defect</span>' : ''}
           <span class="chip area">${escape(item.area)}</span>
           <span class="title">${inline(item.title)}</span>
         </summary>
@@ -275,7 +283,7 @@ function render({ done, open, closed, rejected, inProgress, epics, remote }) {
     const percent = total === 0 ? 100 : Math.round((doneCount / total) * 100);
     const p1 = openItems.filter((item) => item.priority === 'P1').length;
     const status = openItems.length === 0 ? 'Done' : p1 > 0 ? 'Has blocker' : 'Planned';
-    const last = shipped[0]?.date ?? '—';
+    const last = shipped[0]?.date ?? 'â€”';
     const next = openItems.slice(0, 3);
     return `
     <details class="epic status-${status.toLowerCase().replace(/ /g, '-')}" data-search="${escape(`${epic.id} ${epic.name} ${epic.gives}`.toLowerCase())}">
@@ -287,8 +295,8 @@ function render({ done, open, closed, rejected, inProgress, epics, remote }) {
         </div>
         <p class="gives">${inline(epic.gives)}</p>
         <div class="bar" aria-label="${percent}% done"><span style="width:${percent}%"></span></div>
-        <p class="meta">${shipped.length} shipped · ${openItems.length} open${p1 ? ` · <b style="color:var(--p1)">${p1} blocking</b>` : ''} · last change ${escape(last)}</p>
-        ${next.length ? `<ul class="next">${next.map((item) => `<li><span class="pill p-${item.priority.toLowerCase()}">${item.priority}</span> ${inline(item.title)}</li>`).join('')}</ul>` : '<p class="meta">Nothing open — the epic is complete for now.</p>'}
+        <p class="meta">${shipped.length} shipped Â· ${openItems.length} open${p1 ? ` Â· <b style="color:var(--p1)">${p1} blocking</b>` : ''} Â· last change ${escape(last)}</p>
+        ${next.length ? `<ul class="next">${next.map((item) => `<li><span class="pill p-${item.priority.toLowerCase()}">${item.priority}</span> ${inline(item.title)}</li>`).join('')}</ul>` : '<p class="meta">Nothing open â€” the epic is complete for now.</p>'}
       </summary>
       <div class="body">
         ${openItems.length ? `<h4>Open (${openItems.length})</h4>${openItems.map(backlogCard).join('')}` : ''}
@@ -304,61 +312,153 @@ function render({ done, open, closed, rejected, inProgress, epics, remote }) {
     shipped.sort((x, y) => y.date.localeCompare(x.date));
     const doneCount = shipped.length + feature.tasks.filter((id) => closedById.has(id)).length;
     const total = doneCount + openItems.length;
-    const status = openItems.length === 0 ? 'done' : doneCount === 0 ? 'planned' : 'progress';
+    // A ledger row still on `pending` is work not yet committed: its feature is in progress.
+    const pending = shipped.some((item) => item.commit === 'pending');
+    const status =
+      openItems.length === 0 && !pending ? 'done' : doneCount === 0 ? 'planned' : 'progress';
     return { openItems, shipped, doneCount, total, status, last: shipped[0]?.date ?? '' };
-  };
-
-  const featureCard = (feature, epic) => {
-    const st = featureState(feature);
-    const percent = st.total === 0 ? 100 : Math.round((st.doneCount / st.total) * 100);
-    const top = st.openItems[0]?.priority;
-    const search = `${feature.id} ${feature.name} ${feature.gives} ${epic.name} ${feature.tasks.join(' ')}`;
-    const pill = top ? `<span class="pill p-${top.toLowerCase()}">${top}</span>` : '';
-    const last = st.last ? ` · last change ${escape(st.last)}` : '';
-    const openList = st.openItems.length
-      ? `<h4>Open tasks (${st.openItems.length})</h4>${st.openItems.map(backlogCard).join('')}`
-      : '';
-    const doneList = st.shipped.length
-      ? `<h4>Done tasks (${st.shipped.length})</h4>${st.shipped.map(doneRow).join('')}`
-      : '';
-    return `
-      <details class="feature" data-epic="${epic.id}" data-search="${escape(search.toLowerCase())}">
-        <summary>
-          <div class="feature-head"><span class="chip epic-chip">${escape(epic.name)}</span>${pill}</div>
-          <div class="feature-name">${escape(feature.name)}</div>
-          <p class="gives">${inline(feature.gives)}</p>
-          <div class="bar"><span style="width:${percent}%"></span></div>
-          <p class="meta">${st.doneCount}/${st.total} tasks done${last} · ${feature.id}</p>
-        </summary>
-        <div class="body">${openList}${doneList}</div>
-      </details>`;
   };
 
   const allFeatures = epics.flatMap((epic) =>
     epic.features.map((feature) => ({ feature, epic, st: featureState(feature) })),
   );
-  const kanbanColumn = (status, label) => {
-    const items = allFeatures
-      .filter((entry) => entry.st.status === status)
-      .sort(
-        (x, y) =>
-          (x.st.openItems[0]?.priority ?? 'P9').localeCompare(
-            y.st.openItems[0]?.priority ?? 'P9',
-          ) || y.st.last.localeCompare(x.st.last),
-      );
-    const cards = items.map((entry) => featureCard(entry.feature, entry.epic)).join('');
+
+  // The scrum board (`CH-043`): every ticket is a Feature (an `F-NNN` of `docs/EPICS.md`) or a Bug
+  // (an open `**Defect.**` backlog row, or a shipped `FX-` row), in To Do, In Progress or Done.
+  const parentOf = new Map(
+    allFeatures.flatMap(({ feature, epic }) => feature.tasks.map((id) => [id, { feature, epic }])),
+  );
+  const pillFor = (priority) =>
+    priority ? `<span class="pill p-${priority.toLowerCase()}">${priority}</span>` : '';
+  const STATUS = { planned: 'todo', progress: 'progress', done: 'done' };
+
+  const tickets = [
+    ...allFeatures.map(({ feature, epic, st }) => ({
+      type: 'feature',
+      id: feature.id,
+      title: feature.name,
+      epic,
+      status: STATUS[st.status],
+      priority: st.openItems[0]?.priority ?? '',
+      date: st.last,
+      feature,
+      st,
+    })),
+    ...open
+      .filter((item) => item.type === 'defect')
+      .map((item) => ({
+        type: 'bug',
+        id: item.id,
+        title: item.title,
+        epic: parentOf.get(item.id)?.epic,
+        parent: parentOf.get(item.id)?.feature,
+        status: 'todo',
+        priority: item.priority,
+        date: '',
+        item,
+      })),
+    ...done
+      .filter((item) => item.kind === 'fix')
+      .map((item) => ({
+        type: 'bug',
+        id: item.id,
+        title: item.title,
+        epic: parentOf.get(item.id)?.epic,
+        parent: parentOf.get(item.id)?.feature,
+        status: item.commit === 'pending' ? 'progress' : 'done',
+        priority: '',
+        date: item.date,
+        shipped: item,
+      })),
+    ...inProgress.map((change) => ({
+      type: /^bugfix\b/i.test(change.title) ? 'bug' : 'feature',
+      id: change.slug,
+      title: change.title.replace(/^(bugfix|plan):\s*/i, ''),
+      epic: undefined,
+      status: 'progress',
+      priority: '',
+      date: '',
+      change,
+    })),
+  ];
+
+  const ticketCard = (t) => {
+    const epicName = t.epic ? escape(t.epic.name) : '';
+    let meta = '';
+    let bar = '';
+    let body = '';
+    if (t.st) {
+      const percent = t.st.total === 0 ? 100 : Math.round((t.st.doneCount / t.st.total) * 100);
+      const bugs = t.st.openItems.filter((item) => item.type === 'defect').length;
+      meta = `${t.st.doneCount}/${t.st.total} tasks${bugs ? ` Â· <b class="bug-note">${bugs} open bug${bugs > 1 ? 's' : ''}</b>` : ''}`;
+      bar = `<div class="bar"><span style="width:${percent}%"></span></div>`;
+      body = `<p>${inline(t.feature.gives)}</p>${
+        t.st.openItems.length
+          ? `<h4>Open tasks (${t.st.openItems.length})</h4>${t.st.openItems.map(backlogCard).join('')}`
+          : ''
+      }${t.st.shipped.length ? `<h4>Done tasks (${t.st.shipped.length})</h4>${t.st.shipped.map(doneRow).join('')}` : ''}`;
+    } else if (t.item) {
+      meta = escape(t.item.area);
+      body = `<p>${inline(t.item.text)}</p>${t.item.dependsOn && t.item.dependsOn !== 'â€”' ? `<p class="meta"><b>Depends on:</b> ${inline(t.item.dependsOn)}</p>` : ''}`;
+    } else if (t.shipped) {
+      meta = escape(t.date);
+      body = `<p>${inline(t.shipped.text)}</p>${t.shipped.foundBy ? `<p class="meta"><b>Found by:</b> ${inline(t.shipped.foundBy)}</p>` : ''}<p class="meta"><b>Commit:</b> ${commitLink(t.shipped.commit)}</p>`;
+    } else if (t.change) {
+      meta = 'change folder, no ledger entry yet';
+      body = `<p class="meta">Being worked on in <code>docs/plans/${escape(t.change.slug)}/</code>.</p>`;
+    }
+    const parent = t.parent ? ` Â· ${escape(t.parent.name)}` : '';
+    const search = `${t.id} ${t.type} ${t.title} ${epicName} ${t.feature?.tasks.join(' ') ?? ''} ${t.item?.text ?? t.shipped?.text ?? ''}`;
     return `
-      <section class="column kanban-${status}">
-        <h3>${label} <span class="count">${items.length}</span></h3>
-        ${cards || '<p class="empty">Nothing here.</p>'}
+      <details class="ticket t-${t.type}" data-type="${t.type}" data-epic="${t.epic?.id ?? ''}" data-search="${escape(search.toLowerCase())}">
+        <summary>
+          <div class="t-top"><span class="type">${t.type === 'bug' ? 'Bug' : 'Feature'}</span>${pillFor(t.priority)}<span class="t-id">${escape(t.id)}</span></div>
+          <div class="t-title">${inline(t.title)}</div>
+          ${bar}
+          <div class="t-meta">${epicName ? `<span class="t-epic">${epicName}</span>${parent} Â· ` : ''}${meta}</div>
+        </summary>
+        <div class="body">${body}</div>
+      </details>`;
+  };
+
+  const byPriorityThenDate = (x, y) =>
+    (x.priority || 'P9').localeCompare(y.priority || 'P9') || y.date.localeCompare(x.date);
+  const PRIORITY_LANES = [
+    ['P1', 'P1 Â· Blocking'],
+    ['P2', 'P2 Â· Planned'],
+    ['P3', 'P3 Â· Nice to have'],
+  ];
+  const DONE_SHOWN = 12;
+
+  const scrumColumn = (status, label) => {
+    const items = tickets.filter((t) => t.status === status);
+    let content;
+    if (status === 'todo') {
+      content = PRIORITY_LANES.map(([priority, laneLabel]) => {
+        const lane = items.filter((t) => t.priority === priority).sort(byPriorityThenDate);
+        return `<div class="lane p-${priority.toLowerCase()}" data-lane><h4>${laneLabel} <span class="count" data-count>${lane.length}</span></h4>${lane.map(ticketCard).join('') || '<p class="empty">Nothing here.</p>'}</div>`;
+      }).join('');
+    } else if (status === 'done') {
+      const sorted = items.sort((x, y) => y.date.localeCompare(x.date));
+      content = `${sorted.map((t, i) => ticketCard(t).replace('<details class="ticket', `<details class="ticket${i >= DONE_SHOWN ? ' more' : ''}`)).join('')}${
+        sorted.length > DONE_SHOWN
+          ? `<button class="show-all" type="button">Show all ${sorted.length}</button>`
+          : ''
+      }`;
+    } else {
+      content =
+        items.sort(byPriorityThenDate).map(ticketCard).join('') ||
+        '<p class="empty">Nothing is being worked on.</p>';
+    }
+    return `
+      <section class="column scrum-${status}" data-lane>
+        <h3>${label} <span class="count" data-count>${items.length}</span></h3>
+        ${content}
       </section>`;
   };
 
-  const epicFilter = epics
-    .map(
-      (epic) =>
-        `<button aria-pressed="false" data-epic-filter="${epic.id}">${escape(epic.name)}</button>`,
-    )
+  const epicOptions = epics
+    .map((epic) => `<option value="${epic.id}">${escape(epic.name)}</option>`)
     .join('');
 
   const epicGrid = (kind) =>
@@ -438,6 +538,8 @@ input[type=search] { flex: 1; min-width: 200px; padding: 8px 12px; border-radius
 .row.feature .kind { color: var(--feature); border-color: var(--feature); }
 .row.process .kind { color: var(--process); border-color: var(--process); }
 .row.fix .kind { color: var(--fix); border-color: var(--fix); }
+.chip.type-defect { color: var(--fix); border-color: var(--fix); font-weight: 600; }
+.card.defect { border-left: 4px solid var(--fix); }
 .body { padding: 0 12px 12px; border-top: 1px solid var(--line); }
 .body p { margin: 10px 0 0; overflow-wrap: anywhere; }
 .meta { color: var(--muted); font-size: 14px; }
@@ -482,6 +584,35 @@ h2 { font-size: 17px; margin: 24px 4px 10px; color: var(--muted); text-transform
 .kanban-done .bar span { background: var(--p3); }
 .epic-filter button { font-size: 13px; padding: 5px 12px; }
 .epic-filter button[aria-pressed="true"] { background: var(--accent); color: #fff; border-color: var(--accent); }
+.scrum { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; align-items: start; }
+@media (max-width: 900px) { .scrum { grid-template-columns: 1fr; } }
+.scrum-todo h3::before { background: var(--muted); } .scrum-progress h3::before { background: var(--accent); } .scrum-done h3::before { background: var(--p3); }
+.lane { margin-bottom: 14px; }
+.lane h4 { margin: 6px 4px 8px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); display: flex; gap: 8px; align-items: center; }
+.lane h4::before { content: ""; width: 4px; height: 14px; border-radius: 2px; background: var(--muted); }
+.lane.p-p1 h4::before { background: var(--p1); } .lane.p-p2 h4::before { background: var(--p2); } .lane.p-p3 h4::before { background: var(--p3); }
+.ticket { background: var(--surface); border: 1px solid var(--line); border-left: 4px solid var(--feature); border-radius: 10px; margin-bottom: 8px; }
+.ticket.t-bug { border-left-color: var(--fix); }
+.ticket summary { list-style: none; cursor: pointer; padding: 10px 12px; }
+.ticket summary::-webkit-details-marker { display: none; }
+.ticket[open] { border-color: var(--accent); border-left-width: 4px; }
+.ticket .body h4 { margin: 12px 0 6px; font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+.t-top { display: flex; align-items: center; gap: 6px; }
+.type { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; padding: 1px 7px; border-radius: 6px; color: var(--feature); background: var(--code); }
+.t-bug .type { color: var(--fix); }
+.t-id { margin-left: auto; color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.t-title { font-weight: 600; margin: 6px 0; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.ticket[open] .t-title { display: block; }
+.t-meta { color: var(--muted); font-size: 13px; }
+.t-epic { color: var(--accent); }
+.ticket .bar { height: 5px; margin: 4px 0 6px; }
+.scrum-done .bar span { background: var(--p3); }
+.bug-note { color: var(--fix); }
+.ticket.more { display: none; }
+.scrum-done.expanded .ticket.more { display: block; }
+.scrum-done.expanded .ticket.more.hidden { display: none; }
+.show-all { width: 100%; padding: 8px; border: 1px dashed var(--line); background: transparent; color: var(--accent); border-radius: 10px; cursor: pointer; font: inherit; }
+#epic { padding: 7px 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); color: var(--text); font: inherit; }
 .now { background: var(--surface); border: 1px solid var(--accent); border-radius: 14px; padding: 4px 16px 10px; }
 @media (max-width: 600px) { .date { min-width: 0; } }
 </style>
@@ -493,42 +624,46 @@ h2 { font-size: 17px; margin: 24px 4px 10px; color: var(--muted); text-transform
 </header>
 <main>
   <div class="stats">
-    <div class="stat"><div class="n">${allFeatures.filter((e) => e.st.status === 'planned').length}</div><div class="l">Features planned</div></div>
-    <div class="stat"><div class="n">${allFeatures.filter((e) => e.st.status === 'progress').length}</div><div class="l">Features in progress</div></div>
-    <div class="stat"><div class="n">${allFeatures.filter((e) => e.st.status === 'done').length}</div><div class="l">Features done</div></div>
-    <div class="stat"><div class="n" style="color:var(--p1)">${allFeatures.filter((e) => e.st.openItems[0]?.priority === 'P1').length}</div><div class="l">Features with a P1 task</div></div>
+    <div class="stat"><div class="n">${tickets.filter((t) => t.status === 'todo').length}</div><div class="l">To do</div></div>
+    <div class="stat"><div class="n">${tickets.filter((t) => t.status === 'progress').length}</div><div class="l">In progress</div></div>
+    <div class="stat"><div class="n">${tickets.filter((t) => t.status === 'done').length}</div><div class="l">Done</div></div>
+    <div class="stat"><div class="n" style="color:var(--fix)">${tickets.filter((t) => t.type === 'bug' && t.status !== 'done').length}</div><div class="l">Open bugs</div></div>
+    <div class="stat"><div class="n" style="color:var(--p1)">${tickets.filter((t) => t.status !== 'done' && t.priority === 'P1').length}</div><div class="l">P1 tickets</div></div>
     <div class="stat"><div class="n">${epics.length}</div><div class="l">Epics</div></div>
-    <div class="stat"><div class="n">${open.length}</div><div class="l">Open tasks</div></div>
   </div>
 
   <div class="toolbar">
     <div class="tabs" role="tablist">
-      <button role="tab" aria-selected="true" data-tab="features">Features</button>
+      <button role="tab" aria-selected="true" data-tab="scrum">Board</button>
       <button role="tab" aria-selected="false" data-tab="epics">Epics</button>
       <button role="tab" aria-selected="false" data-tab="board">Backlog</button>
       <button role="tab" aria-selected="false" data-tab="done">Done</button>
       <button role="tab" aria-selected="false" data-tab="closed">Closed backlog</button>
       <button role="tab" aria-selected="false" data-tab="rejected">Rejected</button>
     </div>
-    <input type="search" id="q" placeholder="Search by ID or text…" aria-label="Search">
+    <input type="search" id="q" placeholder="Search by ID or textâ€¦" aria-label="Search">
   </div>
 
-  <div class="panel" id="features">
-    <div class="toolbar epic-filter">
-      <button aria-pressed="true" data-epic-filter="all">All epics</button>
-      ${epicFilter}
+  <div class="panel" id="scrum">
+    <div class="toolbar">
+      <div class="filters type-filter">
+        <button aria-pressed="true" data-type-filter="all">All</button>
+        <button aria-pressed="false" data-type-filter="feature">Features</button>
+        <button aria-pressed="false" data-type-filter="bug">Bugs</button>
+      </div>
+      <select id="epic" aria-label="Epic"><option value="all">All epics</option>${epicOptions}</select>
     </div>
-    <div class="board kanban">
-      ${kanbanColumn('planned', 'Planned')}
-      ${kanbanColumn('progress', 'In progress')}
-      ${kanbanColumn('done', 'Done')}
+    <div class="scrum">
+      ${scrumColumn('todo', 'To Do')}
+      ${scrumColumn('progress', 'In Progress')}
+      ${scrumColumn('done', 'Done')}
     </div>
   </div>
 
   <div class="panel" id="epics" hidden>
     ${
       inProgress.length
-        ? `<section class="now"><h2>In progress now</h2>${inProgress.map((item) => `<p><b>${escape(item.slug)}</b> — ${inline(item.title)}</p>`).join('')}</section>`
+        ? `<section class="now"><h2>In progress now</h2>${inProgress.map((item) => `<p><b>${escape(item.slug)}</b> â€” ${inline(item.title)}</p>`).join('')}</section>`
         : ''
     }
     <h2>Product</h2>
@@ -555,9 +690,9 @@ h2 { font-size: 17px; margin: 24px 4px 10px; color: var(--muted); text-transform
           '<p class="empty">No change is open: every change folder has its ledger entry.</p>'
         }
       </section>
-      ${column('P1', 'P1 · Blocking')}
-      ${column('P2', 'P2 · Planned')}
-      ${column('P3', 'P3 · Nice to have')}
+      ${column('P1', 'P1 Â· Blocking')}
+      ${column('P2', 'P2 Â· Planned')}
+      ${column('P3', 'P3 Â· Nice to have')}
     </div>
   </div>
 
@@ -600,25 +735,38 @@ tabs.forEach((tab) => tab.addEventListener('click', () => {
   try { localStorage.setItem('board-tab', tab.dataset.tab); } catch {}
 }));
 try { const saved = localStorage.getItem('board-tab'); if (saved) document.querySelector('[data-tab="' + saved + '"]')?.click(); } catch {}
-let epicFilter = 'all';
-document.querySelectorAll('[data-epic-filter]').forEach((b) => b.addEventListener('click', () => {
-  epicFilter = b.dataset.epicFilter;
-  document.querySelectorAll('[data-epic-filter]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
-  document.querySelectorAll('.feature').forEach((el) => el.classList.toggle('off', epicFilter !== 'all' && el.dataset.epic !== epicFilter));
-}));
 let kind = 'all';
+let type = 'all';
+const epicSelect = document.getElementById('epic');
 const apply = () => {
   const q = document.getElementById('q').value.trim().toLowerCase();
+  const epic = epicSelect.value;
   document.querySelectorAll('[data-search]').forEach((el) => {
     const byText = !q || el.dataset.search.includes(q);
     const byKind = !el.dataset.kind || kind === 'all' || el.dataset.kind === kind;
-    el.classList.toggle('hidden', !(byText && byKind));
+    const byType = !el.dataset.type || type === 'all' || el.dataset.type === type;
+    const byEpic = el.dataset.epic === undefined || epic === 'all' || el.dataset.epic === epic;
+    el.classList.toggle('hidden', !(byText && byKind && byType && byEpic));
+  });
+  document.querySelectorAll('[data-lane]').forEach((lane) => {
+    const n = lane.querySelectorAll('.ticket:not(.hidden)').length;
+    lane.querySelector(':scope > h3 [data-count], :scope > h4 [data-count]').textContent = n;
   });
 };
 document.getElementById('q').addEventListener('input', apply);
+epicSelect.addEventListener('change', apply);
+document.querySelectorAll('[data-type-filter]').forEach((b) => b.addEventListener('click', () => {
+  type = b.dataset.typeFilter;
+  document.querySelectorAll('[data-type-filter]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+  apply();
+}));
+document.querySelector('.show-all')?.addEventListener('click', (e) => {
+  document.querySelector('.scrum-done').classList.add('expanded');
+  e.target.remove();
+});
 document.querySelectorAll('[data-kind]').forEach((b) => b.tagName === 'BUTTON' && b.addEventListener('click', () => {
   kind = b.dataset.kind;
-  document.querySelectorAll('.filters button').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+  document.querySelectorAll('[data-kind]').forEach((x) => x.tagName === 'BUTTON' && x.setAttribute('aria-pressed', String(x === b)));
   apply();
 }));
 </script>

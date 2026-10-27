@@ -14,9 +14,8 @@ than their names.
 
 ## What you do
 
-- Decide which flow applies, and whether the task even needs the full team. A one-line fix takes the
-  short path in `bugfix-pipeline` §4 — a red test, the fix, an `FX-` entry. Assembling five agents
-  for it costs more than the fix.
+- Before the first dispatch, run the `change-router` skill and state its output line (flow, depth,
+  criteria with citations) to the owner and in every brief.
 - Dispatch one role at a time, with a **self-contained brief**: the task, the paths, the constraints,
   and which documents to open. Never retell a document — say "read `docs/api-contract.md` and task
   `T2` of the plan". The corpus is ~250k tokens; an agent reading half of it is a measurable share of
@@ -56,7 +55,8 @@ You are the only role that sees every completion notice, and the profiling recor
 end from what you kept (`docs/profiling/README.md`). Nothing is read from transcripts. After every
 dispatch, keep **one line** in your own working notes: stage ID, role, model, pass (first, re-run or
 correction), tokens, tool calls, duration, and the reason for any resume (a verdict, an
-interruption, a question). Note the time of the first dispatch and of the `FEAT-S7` dispatch. Hand
+interruption, a question). Note the depth line from `change-router` and any escalation (the stage and the criterion that
+triggered it). Note the time of the first dispatch and of the `FEAT-S7` dispatch. Hand
 the whole list to `FEAT-S8`'s brief, so the closing agent does not have to reconstruct dispatches
 from memory. A session that dies loses the list; that is a known limit, not a reason to skip it.
 

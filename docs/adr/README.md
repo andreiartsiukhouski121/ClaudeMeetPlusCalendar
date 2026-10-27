@@ -74,6 +74,7 @@ What does not: how a function is written, which name reads better, anything a co
 | [ADR-0036](ADR-0036-ui-once-and-an-e2e-api-layer.md)           | Each flow is driven through the UI once; every other test goes through an e2e API layer | accepted   |
 | [ADR-0037](ADR-0037-e2e-user-pool-and-cleanup.md)              | Tests claim a pooled user, and every test deletes what it created                       | accepted   |
 | [ADR-0038](ADR-0038-file-cap-without-the-no-delete-premise.md) | The ten-file cap stands on its own, not on a missing delete                             | accepted   |
+| [ADR-0039](ADR-0039-pipeline-depth.md)                         | Pipeline depth                                                                          | accepted   |
 
 The table is checked against the directory in both directions (`AR-API-03`): a file missing from the
 table, or a row without a file, fails the run.

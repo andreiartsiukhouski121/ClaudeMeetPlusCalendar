@@ -2642,9 +2642,11 @@
       "hash": "b5c730440f1a42a14484165fe245ad6f25750c9219d88976c662df5c7c8ecc19"
     },
     "FACT-3314": {
-      "status": "active",
+      "status": "retired",
       "document": "docs/adr",
-      "hash": "16275c76aa659893df5151ce396fc5ffc4bb82f3c5a5b5723b9ecdd6dc6a8a49"
+      "hash": "3aeb8d298c9eba7605f51a529027ab8664e466e0f3f757bb6a213c4c89de562e",
+      "supersededBy": "FACT-3827",
+      "recordedIn": "`ADR-0039`"
     },
     "FACT-3315": {
       "status": "active",
@@ -2652,9 +2654,11 @@
       "hash": "223f9cdd8290fe1d235b6e329e4696c4dffaa526a2062c075b1069243925d83c"
     },
     "FACT-3316": {
-      "status": "active",
+      "status": "retired",
       "document": "docs/adr",
-      "hash": "64d301dccc608646b5ba5e957d62aad1bf632b6f4baf8559c695edb15c95bc7c"
+      "hash": "19d4d427cfa56b7176149c3a20b26ce0db87e16e44a7d22e3bad0c49987fc55f",
+      "supersededBy": "FACT-3828",
+      "recordedIn": "`ADR-0039`"
     },
     "FACT-3317": {
       "status": "active",
@@ -2667,9 +2671,11 @@
       "hash": "3a45cb6fdbf4b586f2a31a7cd367e9d384854db52f1a268060aae5349fa9c721"
     },
     "FACT-3319": {
-      "status": "active",
+      "status": "retired",
       "document": "docs/adr",
-      "hash": "95916e6b597234698b50cc11c250dd3c33cfe1cddc8f42f5947542eb787fcff7"
+      "hash": "7873980f5c3298ce0a2bd90f15e218628424c789bcea30ef6ce2a9e668c89ab3",
+      "supersededBy": "FACT-3830",
+      "recordedIn": "`ADR-0039`"
     },
     "FACT-3320": {
       "status": "active",
@@ -5062,6 +5068,61 @@
       "status": "active",
       "document": "docs/adr",
       "hash": "7c44ba52f38dc40cc531f185ecac180d5f6fd10a1d2b5b5617f9328c8a2b3d4d"
+    },
+    "FACT-3822": {
+      "status": "active",
+      "document": "docs/adr",
+      "hash": "b21c79a8c7bde22c74bd2abaf1d710bdc53f451b88aece4229592afd42d4f7e0"
+    },
+    "FACT-3823": {
+      "status": "active",
+      "document": "docs/adr",
+      "hash": "9944f7658c08877cbfde1ff5952bfdc6d702333cc369b222a76e538bd6c40663"
+    },
+    "FACT-3824": {
+      "status": "active",
+      "document": "docs/adr",
+      "hash": "76335c26d7e1087c1cfd981d16fb4da5caf39bd97618f38f8919110ad39a95ef"
+    },
+    "FACT-3825": {
+      "status": "active",
+      "document": "docs/adr",
+      "hash": "2b60af573b44c1fe147c8fa588e2f9796c76d091a94870f32b95b3dbe7d8f226"
+    },
+    "FACT-3826": {
+      "status": "active",
+      "document": "docs/adr",
+      "hash": "5f24dfc3cd658b9845eac7a53436432efab2f2483836f15998a86d409f8039d1"
+    },
+    "FACT-3827": {
+      "status": "active",
+      "document": "docs/adr",
+      "hash": "a81ad83d4d6cdb0fe09c6beeb8aac5a78074944563b84113ec4f411f10ddb186"
+    },
+    "FACT-3828": {
+      "status": "active",
+      "document": "docs/adr",
+      "hash": "9bfc7c938b44203127df6da3f14b5c95999dac2287592899c9a56edbf5e5a534"
+    },
+    "FACT-3829": {
+      "status": "active",
+      "document": "docs/adr",
+      "hash": "c22459e448a270c7510d9c8df11a64f8d17816f4bc388bcb10396024d3dfbabe"
+    },
+    "FACT-3830": {
+      "status": "active",
+      "document": "docs/adr",
+      "hash": "76ead17baf7b7bbe465d503e2f14b511daa39542a0b3ff2619b538443a7a636c"
+    },
+    "FACT-3831": {
+      "status": "active",
+      "document": "docs/adr",
+      "hash": "09b58c968a371da5a83591a441faacb704c5bf33c21dcc378dd6d667fa56b817"
+    },
+    "FACT-3832": {
+      "status": "active",
+      "document": "docs/adr",
+      "hash": "74d7cc25a4aef73f6b3d4b23daa3d8dd1e2d9f53eff6f20a2bc9e4eb0fc33f10"
     }
   }
 }

@@ -128,12 +128,14 @@ see it and whether there is a workaround. Whether security is involved — then 
 invariants 16–19 and is checked by `pnpm e2e:security`.
 
 **A change folder (`pnpm change:new <slug> --bug`) — research, design and a written plan — is
-needed if any of these hold:**
+needed if the cause was not found in about 15 minutes** (the `change-router` skill's `C6`, answered
+here because it cannot be judged before the cause is looked for), **or if any of its `C1`, `C3` or
+`C4` holds**: a contract, an invariant or another feature's cases; security; more than one module
+or both applications. The criteria and the depth they give — small, medium or large — live in
+`change-router`; the stages each depth runs are in `docs/process.md`, "Depth".
 
-1. the cause was not found in about 15 minutes;
-2. the fix changes a contract, an invariant, or behaviour that another feature's cases rely on;
-3. the defect involves security;
-4. more than one module or both applications are affected.
+**The criterion numbers an override marker names are fixed**, because ledger rows already carry
+them: 1 is `C6` (the cause was slow to find), 2 is `C1`, 3 is `C3`, 4 is `C4`.
 
 Otherwise **no plan is needed**: a red test, the fix and an `FX-` entry are enough. The threshold
 is not a loophole but protection from what `CH-004` moved away from — 100 minutes of planning
@@ -146,10 +148,12 @@ names **every** criterion that holds. Why: in `FX-046` the threshold held on cri
 choice was put to the owner without naming either, so the short path was taken above the threshold
 without anyone having decided that.
 
-**The path marker.** Every `FX-` row numbered 48 and above carries exactly one of these three literal
+**The path marker.** Every `FX-` row numbered 48 and above carries exactly one of these literal
 forms (held by the ledger meta-test, `LG-API-07`):
 
 - `Path: full (docs/plans/<slug>)`
+- `Path: medium (docs/plans/<slug>)` — the cause was slow to find and no contract, security or spread
+  is involved (`change-router`; projected, one record)
 - `Path: short, below the threshold`
 - `Path: short, threshold overridden by the owner: criteria <n>[, <n>…]`
 

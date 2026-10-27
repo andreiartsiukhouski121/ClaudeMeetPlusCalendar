@@ -183,12 +183,8 @@ resume to answer a mid-stage question, before the artifact has gone to a gate, i
 ## When the team is the wrong tool
 
 The flow has real cost: the stages and gates in `docs/process.md`, more context and more
-wall-clock. Use the short path when:
-
-- the fix is one line and its cause is known — `bugfix-pipeline` §4 says a red test, the fix, an
-  `FX-` entry, no folder, no stages, no team;
-- the change is documentation, config or a rename;
-- the work is smaller than the brief needed to hand it over.
+wall-clock. How much of it a change gets is decided by the `change-router` skill (small, medium or
+large), and a change with no runtime behaviour gets none of it.
 
 This is not a loophole. `CH-004` exists because planning once took 100 minutes against 85 of code,
 and adding stages makes that failure cheaper to repeat, not harder.

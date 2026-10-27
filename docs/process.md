@@ -36,10 +36,8 @@ retired.
 | `FEAT-S7`  | Ledger                            | `tester-acceptance`                                  | an `FT-`/`CH-` row, closed `BL-` items                        |
 | `FEAT-S8`  | Profiling record                  | `tester-acceptance`                                  | `docs/profiling/runs/<date>-<slug>.md`                        |
 
-Below `bugfix-pipeline` §4's threshold, a `FEAT` change skips its discovery half — `FEAT-S1`…
-`FEAT-G3` — and `FEAT-S9` test design along with it, the same way the `FIX` section below names a
-short path explicitly rather than leaving it to judgement: no change folder, no team, only a red
-test, the fix and a ledger entry. Above the threshold every row runs, in the row order of the table.
+Which of these rows a change runs is decided by its depth — small, medium or large — in the "Depth"
+section below. Within a depth, the rows that run keep the row order of the table.
 
 **The corpus moves inside `FEAT-S4`, not after it.** A change of behaviour states its new fact in
 `docs/architecture.md`, `docs/data-model.md` or `docs/api-contract.md` in the same commit as the
@@ -62,11 +60,9 @@ name, and a retired one is never reused.
 
 ## `FIX` — a defect
 
-Procedure: the `bugfix-pipeline` skill. Two paths, named explicitly rather than left to judgement:
-below `bugfix-pipeline` §4's threshold the short path runs `FIX-S1`-`FIX-S7` only, by one fixer, with
-no change folder and no team; above it the full path runs the same seven steps plus the three
-discovery stages below and the profiling record at the end, in the row order of the table. The Role
-column names the full path's team roles; on the short path one agent performs all of them.
+Procedure: the `bugfix-pipeline` skill. Which steps a defect runs is decided by its depth, in the
+"Depth" section below. The Role column names the full path's team roles; on the short path one agent
+performs all of them.
 
 | ID        | Step               | Role                                                | Output                                                                                                                                       |
 | --------- | ------------------ | --------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -97,6 +93,21 @@ The defect flow carries **no review gate**, above the threshold or below it — 
 feature flow's four. What stands in for one is mechanical instead, and specific to this flow: the red
 test at `FIX-S5` must fail on current code, and the control experiment at `FIX-S7` reverts the fix and
 requires the test to go red again. A wrong cause fails both.
+
+## Depth — which rows a change runs
+
+Procedure: the `change-router` skill, which chooses the depth from criteria answered with a citation
+each. **This section is the only place that maps a depth to stage IDs** (`ADR-0020`, `ADR-0039`).
+It cites existing IDs only; none is minted, renumbered or reused.
+
+| Depth  | `FEAT` stages                                                                                                                                          | `FIX` steps                                                                                                           |
+| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------- |
+| small  | none of `FEAT-S1` to `FEAT-G3`, `FEAT-S9` or `FEAT-S8`: a red test, the code, one green `pnpm verify` and a ledger row, with no team and no folder     | `FIX-S1` to `FIX-S7`, by one fixer, with no change folder and no team (the short path)                                |
+| medium | `FEAT-S3` (`planner` writes all three thin files), `FEAT-G3`, `FEAT-S9`, `FEAT-S10`, `FEAT-S4`, `FEAT-S11`, `FEAT-G4`, `FEAT-S6`, `FEAT-S7`, `FEAT-S8` | `FIX-S1` to `FIX-S4`, then `FIX-S8` to `FIX-S10` by `planner` with no sweeps, then `FIX-S5` to `FIX-S7` and `FIX-S11` |
+| large  | every row, in row order                                                                                                                                | `FIX-S1` to `FIX-S11` (the full path)                                                                                 |
+
+The medium defect row is **projected** from one record (`TUNE-S2`, 2026-10-27, item 6), and so is the
+medium effect of the feature row, which rests on two.
 
 ## `TUNE` — changing the pipeline itself
 

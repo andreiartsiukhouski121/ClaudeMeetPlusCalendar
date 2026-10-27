@@ -45,10 +45,9 @@ acceptance before the code review's; no "done" before a green `pnpm verify`.
 **Every blocker in a verdict carries a label, `shape` or `correction`**; what each means and how a
 verdict is answered is in `team-roles`, "Handoff".
 
-Phases are never reordered or skipped, but they **shrink with the task**: for a small change the
-research is one sweep and the plan is three rows in the task section. A skipped phase is named out
-loud rather than assumed — and for work below the `bugfix-pipeline` §4 threshold, the whole
-discovery half is skipped by design, not by omission.
+Which stages run is decided by the change's depth (`docs/process.md`, "Depth"; chosen by the
+`change-router` skill). Within a depth, stages are never reordered, and a stage that runs is named,
+never quietly dropped.
 
 ## 0. Research — the first thing that happens
 
@@ -212,9 +211,8 @@ and `@integration` for the level (Vitest units carry none — the case ID alread
 `pnpm test:<feature>` filters on that), the existing per-feature tag, `@p0`/`@mutating` where they
 apply. A meta-test checks that a level tag matches the file's own suffix, so a tag cannot drift from
 the project the spec actually runs in. Budget: scenario text for one feature stays at or under 200
-lines per level file, the same discipline the plan and the design already carry — this stage inherits
-the `bugfix-pipeline` §4 threshold too: below it there is no change folder and no test design, only a
-red test, the fix, an `FX-` entry.
+lines per level file, the same discipline the plan and the design already carry — whether this
+stage runs is decided by the change's depth (`docs/process.md`, "Depth").
 
 **`FEAT-S10`, red tests (unit and API), by `tester-unit` and `tester-api`.** Specs for the scenarios
 `test-designer` wrote, each one run and recorded failing **for the reason it was written for** — not

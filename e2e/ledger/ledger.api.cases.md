@@ -30,6 +30,8 @@ the plan, visible in review. The machine checks the form, a human checks the con
 | LG-API-06 | no references to non-existent `BL-`/`FX-`/`FT-`/`CH-`            | P0       |
 | LG-API-07 | every `FX-` row numbered 48 and above names the path it took     | P1       |
 | LG-API-08 | every ledger and backlog record is a task of exactly one feature | P1       |
+| LG-API-09 | every `FT-` from 011 and `CH-` from 045 carries one `Tier:`      | P1       |
+| LG-API-10 | every small-depth row carries exactly one `Cost:` clause         | P1       |
 
 ## Cases
 
@@ -102,21 +104,21 @@ the plan, visible in review. The machine checks the form, a human checks the con
 - **Steps:** take every row of the Defects and fixes table in `docs/CHANGELOG.md` whose ID is `FX-`
   with a numeric part of **48 or more**; rows `FX-001`…`FX-047` are out of scope and never
   rewritten. In each row in scope, find every path marker, anywhere in the row's cells, of one of
-  three literal forms:
+  four literal forms:
   1. `Path: full (docs/plans/<slug>)`;
-  2. `Path: short, below the threshold`;
-  3. `Path: short, threshold overridden by the owner: criteria <n>[, <n>…]`, where each `<n>` is
-     a criterion number of `bugfix-pipeline` §4 (1 — cause not found in about 15 minutes; 2 — a
-     contract, invariant or relied-on behaviour changes; 3 — security; 4 — more than one module or
-     both applications).
+  2. `Path: medium (docs/plans/<slug>)` — the defect medium depth (`change-router`);
+  3. `Path: short, below the threshold`;
+  4. `Path: short, threshold overridden by the owner: criteria <n>[, <n>…]`, where each `<n>` is
+     a criterion number of `bugfix-pipeline` §4. The numbers keep their meaning, now mapped there to
+     the router's ids: 1 = `C6` (cause slow to find), 2 = `C1`, 3 = `C3`, 4 = `C4`.
 - **Expected — passes:** the row carries **exactly one** marker, and
-  - for `full`, the directory `docs/plans/<slug>/` exists;
+  - for `full` and `medium`, the directory `docs/plans/<slug>/` exists;
   - for `below the threshold`, nothing further;
   - for `overridden`, the list names at least one criterion and every criterion is an integer 1–4.
 - **Expected — fails, naming the row and the reason:** no marker; two or more markers (of the same
-  form or of different forms); a `full` marker whose `docs/plans/<slug>/` does not exist; an
-  `overridden` marker with an empty criteria list, or with a criterion outside 1–4 (`0`, `5`, a
-  non-number).
+  form or of different forms); a `full` or `medium` marker whose `docs/plans/<slug>/` does not
+  exist; an `overridden` marker with an empty criteria list, or with a criterion outside 1–4 (`0`,
+  `5`, a non-number).
 - **Why:** `FX-046` took the short path although criteria 2 and 4 of the threshold held, and the
   ledger row recorded nothing that would show it. The owner's decision of 2026-10-13
   (`docs/profiling/plans/2026-10-12-tuning-5.plan.md`, "`FX-046` follow-up", option A) is that the
@@ -126,13 +128,12 @@ the plan, visible in review. The machine checks the form, a human checks the con
   open.
 - **Vacuity guard, two parts** — the same class `AR-API-17` closes for the retirement register:
   1. **The matcher is driven over a fixture written into the spec** (not under `docs/`, so it is
-     never mistaken for part of the ledger): one sample row per passing form — a `full` marker
-     whose slug is a folder that really exists under `docs/plans/`, a `below the threshold` marker,
-     an `overridden` marker with `criteria 2, 4` — and one per failing form: no marker, two markers,
-     `full` with a slug that has no folder, `overridden` with no criteria, `overridden` with
-     `criteria 5`. Assert the three sound rows pass and each of the five broken rows is rejected
-     for its own reason. Today the ledger has no row numbered 48 or above, so without this the case
-     would pass having judged nothing.
+     never mistaken for part of the ledger): one sample row per passing form — a `full` and a
+     `medium` marker, each whose slug is a folder that really exists under `docs/plans/`, a `below
+the threshold` marker, an `overridden` marker with `criteria 2, 4` — and one per failing form:
+     no marker, two markers, `full` with a slug that has no folder, `medium` with a slug that has no
+     folder, `overridden` with no criteria, `overridden` with `criteria 5`. Assert the four sound
+     rows pass and each of the six broken rows is rejected for its own reason.
   2. **The real table parsed:** before judging the rows in scope, assert the Defects table yielded
      at least one `FX-` row at all, so a moved or reworded table cannot make the case green by
      reading zero rows — the same guard `AR-API-10` and `AR-API-11` carry.
@@ -155,3 +156,44 @@ the plan, visible in review. The machine checks the form, a human checks the con
 - **Vacuity guard:** a fixture in the spec — a record in two features, a record in none, an unknown
   task, a reused feature ID, an epic with no feature and a wrong kind — must each be reported; and
   the real files must parse into at least one feature and one record.
+
+### LG-API-09 — every `FT-` from 011 and `CH-` from 045 carries exactly one tier marker
+
+- **Priority:** P1
+- **Steps:** take every row of the Features table with an `FT-` numeric part of **11 or more**, and
+  of the Process table with a `CH-` numeric part of **45 or more**; earlier rows are out of scope
+  and never rewritten (`CH-043` and `CH-044` are the change that introduces the rule). In each, find
+  every marker `Tier: <depth>; criteria: <list>`, anywhere in the row's cells.
+- **Expected — passes:** exactly one marker; `<depth>` is `small`, `medium` or `large`; `<list>` is
+  the literal `none` or a comma-separated list of ids, each one of `C1`…`C5` (`change-router`).
+- **Expected — fails, naming the row and the reason:** no marker; two or more markers; a depth
+  outside the three words; an id outside `C1`…`C5` (`C6`, `C0`, `X1`); an empty criteria list.
+- **Why:** `TUNE-S2` round 6, item 2b (approved by the owner 2026-10-27): before it no ledger row
+  classified a change by size, so no later round could check the tiering. `C6` is defect-only and
+  is recorded on `FX-` rows through `LG-API-07`'s `Path:` marker instead.
+- **Vacuity guard, two parts:** (1) a fixture in the spec — one row per depth with a sound list,
+  one with `criteria: none`, one with `criteria: C1, C3` — passes; one row per failing form above
+  is rejected for its own reason. Today no row is in scope, so without the fixture the case would
+  pass having judged nothing. (2) The real Features and Process tables each parsed at least one row.
+- **Control experiment:** add a scratch `CH-` row numbered 45 or more with no marker, confirm red
+  naming it; add `Tier: small; criteria: none` and confirm green; then remove the row.
+
+### LG-API-10 — every small-depth row carries exactly one `Cost:` clause
+
+- **Priority:** P1
+- **Steps:** take the rows `LG-API-09` holds in scope whose tier is `small`, and every `FX-` row
+  numbered **56 or more** whose marker is `Path: short, below the threshold` — the small depth of a
+  defect (`change-router`). Find every `Cost:` clause anywhere in the row's cells.
+- **Expected — passes:** exactly one clause, either `Cost: <n> tokens, <n> dispatches, <n> min`
+  with each `<n>` an integer in plain digits, or the literal `Cost: not measured` (the change was
+  made in the main session with no completion notices to read).
+- **Expected — fails, naming the row and the reason:** no clause; two or more clauses; a figure
+  that is not an integer (`~5k`, `n/a`, `1.5`, `2,005,983`, empty). `medium` and `large` tiers, and
+  `FX-` rows marked `full`, `medium` or `threshold overridden`, are not judged.
+- **Why:** item 2c of the same round: a small change writes no profiling record, so this clause is
+  the only way the small tier ever gets a cost figure (`docs/profiling/README.md`, "The Size block").
+- **Vacuity guard:** a fixture — a sound measured row, a `not measured` row, one row per failing
+  form, a short-path `FX-` row with a clause (passes) and one without (fails); plus a `medium` row
+  and a `full` `FX-` row, both with no clause, that pass, so both filters are proven to run.
+- **Control experiment:** a scratch `small` row without `Cost:` goes red naming it; add
+  `Cost: not measured` and it goes green; then remove the row.

@@ -55,11 +55,8 @@ one's context, and each behind its own review gate:
 
 Rejected:
 
-- `FACT-3314` Folding research into the `planner` — nothing independent then checks the facts. —
-  this record
 - `FACT-3315` A separate top-level `research/` tree — it splits one change across two places, which
   is the shape of `FX-023` and `FX-027`. — this record
-- `FACT-3316` One reviewer for all three artifacts — they fail differently. — this record
 - `FACT-3317` Keeping `plan:new` beside `change:new` — two shapes on disk forever. — this record
 - `FACT-3318` Machine-checking that research contains no speculation — undecidable by regex; the gate
   judges it and the machine only checks that something is cited. — this record, `PR-API-06`
@@ -70,8 +67,6 @@ Rejected:
 
 ## Consequences
 
-- `FACT-3319` `bugfix-pipeline` §4 keeps its threshold: below it, a red test, the fix and an `FX-`
-  entry — no folder, no stages. — `.claude/skills/bugfix-pipeline/SKILL.md`
 - `FACT-3320` `pnpm verify` is unreachable while a stage is unwritten: `PR-API-04` fails on the
   `<!-- fill this in -->` markers a scaffold carries, and the pre-commit hook is unaffected. —
   `e2e/process/process.api.spec.ts`, `.husky/pre-commit`
@@ -89,3 +84,14 @@ Rejected:
 > order of work is written. What the added stages cost in wall-clock was not known when this record
 > was written; no estimate was invented here, and the first real use of the flow was the measurement
 > (`ADR-0020`).
+
+## Retired facts
+
+The register of the keys this record has allocated and no longer states (`ADR-0022`). The decision
+stands for the large tier; the rows below are ones `ADR-0039` changed for the medium tier or moved.
+
+| Key         | Stated                                                                                                             | Status                 | Recorded in |
+| ----------- | ------------------------------------------------------------------------------------------------------------------ | ---------------------- | ----------- |
+| `FACT-3314` | Folding research into the `planner` — nothing independent then checks the facts.                                   | `retired by FACT-3827` | `ADR-0039`  |
+| `FACT-3316` | One reviewer for all three artifacts — they fail differently.                                                      | `retired by FACT-3828` | `ADR-0039`  |
+| `FACT-3319` | `bugfix-pipeline` §4 keeps its threshold: below it, a red test, the fix and an `FX-` entry — no folder, no stages. | `retired by FACT-3830` | `ADR-0039`  |

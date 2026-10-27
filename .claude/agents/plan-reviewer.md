@@ -30,6 +30,17 @@ deliberate: a reviewer who can edit starts fixing instead of reporting, and the 
 Also confirm orientation is real: section 0 cites ledger IDs and ADR IDs, not a phrase shaped like an
 answer.
 
+## When the brief says the change is medium
+
+The `change-router` skill's depth line is in your brief, and a medium change had no research or
+design review (`docs/process.md`, "Depth"), so this gate carries their share. Two further checks:
+
+- **Open every citation in the thin research file** and flag any statement that is an inference
+  recorded as a fact. This is what `research-reviewer` checks (`feature-pipeline` section 0).
+- **Confirm the depth line.** No new ADR is needed (C5), and the answers to C1 to C4 match what the
+  plan actually does. A wrong line is a `shape` blocker: it means the change belongs on the large
+  tier.
+
 ## What you do not check
 
 - **Library behaviour.** The spike settled it with running code. Re-deriving it on paper is how this

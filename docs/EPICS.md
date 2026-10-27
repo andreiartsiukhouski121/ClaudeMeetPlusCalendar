@@ -297,6 +297,11 @@ This file arranges the project's work in three levels for the owner reading the 
 - **What it gives:** Every development cycle is measured, and the process is tuned from those numbers with the owner's approval.
 - **Tasks:** `CH-019`, `CH-020`, `CH-021`, `CH-022`, `CH-025`, `CH-033`, `FX-034`, `FX-038`, `FX-047`, `BL-022`
 
+### F-071 · Process depth sized by the task
+
+- **What it gives:** Before work starts, the orchestrator sizes a feature or a bug as small, medium or large from checkable criteria, so a small change skips the planning stages and a risky one keeps every review.
+- **Tasks:** `CH-044`
+
 ### F-051 · Gate verdicts captured automatically
 
 - **What it gives:** Every review gate's verdict is saved in full without anyone copying it by hand.
@@ -310,7 +315,7 @@ This file arranges the project's work in three levels for the owner reading the 
 ### F-053 · Task board
 
 - **What it gives:** The owner sees one generated page with epics, features, progress, the backlog and the history of what was done.
-- **Tasks:** `CH-040`, `CH-041`, `CH-042`
+- **Tasks:** `CH-040`, `CH-041`, `CH-042`, `CH-043`
 
 ### F-054 · Parallel agents in separate workspaces
 
@@ -325,7 +330,7 @@ This file arranges the project's work in three levels for the owner reading the 
 ### F-056 · Pipeline housekeeping
 
 - **What it gives:** Old plan folders and audit documents are archived or corrected so they do not mislead.
-- **Tasks:** `BL-021`, `BL-027`
+- **Tasks:** `BL-021`, `BL-027`, `BL-076`, `FX-056`
 
 ## EP-10 · Infrastructure & data
 
