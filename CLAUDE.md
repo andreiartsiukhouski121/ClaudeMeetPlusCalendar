@@ -34,6 +34,7 @@ Commits before that entry are in Russian and are not rewritten.
 | `pnpm skills:check`                        | offline: verify what is on disk matches the lock file                                 |
 | `pnpm verdicts:report`                     | the stored gate verdicts: per gate, the most frequent finding categories (`ADR-0032`) |
 | `pnpm board`                               | rebuild `docs/board.html`, the task board, from the ledger and the backlog (`CH-040`) |
+| `pnpm board:todo`                          | the board's In Progress and To Do as text, for picking a task (`task-board` skill)    |
 
 **Docker must be running before `pnpm e2e` or `pnpm verify`** (`ADR-0027`, `FACT-3595`). Persistence
 is PostgreSQL in the `db` service of the repository's `docker-compose.yml`, and the api `webServer`
@@ -242,6 +243,8 @@ status follows its tasks. It is **generated, never edited** — `scripts/board.m
 every commit from `.husky/pre-commit` (`CH-040`), so keeping the ledger and the backlog current is
 the only way to keep the board current. A ticket is "in progress" while a ledger row of it still
 reads `pending`, or while its `docs/plans/<slug>/` folder has no commit cited by a ledger row.
+When the owner says "the board", it is this page: which task to take, or the one they name, is the
+`task-board` skill, which reads it through `pnpm board:todo` (`CH-045`).
 
 The orientation form is section 0 of [`docs/plans/TEMPLATE.md`](docs/plans/TEMPLATE.md): five
 written answers about duplication, conflicts with shipped work, conflicts with planned work,
@@ -406,9 +409,9 @@ the hook runs the units against different content — exactly what will go into 
 
 ## Skills: our own and external
 
-There are eighteen in `.claude/skills/`. Twelve are ours — `feature-pipeline`, `bugfix-pipeline`,
+There are nineteen in `.claude/skills/`. Thirteen are ours — `feature-pipeline`, `bugfix-pipeline`,
 `change-router`, `pipeline-tuning`, `clean-architecture`, `team-roles`, `project-context`, `research-protocol`, `design-protocol`,
-`design-system`, `playwright-verify`, `regression-verify`. The other six are **adapters** to external sets: `git-commit`,
+`design-system`, `playwright-verify`, `regression-verify`, `task-board`. The other six are **adapters** to external sets: `git-commit`,
 `heroui-react`, `nestjs-best-practices`, `requesting-code-review`, `ui-ux-pro-max`,
 `vercel-react-best-practices`.
 

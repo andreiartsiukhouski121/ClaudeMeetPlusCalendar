@@ -32,6 +32,7 @@ the plan, visible in review. The machine checks the form, a human checks the con
 | LG-API-08 | every ledger and backlog record is a task of exactly one feature | P1       |
 | LG-API-09 | every `FT-` from 011 and `CH-` from 045 carries one `Tier:`      | P1       |
 | LG-API-10 | every small-depth row carries exactly one `Cost:` clause         | P1       |
+| LG-API-11 | the board's `readEpics` reads `EPICS.md` as `LG-API-08` does     | P1       |
 
 ## Cases
 
@@ -197,3 +198,23 @@ the threshold` marker, an `overridden` marker with `criteria 2, 4` — and one p
   and a `full` `FX-` row, both with no clause, that pass, so both filters are proven to run.
 - **Control experiment:** a scratch `small` row without `Cost:` goes red naming it; add
   `Cost: not measured` and it goes green; then remove the row.
+
+### LG-API-11 — the board's `readEpics` reads `docs/EPICS.md` as `LG-API-08` does
+
+- **Priority:** P1
+- **Steps:** import `readEpics` from `scripts/board.mjs` and run it over the real `docs/EPICS.md`;
+  run the spec's own `parseEpics` (the parser `LG-API-08` uses) over the same text.
+- **Expected — passes:** both yield the same epic IDs in the same order, and for each epic the same
+  feature IDs in the same order and, per feature, the same task IDs.
+- **Expected — fails, naming the first epic or feature that differs:** a different epic count
+  (`board.mjs read 0 epics, the ledger spec read 11`), an epic missing or out of order, a feature
+  missing from an epic, or a feature whose task list differs.
+- **Why:** `FX-057`. `CH-043` (commit `741ef26`) saved `board.mjs` with mojibake — `·` became `Â·`
+  inside both heading regexes — so `readEpics` matched no epic and the shipped board showed 0 epics,
+  0 To Do tickets and every ticket in Done. `LG-API-08` checks `EPICS.md` with its own parser, and
+  `readEpics`' comment cites `LG-API-08` though nothing exercised it: the board's correctness rested
+  on review alone, and `CH-043` proved review does not catch it.
+- **Vacuity guard:** before comparing, assert the spec's own parse of the real file found at least
+  one epic and one feature (it finds 11 epics today), so two empty results cannot agree into green.
+- **Control experiment:** on today's `board.mjs` the case is red with the 0-epics message; with `·`
+  restored in both regexes it is green.

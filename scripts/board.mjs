@@ -72,7 +72,7 @@ function title(text) {
     .replace(/[`*]/g, '');
   const first = plain.split(/(?<=[.!?])\s+(?=[A-Z(`])/)[0];
   if (first.length <= 150) return first;
-  return first.slice(0, 150).replace(/\s+\S*$/, '') + 'â€¦';
+  return first.slice(0, 150).replace(/\s+\S*$/, '') + '…';
 }
 
 function remoteUrl() {
@@ -197,7 +197,7 @@ function collect() {
 }
 
 /**
- * `docs/EPICS.md`: one `## EP-NN Â· Name` section per epic with `Kind`, `What it gives` and
+ * `docs/EPICS.md`: one `## EP-NN · Name` section per epic with `Kind`, `What it gives` and
  * `Members` lines. Every ledger and backlog ID sits in exactly one epic (`LG-API-08`).
  */
 export function readEpics(markdown = read('docs/EPICS.md')) {
@@ -206,11 +206,11 @@ export function readEpics(markdown = read('docs/EPICS.md')) {
   const ids = (text) => [...text.matchAll(/(FT|CH|FX|BL)-\d+/g)].map((m) => m[0]);
   const epics = [];
   for (const section of markdown.split(/^## /m).slice(1)) {
-    const head = /^(EP-\d+)\s*Â·\s*(.+)$/m.exec(section);
+    const head = /^(EP-\d+)\s*·\s*(.+)$/m.exec(section);
     if (head === null) continue;
     const [epicPart, ...featureParts] = section.split(/^### /m);
     const features = featureParts.flatMap((part) => {
-      const fh = /^(F-\d+)\s*Â·\s*(.+)$/m.exec(part);
+      const fh = /^(F-\d+)\s*·\s*(.+)$/m.exec(part);
       if (fh === null) return [];
       return [
         {
@@ -231,6 +231,92 @@ export function readEpics(markdown = read('docs/EPICS.md')) {
     });
   }
   return epics;
+}
+
+/**
+ * The scrum board (`CH-043`): every ticket, for the page and for `pnpm board:todo`, from the same
+ * three sources, so the text an agent reads and the page the owner reads cannot disagree.
+ */
+export function scrumTickets({ done, open, closed, inProgress, epics }) {
+  const doneById = new Map(done.map((item) => [item.id, item]));
+  const openById = new Map(open.map((item) => [item.id, item]));
+  const closedById = new Map(closed.map((item) => [item.id, item]));
+
+  const featureState = (feature) => {
+    const openItems = feature.tasks.filter((id) => openById.has(id)).map((id) => openById.get(id));
+    openItems.sort((x, y) => x.priority.localeCompare(y.priority));
+    const shipped = feature.tasks.filter((id) => doneById.has(id)).map((id) => doneById.get(id));
+    shipped.sort((x, y) => y.date.localeCompare(x.date));
+    const doneCount = shipped.length + feature.tasks.filter((id) => closedById.has(id)).length;
+    const total = doneCount + openItems.length;
+    // A ledger row still on `pending` is work not yet committed: its feature is in progress.
+    const pending = shipped.some((item) => item.commit === 'pending');
+    const status =
+      openItems.length === 0 && !pending ? 'done' : doneCount === 0 ? 'planned' : 'progress';
+    return { openItems, shipped, doneCount, total, status, last: shipped[0]?.date ?? '' };
+  };
+
+  const allFeatures = epics.flatMap((epic) =>
+    epic.features.map((feature) => ({ feature, epic, st: featureState(feature) })),
+  );
+
+  // The scrum board (`CH-043`): every ticket is a Feature (an `F-NNN` of `docs/EPICS.md`) or a Bug
+  // (an open `**Defect.**` backlog row, or a shipped `FX-` row), in To Do, In Progress or Done.
+  const parentOf = new Map(
+    allFeatures.flatMap(({ feature, epic }) => feature.tasks.map((id) => [id, { feature, epic }])),
+  );
+  const STATUS = { planned: 'todo', progress: 'progress', done: 'done' };
+
+  const tickets = [
+    ...allFeatures.map(({ feature, epic, st }) => ({
+      type: 'feature',
+      id: feature.id,
+      title: feature.name,
+      epic,
+      status: STATUS[st.status],
+      priority: st.openItems[0]?.priority ?? '',
+      date: st.last,
+      feature,
+      st,
+    })),
+    ...open
+      .filter((item) => item.type === 'defect')
+      .map((item) => ({
+        type: 'bug',
+        id: item.id,
+        title: item.title,
+        epic: parentOf.get(item.id)?.epic,
+        parent: parentOf.get(item.id)?.feature,
+        status: 'todo',
+        priority: item.priority,
+        date: '',
+        item,
+      })),
+    ...done
+      .filter((item) => item.kind === 'fix')
+      .map((item) => ({
+        type: 'bug',
+        id: item.id,
+        title: item.title,
+        epic: parentOf.get(item.id)?.epic,
+        parent: parentOf.get(item.id)?.feature,
+        status: item.commit === 'pending' ? 'progress' : 'done',
+        priority: '',
+        date: item.date,
+        shipped: item,
+      })),
+    ...inProgress.map((change) => ({
+      type: /^bugfix\b/i.test(change.title) ? 'bug' : 'feature',
+      id: change.slug,
+      title: change.title.replace(/^(bugfix|plan):\s*/i, ''),
+      epic: undefined,
+      status: 'progress',
+      priority: '',
+      date: '',
+      change,
+    })),
+  ];
+  return tickets;
 }
 
 function render({ done, open, closed, rejected, inProgress, epics, remote }) {
@@ -283,7 +369,7 @@ function render({ done, open, closed, rejected, inProgress, epics, remote }) {
     const percent = total === 0 ? 100 : Math.round((doneCount / total) * 100);
     const p1 = openItems.filter((item) => item.priority === 'P1').length;
     const status = openItems.length === 0 ? 'Done' : p1 > 0 ? 'Has blocker' : 'Planned';
-    const last = shipped[0]?.date ?? 'â€”';
+    const last = shipped[0]?.date ?? '—';
     const next = openItems.slice(0, 3);
     return `
     <details class="epic status-${status.toLowerCase().replace(/ /g, '-')}" data-search="${escape(`${epic.id} ${epic.name} ${epic.gives}`.toLowerCase())}">
@@ -295,8 +381,8 @@ function render({ done, open, closed, rejected, inProgress, epics, remote }) {
         </div>
         <p class="gives">${inline(epic.gives)}</p>
         <div class="bar" aria-label="${percent}% done"><span style="width:${percent}%"></span></div>
-        <p class="meta">${shipped.length} shipped Â· ${openItems.length} open${p1 ? ` Â· <b style="color:var(--p1)">${p1} blocking</b>` : ''} Â· last change ${escape(last)}</p>
-        ${next.length ? `<ul class="next">${next.map((item) => `<li><span class="pill p-${item.priority.toLowerCase()}">${item.priority}</span> ${inline(item.title)}</li>`).join('')}</ul>` : '<p class="meta">Nothing open â€” the epic is complete for now.</p>'}
+        <p class="meta">${shipped.length} shipped · ${openItems.length} open${p1 ? ` · <b style="color:var(--p1)">${p1} blocking</b>` : ''} · last change ${escape(last)}</p>
+        ${next.length ? `<ul class="next">${next.map((item) => `<li><span class="pill p-${item.priority.toLowerCase()}">${item.priority}</span> ${inline(item.title)}</li>`).join('')}</ul>` : '<p class="meta">Nothing open — the epic is complete for now.</p>'}
       </summary>
       <div class="body">
         ${openItems.length ? `<h4>Open (${openItems.length})</h4>${openItems.map(backlogCard).join('')}` : ''}
@@ -305,82 +391,9 @@ function render({ done, open, closed, rejected, inProgress, epics, remote }) {
     </details>`;
   };
 
-  const featureState = (feature) => {
-    const openItems = feature.tasks.filter((id) => openById.has(id)).map((id) => openById.get(id));
-    openItems.sort((x, y) => x.priority.localeCompare(y.priority));
-    const shipped = feature.tasks.filter((id) => doneById.has(id)).map((id) => doneById.get(id));
-    shipped.sort((x, y) => y.date.localeCompare(x.date));
-    const doneCount = shipped.length + feature.tasks.filter((id) => closedById.has(id)).length;
-    const total = doneCount + openItems.length;
-    // A ledger row still on `pending` is work not yet committed: its feature is in progress.
-    const pending = shipped.some((item) => item.commit === 'pending');
-    const status =
-      openItems.length === 0 && !pending ? 'done' : doneCount === 0 ? 'planned' : 'progress';
-    return { openItems, shipped, doneCount, total, status, last: shipped[0]?.date ?? '' };
-  };
-
-  const allFeatures = epics.flatMap((epic) =>
-    epic.features.map((feature) => ({ feature, epic, st: featureState(feature) })),
-  );
-
-  // The scrum board (`CH-043`): every ticket is a Feature (an `F-NNN` of `docs/EPICS.md`) or a Bug
-  // (an open `**Defect.**` backlog row, or a shipped `FX-` row), in To Do, In Progress or Done.
-  const parentOf = new Map(
-    allFeatures.flatMap(({ feature, epic }) => feature.tasks.map((id) => [id, { feature, epic }])),
-  );
+  const tickets = scrumTickets({ done, open, closed, inProgress, epics });
   const pillFor = (priority) =>
     priority ? `<span class="pill p-${priority.toLowerCase()}">${priority}</span>` : '';
-  const STATUS = { planned: 'todo', progress: 'progress', done: 'done' };
-
-  const tickets = [
-    ...allFeatures.map(({ feature, epic, st }) => ({
-      type: 'feature',
-      id: feature.id,
-      title: feature.name,
-      epic,
-      status: STATUS[st.status],
-      priority: st.openItems[0]?.priority ?? '',
-      date: st.last,
-      feature,
-      st,
-    })),
-    ...open
-      .filter((item) => item.type === 'defect')
-      .map((item) => ({
-        type: 'bug',
-        id: item.id,
-        title: item.title,
-        epic: parentOf.get(item.id)?.epic,
-        parent: parentOf.get(item.id)?.feature,
-        status: 'todo',
-        priority: item.priority,
-        date: '',
-        item,
-      })),
-    ...done
-      .filter((item) => item.kind === 'fix')
-      .map((item) => ({
-        type: 'bug',
-        id: item.id,
-        title: item.title,
-        epic: parentOf.get(item.id)?.epic,
-        parent: parentOf.get(item.id)?.feature,
-        status: item.commit === 'pending' ? 'progress' : 'done',
-        priority: '',
-        date: item.date,
-        shipped: item,
-      })),
-    ...inProgress.map((change) => ({
-      type: /^bugfix\b/i.test(change.title) ? 'bug' : 'feature',
-      id: change.slug,
-      title: change.title.replace(/^(bugfix|plan):\s*/i, ''),
-      epic: undefined,
-      status: 'progress',
-      priority: '',
-      date: '',
-      change,
-    })),
-  ];
 
   const ticketCard = (t) => {
     const epicName = t.epic ? escape(t.epic.name) : '';
@@ -390,7 +403,7 @@ function render({ done, open, closed, rejected, inProgress, epics, remote }) {
     if (t.st) {
       const percent = t.st.total === 0 ? 100 : Math.round((t.st.doneCount / t.st.total) * 100);
       const bugs = t.st.openItems.filter((item) => item.type === 'defect').length;
-      meta = `${t.st.doneCount}/${t.st.total} tasks${bugs ? ` Â· <b class="bug-note">${bugs} open bug${bugs > 1 ? 's' : ''}</b>` : ''}`;
+      meta = `${t.st.doneCount}/${t.st.total} tasks${bugs ? ` · <b class="bug-note">${bugs} open bug${bugs > 1 ? 's' : ''}</b>` : ''}`;
       bar = `<div class="bar"><span style="width:${percent}%"></span></div>`;
       body = `<p>${inline(t.feature.gives)}</p>${
         t.st.openItems.length
@@ -399,7 +412,7 @@ function render({ done, open, closed, rejected, inProgress, epics, remote }) {
       }${t.st.shipped.length ? `<h4>Done tasks (${t.st.shipped.length})</h4>${t.st.shipped.map(doneRow).join('')}` : ''}`;
     } else if (t.item) {
       meta = escape(t.item.area);
-      body = `<p>${inline(t.item.text)}</p>${t.item.dependsOn && t.item.dependsOn !== 'â€”' ? `<p class="meta"><b>Depends on:</b> ${inline(t.item.dependsOn)}</p>` : ''}`;
+      body = `<p>${inline(t.item.text)}</p>${t.item.dependsOn && t.item.dependsOn !== '—' ? `<p class="meta"><b>Depends on:</b> ${inline(t.item.dependsOn)}</p>` : ''}`;
     } else if (t.shipped) {
       meta = escape(t.date);
       body = `<p>${inline(t.shipped.text)}</p>${t.shipped.foundBy ? `<p class="meta"><b>Found by:</b> ${inline(t.shipped.foundBy)}</p>` : ''}<p class="meta"><b>Commit:</b> ${commitLink(t.shipped.commit)}</p>`;
@@ -407,7 +420,7 @@ function render({ done, open, closed, rejected, inProgress, epics, remote }) {
       meta = 'change folder, no ledger entry yet';
       body = `<p class="meta">Being worked on in <code>docs/plans/${escape(t.change.slug)}/</code>.</p>`;
     }
-    const parent = t.parent ? ` Â· ${escape(t.parent.name)}` : '';
+    const parent = t.parent ? ` · ${escape(t.parent.name)}` : '';
     const search = `${t.id} ${t.type} ${t.title} ${epicName} ${t.feature?.tasks.join(' ') ?? ''} ${t.item?.text ?? t.shipped?.text ?? ''}`;
     return `
       <details class="ticket t-${t.type}" data-type="${t.type}" data-epic="${t.epic?.id ?? ''}" data-search="${escape(search.toLowerCase())}">
@@ -415,7 +428,7 @@ function render({ done, open, closed, rejected, inProgress, epics, remote }) {
           <div class="t-top"><span class="type">${t.type === 'bug' ? 'Bug' : 'Feature'}</span>${pillFor(t.priority)}<span class="t-id">${escape(t.id)}</span></div>
           <div class="t-title">${inline(t.title)}</div>
           ${bar}
-          <div class="t-meta">${epicName ? `<span class="t-epic">${epicName}</span>${parent} Â· ` : ''}${meta}</div>
+          <div class="t-meta">${epicName ? `<span class="t-epic">${epicName}</span>${parent} · ` : ''}${meta}</div>
         </summary>
         <div class="body">${body}</div>
       </details>`;
@@ -424,9 +437,9 @@ function render({ done, open, closed, rejected, inProgress, epics, remote }) {
   const byPriorityThenDate = (x, y) =>
     (x.priority || 'P9').localeCompare(y.priority || 'P9') || y.date.localeCompare(x.date);
   const PRIORITY_LANES = [
-    ['P1', 'P1 Â· Blocking'],
-    ['P2', 'P2 Â· Planned'],
-    ['P3', 'P3 Â· Nice to have'],
+    ['P1', 'P1 · Blocking'],
+    ['P2', 'P2 · Planned'],
+    ['P3', 'P3 · Nice to have'],
   ];
   const DONE_SHOWN = 12;
 
@@ -641,7 +654,7 @@ h2 { font-size: 17px; margin: 24px 4px 10px; color: var(--muted); text-transform
       <button role="tab" aria-selected="false" data-tab="closed">Closed backlog</button>
       <button role="tab" aria-selected="false" data-tab="rejected">Rejected</button>
     </div>
-    <input type="search" id="q" placeholder="Search by ID or textâ€¦" aria-label="Search">
+    <input type="search" id="q" placeholder="Search by ID or text…" aria-label="Search">
   </div>
 
   <div class="panel" id="scrum">
@@ -663,7 +676,7 @@ h2 { font-size: 17px; margin: 24px 4px 10px; color: var(--muted); text-transform
   <div class="panel" id="epics" hidden>
     ${
       inProgress.length
-        ? `<section class="now"><h2>In progress now</h2>${inProgress.map((item) => `<p><b>${escape(item.slug)}</b> â€” ${inline(item.title)}</p>`).join('')}</section>`
+        ? `<section class="now"><h2>In progress now</h2>${inProgress.map((item) => `<p><b>${escape(item.slug)}</b> — ${inline(item.title)}</p>`).join('')}</section>`
         : ''
     }
     <h2>Product</h2>
@@ -690,9 +703,9 @@ h2 { font-size: 17px; margin: 24px 4px 10px; color: var(--muted); text-transform
           '<p class="empty">No change is open: every change folder has its ledger entry.</p>'
         }
       </section>
-      ${column('P1', 'P1 Â· Blocking')}
-      ${column('P2', 'P2 Â· Planned')}
-      ${column('P3', 'P3 Â· Nice to have')}
+      ${column('P1', 'P1 · Blocking')}
+      ${column('P2', 'P2 · Planned')}
+      ${column('P3', 'P3 · Nice to have')}
     </div>
   </div>
 
@@ -775,11 +788,80 @@ document.querySelectorAll('[data-kind]').forEach((b) => b.tagName === 'BUTTON' &
 `;
 }
 
+/**
+ * `pnpm board:todo`: the board's In Progress and To Do columns as text, for the `task-board` skill.
+ * A task whose `Depends on` names a row still open is marked blocked rather than hidden: whether
+ * the dependency really holds is the reader's call, not this script's.
+ */
+function todo(data) {
+  const tickets = scrumTickets(data);
+  const openIds = new Set(data.open.map((item) => item.id));
+  const plain = (text) => text.replace(/\*\*|`/g, '').trim();
+  const blockers = (item) =>
+    [...(item.dependsOn ?? '').matchAll(/BL-\d+/g)]
+      .map((m) => m[0])
+      .filter((id) => openIds.has(id));
+  const task = (item) => {
+    const blocked = blockers(item);
+    const conflicts =
+      item.conflicts && item.conflicts !== '—' ? ` | conflicts: ${plain(item.conflicts)}` : '';
+    return `      ${item.id} ${item.priority} ${item.type === 'defect' ? 'Defect' : 'Task'} [${item.area}] ${plain(item.title)}${
+      blocked.length ? ` | BLOCKED by open ${blocked.join(', ')}` : ''
+    }${conflicts}`;
+  };
+  const line = (t) => {
+    const where = [
+      t.epic && `${t.epic.id} ${t.epic.name}`,
+      t.parent && `${t.parent.id} ${t.parent.name}`,
+    ]
+      .filter(Boolean)
+      .join(' / ');
+    const head = `  ${t.type === 'bug' ? 'Bug' : 'Feature'} ${t.id}${t.priority ? ` ${t.priority}` : ''} · ${plain(t.title)}${where ? ` · ${where}` : ''}`;
+    if (t.st)
+      return [
+        `${head} · ${t.st.doneCount}/${t.st.total} tasks done`,
+        ...t.st.openItems.map(task),
+      ].join('\n');
+    if (t.item) return [head, task(t.item)].join('\n');
+    if (t.change) return `${head} · docs/plans/${t.change.slug}/, no ledger entry yet`;
+    return `${head} · ledger row still pending`;
+  };
+  const order = (x, y) =>
+    (x.priority || 'P9').localeCompare(y.priority || 'P9') || (x.type === 'bug' ? -1 : 1);
+  const section = (label, items) => [
+    `${label} (${items.length})`,
+    ...(items.length ? items.map(line) : ['  nothing']),
+  ];
+  const inWork = tickets.filter((t) => t.status === 'progress').sort(order);
+  const toDo = tickets.filter((t) => t.status === 'todo');
+  return [
+    'The task board: docs/board.html, built from docs/CHANGELOG.md, docs/BACKLOG.md and docs/EPICS.md.',
+    `Done: ${tickets.filter((t) => t.status === 'done').length} tickets.`,
+    '',
+    ...section('IN PROGRESS', inWork),
+    '',
+    'TO DO',
+    ...['P1', 'P2', 'P3'].flatMap((p) =>
+      section(`${p}`, toDo.filter((t) => t.priority === p).sort(order)).map((l, i) =>
+        i === 0 ? `${l}` : l,
+      ),
+    ),
+    ...(toDo.some((t) => !['P1', 'P2', 'P3'].includes(t.priority))
+      ? section(
+          'No priority',
+          toDo.filter((t) => !['P1', 'P2', 'P3'].includes(t.priority)),
+        )
+      : []),
+  ].join('\n');
+}
+
 const isMain = import.meta.url === pathToFileURL(process.argv[1] ?? '').href;
-const html = isMain ? render(collect()) : '';
+const html = isMain && process.argv[2] !== 'todo' ? render(collect()) : '';
 
 if (!isMain) {
   // imported for readEpics (LG-API-08): build nothing
+} else if (process.argv[2] === 'todo') {
+  console.log(todo(collect()));
 } else if (process.argv[2] === 'check') {
   const current = fs.existsSync(OUT) ? fs.readFileSync(OUT, 'utf8') : '';
   if (current !== html) {

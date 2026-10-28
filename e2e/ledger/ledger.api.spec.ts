@@ -1,6 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 import { expect, test } from '@playwright/test';
 
@@ -611,6 +612,34 @@ function epicProblems(epics: Epic[], records: string[]): string[] {
   return problems;
 }
 
+type BoardEpic = { id: string; features: Array<{ id: string; tasks: string[] }> };
+
+/** The first way the board's reading of `EPICS.md` differs from the spec's own, or `''`. */
+function firstEpicDifference(actual: BoardEpic[], expected: Epic[]): string {
+  if (actual.length !== expected.length) {
+    return `board.mjs read ${actual.length} epics, the ledger spec read ${expected.length}`;
+  }
+  for (const [i, epic] of expected.entries()) {
+    const got = actual[i];
+    if (got.id !== epic.id) {
+      return `epic #${i + 1}: board.mjs read ${got.id}, the ledger spec read ${epic.id}`;
+    }
+    const gotFeatures = got.features.map((f) => f.id).join(', ');
+    const wantFeatures = epic.features.map((f) => f.id).join(', ');
+    if (gotFeatures !== wantFeatures) {
+      return `${epic.id}: board.mjs read features [${gotFeatures}], the ledger spec read [${wantFeatures}]`;
+    }
+    for (const [j, feature] of epic.features.entries()) {
+      const gotTasks = got.features[j].tasks.join(', ');
+      const wantTasks = feature.tasks.join(', ');
+      if (gotTasks !== wantTasks) {
+        return `${feature.id}: board.mjs read tasks [${gotTasks}], the ledger spec read [${wantTasks}]`;
+      }
+    }
+  }
+  return '';
+}
+
 test.describe('Changelog and backlog', { tag: '@ledger' }, () => {
   test('LG-API-01 — both ledger files exist and are not empty', () => {
     const root = repoRoot();
@@ -892,5 +921,29 @@ test.describe('Changelog and backlog', { tag: '@ledger' }, () => {
       problems,
       'Every small-tier row and every short-path FX- row from 056 carries exactly one "Cost: <n> tokens, <n> dispatches, <n> min" or "Cost: not measured" clause',
     ).toEqual([]);
+  });
+
+  test("LG-API-11 — the board's readEpics reads EPICS.md as LG-API-08 does", async () => {
+    const root = repoRoot();
+    const text = read(root, EPICS);
+    const expected = parseEpics(text);
+
+    // Vacuity guard: the spec's own parse found epics and features, so two empty results
+    // cannot agree into green.
+    expect(expected.length, `${EPICS} must parse into at least one epic`).toBeGreaterThan(0);
+    expect(
+      expected.flatMap((epic) => epic.features).length,
+      `${EPICS} must parse into at least one feature`,
+    ).toBeGreaterThan(0);
+
+    // The `.mjs` carries no types; the guard in board.mjs makes the import build nothing.
+    const board = (await import(pathToFileURL(path.join(root, 'scripts', 'board.mjs')).href)) as {
+      readEpics: (markdown: string) => BoardEpic[];
+    };
+    const actual = board.readEpics(text);
+
+    const first = firstEpicDifference(actual, expected);
+
+    expect(first, 'scripts/board.mjs readEpics must read docs/EPICS.md as LG-API-08 does').toBe('');
   });
 });

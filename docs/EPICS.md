@@ -315,7 +315,7 @@ This file arranges the project's work in three levels for the owner reading the 
 ### F-053 · Task board
 
 - **What it gives:** The owner sees one generated page with epics, features, progress, the backlog and the history of what was done.
-- **Tasks:** `CH-040`, `CH-041`, `CH-042`, `CH-043`
+- **Tasks:** `CH-040`, `CH-041`, `CH-042`, `CH-043`, `CH-045`, `FX-057`
 
 ### F-054 · Parallel agents in separate workspaces
 

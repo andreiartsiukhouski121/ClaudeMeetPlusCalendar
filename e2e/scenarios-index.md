@@ -42,6 +42,7 @@ One row per scenario declared in a Summary table, across every level and module 
 | api | ledger | `LG-API-08` | every ledger and backlog record is a task of exactly one feature |
 | api | ledger | `LG-API-09` | every `FT-` from 011 and `CH-` from 045 carries one `Tier:` |
 | api | ledger | `LG-API-10` | every small-depth row carries exactly one `Cost:` clause |
+| api | ledger | `LG-API-11` | the board's `readEpics` reads `EPICS.md` as `LG-API-08` does |
 | api | process | `PR-API-01` | every plan template shares one set of section 0 labels |
 | api | process | `PR-API-02` | every plan template is registered in `check-orientation.mjs` |
 | api | process | `PR-API-03` | every change folder holds the three discovery stages |
