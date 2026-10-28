@@ -4,6 +4,10 @@
 > 2026-09-08. Kept as a dated record of what was measured and decided; the numbers are those
 > measured then and are deliberately not updated. Translated into English in `CH-014` and
 > condensed; every finding, number and verdict is preserved.
+>
+> **Section numbers are those of the day.** A citation such as `feature-pipeline` §6 or §7 points at
+> that skill as of commit `e622344`, where §4 was implementation, §6 "What not to cut" and §7 the
+> time budget; the skill has been renumbered since, and these citations are not rewritten (`CH-046`).
 
 The reviewer did not take part in the first iteration. Every number below is either the output of a
 command run on this repository that day or arithmetic over the supplied measurements. Where

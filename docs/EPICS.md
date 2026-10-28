@@ -330,7 +330,7 @@ This file arranges the project's work in three levels for the owner reading the 
 ### F-056 · Pipeline housekeeping
 
 - **What it gives:** Old plan folders and audit documents are archived or corrected so they do not mislead.
-- **Tasks:** `BL-021`, `BL-027`, `BL-076`, `FX-056`
+- **Tasks:** `BL-021`, `BL-027`, `BL-076`, `FX-056`, `CH-046`
 
 ## EP-10 · Infrastructure & data
 
